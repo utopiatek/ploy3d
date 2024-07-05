@@ -1,0 +1,107 @@
+{
+    "classid": 17,
+    "name": "standard_specular",
+    "label": "standard_specular",
+    "asset": {
+        "name": "",
+        "type": "shading",
+        "settings": {},
+        "properties": {
+            "baseColor": {
+                "note": "非金属表面的漫反射反照率，金属表面的镜面反射颜色。",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "specularScale": {
+                "note": "镜面反射率强度缩放。",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "metallic": {
+                "note": "金属度（0或1）。",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "bumpiness": {
+                "note": "法线贴图强度缩放。",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "glossinessScale": {
+                "note": "光泽度强度缩放。",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "alphaBias": {
+                "note": "不透明度偏移。",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "baseTex": {
+                "note": "贴图：非金属表面的漫反射反照率，金属表面的镜面反射颜色。",
+                "sign": "texture_2d<f32>"
+            },
+            "alphaTex": {
+                "note": "贴图：不透明度。",
+                "sign": "texture_2d<f32>"
+            },
+            "specularTex": {
+                "note": "贴图：镜面反射率（单通道）。",
+                "sign": "texture_2d<f32>"
+            },
+            "glossinessTex": {
+                "note": "贴图：光泽度。",
+                "sign": "texture_2d<f32>"
+            },
+            "normalTex": {
+                "note": "贴图：切线空间法线。",
+                "sign": "texture_2d<f32>"
+            },
+            "aoTex": {
+                "note": "贴图：环境光可见度。",
+                "sign": "texture_2d<f32>"
+            },
+            "emissiveTex": {
+                "note": "贴图：自发光颜色。",
+                "sign": "texture_2d<f32>"
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/wgsl/20-0_common.wgsl",
+                    ":/shader/wgsl/20-1_common.vertex.wgsl",
+                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/wgsl/20-6_standard.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/wgsl/20-0_common.wgsl",
+                    ":/shader/wgsl/20-2_common.varyings.wgsl",
+                    ":/shader/wgsl/20-3_common.material.wgsl"
+                ],
+                "main": ":/shader/wgsl/20-7_standard.material.wgsl"
+            },
+            "shading": {
+                "includes": [],
+                "main": ":/shader/wgsl/20-8_standard.shading.wgsl"
+            }
+        }
+    }
+}

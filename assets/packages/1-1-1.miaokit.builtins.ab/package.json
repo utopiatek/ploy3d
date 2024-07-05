@@ -1,0 +1,16 @@
+{
+    "list": [
+        "shader/wgsl/20-0_common.wgsl",
+        "shader/wgsl/20-1_common.vertex.wgsl",
+        "shader/wgsl/20-2_common.varyings.wgsl",
+        "shader/wgsl/20-3_common.material.wgsl",
+        "shader/wgsl/20-6_standard.vertex.wgsl",
+        "shader/wgsl/20-7_standard.material.wgsl",
+        "shader/wgsl/20-8_standard.shading.wgsl",
+        "shader/wgsl/20-9_standard_ui.vertex.wgsl",
+        "shader/wgsl/20-10_standard_ui.material.wgsl",
+        "shader/wgsl/20-11_standard_ui.shading.wgsl",
+        "shader/17-0_standard_specular.json",
+        "shader/17-1_standard_ui.json"
+    ]
+}

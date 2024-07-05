@@ -1,0 +1,1 @@
+deno run --allow-env --allow-read --allow-write --allow-net --allow-ffi --unstable-ffi --unstable-webgpu --unstable-sloppy-imports ./native.js

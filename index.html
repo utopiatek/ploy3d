@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#000000" />
+    <link rel="shortcut icon" href="./assets/images/favicon.ico">
+    <link rel="apple-touch-icon" href="./assets/images/logo.png" />
+
+    <title>PLOY3D引擎</title>
+
+    <!--https://stuk.github.io/jszip/-->
+    <script src="./lib/jszip.min.js"></script>
+    <!--入口脚本-->
+    <script type="module" src="./index.js"></script>
+    <!--公共样式表-->
+    <link rel="stylesheet" href="./assets/css/common.css" />
+</head>
+
+<body oncontextmenu="return false" onselectstart="return false">
+    <!--页面UI根节点-->
+    <div id="root"></div>
+    <!--页面交互屏蔽面板-->
+    <div id="coat" class="coat">
+        <!--主进度条-->
+        <div class="progressbar-bg">
+            <div class="progressbar-range"></div>
+            <div class="progressbar-rate" id="progressbar-rate"></div>
+            <div class="progressbar-txt" id="progressbar-txt">1%</div>
+            <div class="progressbar-msg" id="progressbar-msg">UI渲染</div>
+        </div>
+    </div>
+    <!--主画布元素-->
+    <canvas id="canvas3d"></canvas>
+    <canvas id="canvas2d"></canvas>
+</body>
+
+</html>

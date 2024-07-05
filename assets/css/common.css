@@ -1,0 +1,92 @@
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+#canvas3d {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+#canvas2d {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+#analyse {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    color: white;
+    font-size: 8px;
+    pointer-events: none;
+}
+
+.coat {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    background-color: #0008;
+    display: block;
+}
+
+.progressbar-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+}
+
+.progressbar-range {
+    position: absolute;
+    width: 30%;
+    height: 12px;
+    top: 50%;
+    bottom: 50%;
+    left: 35%;
+    background-color: gray;
+}
+
+.progressbar-rate {
+    position: absolute;
+    width: 1%;
+    height: 12px;
+    top: 50%;
+    bottom: 50%;
+    left: 35%;
+    background-color: Highlight;
+}
+
+.progressbar-txt {
+    position: absolute;
+    width: 30%;
+    height: 12px;
+    top: 50%;
+    bottom: 50%;
+    left: 35%;
+    line-height: 12px;
+    text-align: center;
+    color: white;
+}
+
+.progressbar-msg {
+    position: absolute;
+    width: 30%;
+    height: 48px;
+    top: 50%;
+    bottom: 50%;
+    left: 35%;
+    line-height: 48px;
+    text-align: center;
+    color: white;
+}

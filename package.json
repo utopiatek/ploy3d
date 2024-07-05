@@ -1,0 +1,39 @@
+{
+    "name": "@ploycloud/ploy3d",
+    "version": "0.1.0",
+    "description": "一个基于JavaScript、WebAssembly、WebGPU的国产自研3D引擎。",
+    "author": "www.ploycloud.com",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": ""
+    },
+    "keywords": [
+        "ploycloud",
+        "ploy3d",
+        "WebGPU",
+        "WebGL",
+        "WebVR",
+        "3D",
+        "Engine",
+        "PhysX",
+        "MetaHuman",
+        "Gis",
+        "VaM",
+        "DAZ3D",
+        "WebVR UI",
+        "Shader",
+        "Blueprints",
+        "NodeEditor",
+        "ECharts",
+        "3mx"
+    ],
+    "main": "mod.ts",
+    "devDependencies": {
+        "@types/node": "^20.12.13",
+        "@webgpu/types": "^0.1.42",
+        "jszip": "^3.10.1",
+        "canvaskit-wasm": "^0.39.1",
+        "echarts": "^5.5.0"
+    }
+}

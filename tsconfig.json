@@ -1,0 +1,19 @@
+﻿{
+    "compileOnSave": false,
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ES2022",
+        "outDir": "dist/esm",
+        "moduleResolution": "Node",
+        "noImplicitAny": true,
+        "noEmitOnError": true,
+        "removeComments": true,
+        "alwaysStrict": true,
+        "allowJs": true,
+        "allowSyntheticDefaultImports": true,
+        "sourceMap": true
+    },
+    "include": [
+        "src"
+    ]
+}

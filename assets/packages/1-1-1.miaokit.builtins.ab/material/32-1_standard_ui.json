@@ -1,0 +1,18 @@
+{
+    "classid": 17,
+    "name": "standard_ui",
+    "label": "standard_ui",
+    "shader": ":/shader/17-1_standard_ui.json",
+    "flags": 0,
+    "properties": {
+        "vectors": {
+            "baseColor": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        "textures": {}
+    }
+}
