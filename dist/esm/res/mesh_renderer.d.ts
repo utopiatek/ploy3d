@@ -133,7 +133,6 @@ export declare class MeshRenderer_kernel {
         readonly group: Miaoverse.Kernel_member;
         readonly binding: Miaoverse.Kernel_member;
         readonly updated: Miaoverse.Kernel_member;
-        /** 网格渲染器组件内核实现的数据结构成员名称声明列表。 */
         readonly unused3: Miaoverse.Kernel_member;
         readonly magic: Miaoverse.Kernel_member;
         readonly version: Miaoverse.Kernel_member;

@@ -1,0 +1,9 @@
+.vs
+.vscode/build
+.git*/
+node_modules
+packages/
+kernel
+lib/canvaskit.js
+lib/canvaskit.wasm
+lib/Songti.ttc

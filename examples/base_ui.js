@@ -59,6 +59,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
         const g0 = await this.engine.resources.Material.CreateFrameUniforms(colorRT, depthRT, gbRT, 0);
         const g1 = await this.engine.resources.MeshRenderer.CreateMeshRenderer(null, null);
         const g2 = await this.engine.resources.Material.Load("1-1-1.miaokit.builtins:/material/32-1_standard_ui.json");
+        const camera = await this.engine.resources.Camera.CreateCamera();
 
         const texture2D = await this.engine.resources.Texture.CreateTexture({
             uuid: "",
@@ -88,6 +89,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
         console.log("g0", g0);
         console.log("g1", g1);
         console.log("g2", g2);
+        console.log("camera", camera);
         console.log("pipeline", pipeline);
         console.log("texture2D", texture2D);
 

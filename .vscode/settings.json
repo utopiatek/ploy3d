@@ -1,0 +1,11 @@
+{
+    "cmake.buildDirectory": "${workspaceFolder}/.vscode/build",
+    "cmake.sourceDirectory": "${workspaceFolder}/kernel",
+    "cmake.configureSettings": {
+        "CMAKE_TOOLCHAIN_FILE": "${workspaceFolder}/kernel/Webassembly.cmake"
+    },
+    "cmake.configureOnOpen": true,
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "C_Cpp.errorSquiggles": "disabled",
+    "C_Cpp.formatting": "vcFormat"
+}

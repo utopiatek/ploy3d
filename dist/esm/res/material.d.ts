@@ -200,7 +200,7 @@ export declare class Material_kernel {
         readonly shaderUUID: Miaoverse.Kernel_member;
         readonly enableFlags: Miaoverse.Kernel_member;
         readonly buffer_bufferID: Miaoverse.Kernel_member;
-        readonly buffer_size: Miaoverse.Kernel_member; /** 相关状态标志集。 */
+        readonly buffer_size: Miaoverse.Kernel_member;
         readonly buffer_addr: Miaoverse.Kernel_member;
         readonly buffer_next: Miaoverse.Kernel_member;
         readonly bn_buffer: Miaoverse.Kernel_member;
@@ -209,10 +209,10 @@ export declare class Material_kernel {
         readonly bn_size: Miaoverse.Kernel_member;
         readonly buffer: Miaoverse.Kernel_member;
         readonly bufferID: Miaoverse.Kernel_member;
-        readonly bufferBlockOffset: Miaoverse.Kernel_member;
+        readonly bufferBlockOffset: Miaoverse.Kernel_member; /** GB渲染目标贴图ID。 */
         readonly bufferBlockSize: Miaoverse.Kernel_member;
         readonly group: Miaoverse.Kernel_member;
-        readonly binding: Miaoverse.Kernel_member;
+        readonly binding: Miaoverse.Kernel_member; /** 精灵图集ID（用于UI和粒子）。 */
         readonly updated: Miaoverse.Kernel_member;
         readonly unused3: Miaoverse.Kernel_member;
         readonly magic: Miaoverse.Kernel_member;

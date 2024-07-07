@@ -101,6 +101,8 @@ export declare class Resources {
     Mesh: Miaoverse.Mesh_kernel;
     /** 网格渲染器组件内核实现。 */
     MeshRenderer: Miaoverse.MeshRenderer_kernel;
+    /** 相机组件内核实现。 */
+    Camera: Miaoverse.Camera_kernel;
     /** 3D对象内核实现。 */
     Object: Miaoverse.Object_kernel;
 }

@@ -12,6 +12,7 @@ export class Resources {
         this.Material = new Miaoverse.Material_kernel(_global);
         this.Mesh = new Miaoverse.Mesh_kernel(_global);
         this.MeshRenderer = new Miaoverse.MeshRenderer_kernel(_global);
+        this.Camera = new Miaoverse.Camera_kernel(_global);
         this.Object = new Miaoverse.Object_kernel(_global);
     }
     async Init() {
@@ -311,6 +312,7 @@ export class Resources {
     Material;
     Mesh;
     MeshRenderer;
+    Camera;
     Object;
 }
 export class Resource {
