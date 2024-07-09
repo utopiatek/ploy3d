@@ -1,16 +1,17 @@
 import * as Miaoverse from "../mod.js"
 
-/** 着色器属性统一缓存实例。 */
+/** 统一缓存实例。 */
 export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     public constructor(impl: any, ptr: Miaoverse.io_ptr, id: number) {
         super(impl["_global"], ptr, id);
         this._impl = impl;
+        this._impl.Set(this._ptr, "id", id);
 
         const buffer = this._impl.Get<Miaoverse.io_ptr>(ptr, "buffer");
 
@@ -33,7 +34,7 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
                 (this.bufferPtr << 2) + this.offset,    // 数据源偏移
                 this.size);                             // 写入大小
 
-            this.updated = 0;
+            this.updated = false;
             this.writeTS = this._global.env.frameTS;
         }
 
@@ -95,11 +96,11 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     }
 
     /** 属性块数据更新状态。 */
-    public get updated(): number {
-        return this._impl.Get(this._ptr, "updated");
+    public get updated(): boolean {
+        return this._impl.Get<number>(this._ptr, "updated") > 0;
     }
-    public set updated(value: number) {
-        this._impl.Set(this._ptr, "updated", value);
+    public set updated(value: boolean) {
+        this._impl.Set(this._ptr, "updated", value ? 1 : 0);
     }
 
     /** 资源绑定组布局ID（同时也是着色器内部实例ID）。 */
@@ -142,7 +143,7 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
         return this._bufferSize;
     }
 
-    /** 统一缓存内核实现。 */
+    /** 内核实现。 */
     protected _impl: T & {
         /**
          * 获取内核对象属性值。
@@ -173,9 +174,9 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     protected dynamicOffsets?: number[];
 }
 
-/** 着色器属性统一缓存实例（80字节）。 */
+/** 统一缓存内核实现的数据结构成员列表。 */
 export const Uniform_member_index = {
-    /** SE_BINARY数据成员 */
+    /** BINARY数据成员 */
 
     ...Miaoverse.Binary_member_index,
 
@@ -193,7 +194,7 @@ export const Uniform_member_index = {
     bn_offset: ["uscalarGet", "uscalarSet", 1, 2] as Miaoverse.Kernel_member,
     bn_size: ["uscalarGet", "uscalarSet", 1, 3] as Miaoverse.Kernel_member,
 
-    /** SE_UNIFORM数据成员 */
+    /** UNIFORM数据成员 */
 
     buffer: ["ptrGet", "ptrSet", 1, 12] as Miaoverse.Kernel_member,
     bufferID: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,

@@ -13,7 +13,11 @@ export class Resources {
         this.Mesh = new Miaoverse.Mesh_kernel(_global);
         this.MeshRenderer = new Miaoverse.MeshRenderer_kernel(_global);
         this.Camera = new Miaoverse.Camera_kernel(_global);
+        this.Light = new Miaoverse.Light_kernel(_global);
+        this.Volume = new Miaoverse.Volume_kernel(_global);
+        this.Animator = new Miaoverse.Animator_kernel(_global);
         this.Object = new Miaoverse.Object_kernel(_global);
+        this.Scene = new Miaoverse.Scene_kernel(_global);
     }
     async Init() {
         const exports = this._global.internal.Engine_Export();
@@ -313,7 +317,11 @@ export class Resources {
     Mesh;
     MeshRenderer;
     Camera;
+    Light;
+    Volume;
+    Animator;
     Object;
+    Scene;
 }
 export class Resource {
     constructor(_global, ptr, id) {
@@ -324,20 +332,11 @@ export class Resource {
     get id() {
         return this._id;
     }
+    get internalPtr() {
+        return this._ptr;
+    }
     _global;
     _ptr;
     _id;
 }
-export const Binary_member_index = {
-    magic: ["uscalarGet", "uscalarSet", 1, 0],
-    version: ["uscalarGet", "uscalarSet", 1, 1],
-    byteSize: ["uscalarGet", "uscalarSet", 1, 2],
-    refCount: ["uscalarGet", "uscalarSet", 1, 3],
-    id: ["uscalarGet", "uscalarSet", 1, 4],
-    uuid: ["uuidGet", "uuidSet", 3, 5],
-    writeTS: ["uscalarGet", "uscalarSet", 1, 8],
-    readTS: ["uscalarGet", "uscalarSet", 1, 9],
-    last: ["ptrGet", "ptrSet", 1, 10],
-    next: ["ptrGet", "ptrSet", 1, 11],
-};
 //# sourceMappingURL=index.js.map

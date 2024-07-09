@@ -116,7 +116,7 @@ fn computeLightSpacePosition(viewPosition: vec3f, viewNormal: vec3f, cascade: u3
 
     if (VARIANT_HAS_VSM) {
         // 将全局空间光照向量转到相机空间
-        let viewLit = normalize(mulMat3x3Float3(frameUniforms.vfgMat, frameUniforms.lightDirection.xyz));
+        let viewLit = normalize(mulMat3x3Float3(frameUniforms.vfgMat, frameUniforms.iblDirection.xyz));
         let NoL = saturate(dot(viewNormal, viewLit));
         let sinTheta = sqrt(1.0 - NoL * NoL);
         // 将坐标沿法线偏移一定距离（由frameUniforms.shadowBias指定），避免出现自遮挡问题（acne），VSM阴影不需要偏移

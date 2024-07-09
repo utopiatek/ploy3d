@@ -1,16 +1,17 @@
 import * as Miaoverse from "../mod.js"
 
-/** 体积组件。 */
+/** 体积组件实例。 */
 export class Volume extends Miaoverse.Resource<Volume> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     public constructor(impl: Volume_kernel, ptr: Miaoverse.io_ptr, id: number) {
         super(impl["_global"], ptr, id);
         this._impl = impl;
+        this._impl.Set(this._ptr, "id", id);
     }
 
     /** 体积参数更新时间戳。 */
@@ -38,11 +39,11 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
 
     /** 体积参数是否有更新。 */
-    public get updated(): number {
-        return this._impl.Get(this._ptr, "updated");
+    public get updated(): boolean {
+        return this._impl.Get<number>(this._ptr, "updated") > 0;
     }
-    public set updated(value: number) {
-        this._impl.Set(this._ptr, "updated", value);
+    public set updated(value: boolean) {
+        this._impl.Set(this._ptr, "updated", value ? 1 : 0);
     }
 
     /** IBL绕X轴旋转角度。 */
@@ -51,7 +52,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set iblPitch(value: number) {
         this._impl.Set(this._ptr, "iblPitch", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** IBL绕Y轴旋转角度。 */
@@ -60,7 +61,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set iblYaw(value: number) {
         this._impl.Set(this._ptr, "iblYaw", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** IBL绕Z轴旋转角度。 */
@@ -69,7 +70,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set iblRoll(value: number) {
         this._impl.Set(this._ptr, "iblRoll", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** IBL球谐系数。 */
@@ -78,7 +79,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set iblSH(value: ArrayLike<number>) {
         this._impl.Set(this._ptr, "iblSH", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 雾颜色。 */
@@ -87,7 +88,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogColor(value: ArrayLike<number>) {
         this._impl.Set(this._ptr, "fogColor", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 太阳圆盘参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP。 */
@@ -96,7 +97,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set sunParams(value: ArrayLike<number>) {
         this._impl.Set(this._ptr, "sunParams", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** IBL主光照颜色和强度。 */
@@ -117,7 +118,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set lightFarAttenuationParams(value: ArrayLike<number>) {
         this._impl.Set(this._ptr, "lightFarAttenuationParams", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** IBL亮度缩放。 */
@@ -126,7 +127,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set iblLuminance(value: number) {
         this._impl.Set(this._ptr, "iblLuminance", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** IBL粗糙度为1的纹理链级别。 */
@@ -135,7 +136,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set iblRoughnessOneLevel(value: number) {
         this._impl.Set(this._ptr, "iblRoughnessOneLevel", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 屏幕空间反射用的物体厚度，用于相交测试。 */
@@ -144,7 +145,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set ssrThickness(value: number) {
         this._impl.Set(this._ptr, "ssrThickness", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 屏幕空间反射用的射线的起点偏移。 */
@@ -153,7 +154,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set ssrBias(value: number) {
         this._impl.Set(this._ptr, "ssrBias", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 屏幕空间反射用的射线最大追踪距离。 */
@@ -162,7 +163,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set ssrDistance(value: number) {
         this._impl.Set(this._ptr, "ssrDistance", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 屏幕空间反射用的射线追踪步进像素数。 */
@@ -171,7 +172,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set ssrStride(value: number) {
         this._impl.Set(this._ptr, "ssrStride", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 反射贴图采样LOD偏移。 */
@@ -180,7 +181,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set refractionLodOffset(value: number) {
         this._impl.Set(this._ptr, "refractionLodOffset", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 噪音系数[0, 1]，当不使用TAA时取0。 */
@@ -189,7 +190,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set temporalNoise(value: number) {
         this._impl.Set(this._ptr, "temporalNoise", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** SSAO，采样参数，0: bilinear, !0: bilateral edge distance。 */
@@ -198,7 +199,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set aoSamplingQualityAndEdgeDistance(value: number) {
         this._impl.Set(this._ptr, "aoSamplingQualityAndEdgeDistance", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** SSAO，0: no AO bent normal, >0.0 AO bent normals。 */
@@ -207,7 +208,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set aoBentNormals(value: number) {
         this._impl.Set(this._ptr, "aoBentNormals", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 
@@ -220,7 +221,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set cascades(value: number) {
         this._impl.Set(this._ptr, "cascades", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 
@@ -233,7 +234,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set directionalShadows(value: number) {
         this._impl.Set(this._ptr, "directionalShadows", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 屏幕空间接触阴影距离。 */
@@ -242,7 +243,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set ssContactShadowDistance(value: number) {
         this._impl.Set(this._ptr, "ssContactShadowDistance", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 阴影类型，0: PCF, 1: VSM，2: DPCF, 3: PCSS。 */
@@ -259,7 +260,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set shadowBias(value: number) {
         this._impl.Set(this._ptr, "shadowBias", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 阴影，光照空间的光源半径。 */
@@ -268,7 +269,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set shadowBulbRadiusLs(value: number) {
         this._impl.Set(this._ptr, "shadowBulbRadiusLs", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 阴影，用于DPCF、PCSS，用于艺术用途的比例半影。 */
@@ -277,7 +278,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set shadowPenumbraRatioScale(value: number) {
         this._impl.Set(this._ptr, "shadowPenumbraRatioScale", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** VSM阴影指数。 */
@@ -286,7 +287,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set vsmExponent(value: number) {
         this._impl.Set(this._ptr, "vsmExponent", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 用于VSM最小方差计算。 */
@@ -295,7 +296,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set vsmDepthScale(value: number) {
         this._impl.Set(this._ptr, "vsmDepthScale", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** VSM阴影漏光问题，设定一个最小光照可见度，结果小于该最小光照可见度视为光照不可见。 */
@@ -304,7 +305,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set vsmLightBleedReduction(value: number) {
         this._impl.Set(this._ptr, "vsmLightBleedReduction", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 。 */
@@ -313,7 +314,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogStart(value: number) {
         this._impl.Set(this._ptr, "fogStart", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 。 */
@@ -322,7 +323,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogMaxOpacity(value: number) {
         this._impl.Set(this._ptr, "fogMaxOpacity", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 。 */
@@ -331,7 +332,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogHeight(value: number) {
         this._impl.Set(this._ptr, "fogHeight", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** falloff * 1.44269。 */
@@ -340,7 +341,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogHeightFalloff(value: number) {
         this._impl.Set(this._ptr, "fogHeightFalloff", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** (density/falloff)*exp(-falloff*(camera.y - fogHeight))。 */
@@ -349,7 +350,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogDensity(value: number) {
         this._impl.Set(this._ptr, "fogDensity", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 。 */
@@ -358,7 +359,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogInscatteringStart(value: number) {
         this._impl.Set(this._ptr, "fogInscatteringStart", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 。 */
@@ -367,7 +368,7 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogInscatteringSize(value: number) {
         this._impl.Set(this._ptr, "fogInscatteringSize", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 。 */
@@ -376,110 +377,105 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set fogColorFromIbl(value: number) {
         this._impl.Set(this._ptr, "fogColorFromIbl", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
-    /** 体积组件内核实现。 */
+    /** 内核实现。 */
     private _impl: Volume_kernel;
 }
 
-/** 体积组件（256字节）。 */
-export class Volume_kernel {
+/** 体积组件内核实现。 */
+export class Volume_kernel extends Miaoverse.Base_kernel<Volume, typeof Volume_member_index> {
     /**
-     * 获取内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @returns 返回对应属性值。
+     * 构造函数。
+     * @param _global 引擎实例。
      */
-    public Get<T>(self: Miaoverse.io_ptr, key: Volume_kernel["_members_key"]) {
-        const member = this._members[key];
-        return this._global.env[member[0]](self, member[3], member[2]) as T;
+    public constructor(_global: Miaoverse.Ploy3D) {
+        super(_global, Volume_member_index);
     }
 
     /**
-     * 设置内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @param value 属性值。
+     * 创建体积组件实例。
+     * @returns 返回体积组件实例。
      */
-    public Set(self: Miaoverse.io_ptr, key: Volume_kernel["_members_key"], value: any) {
-        const member = this._members[key];
-        this._global.env[member[1]](self, member[3], value as never);
+    public async Create(object3d: Miaoverse.Object3D) {
+        const ptr = this._Create(object3d.internalPtr);
+        const id = this._instanceIdle;
+
+        // 设置实例 ===============-----------------------
+
+        this._instanceIdle = this._instanceList[id]?.id || id + 1;
+
+        const instance = this._instanceList[id] = new Volume(this, ptr, id);
+
+        this._instanceCount++;
+
+        return instance;
     }
 
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
-
-    /** 实例容器列表。 */
-    protected _instanceList: Volume[] = [null];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, Volume> = {};
-    /** 已分配实例数量。 */
-    protected _instanceCount: number = 0;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number = 1;
-    /** 待GC列表。 */
-    protected _gcList: Volume[] = [];
-
-    /** 内核实现的数据结构成员列表。 */
-    protected _members = {
-        ...Miaoverse.Binary_member_index,
-
-        enabled: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
-        object: ["ptrGet", "ptrSet", 1, 13] as Miaoverse.Kernel_member,
-        lastSib: ["ptrGet", "ptrSet", 1, 14] as Miaoverse.Kernel_member,
-        nextSib: ["ptrGet", "ptrSet", 1, 15] as Miaoverse.Kernel_member,
-
-        updated: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
-        iblPitch: ["fscalarGet", "fscalarSet", 1, 17] as Miaoverse.Kernel_member,
-        iblYaw: ["fscalarGet", "fscalarSet", 1, 18] as Miaoverse.Kernel_member,
-        iblRoll: ["fscalarGet", "fscalarSet", 1, 19] as Miaoverse.Kernel_member,
-
-        iblSH: ["farrayGet", "farraySet", 36, 20] as Miaoverse.Kernel_member,
-
-        fogColor: ["farrayGet", "farraySet", 3, 56] as Miaoverse.Kernel_member,
-
-        sunParams: ["farrayGet", "farraySet", 4, 60] as Miaoverse.Kernel_member,
-        iblColorIntensity: ["farrayGet", "farraySet", 4, 64] as Miaoverse.Kernel_member,
-        iblDirection: ["farrayGet", "farraySet", 3, 68] as Miaoverse.Kernel_member,
-
-        lightFarAttenuationParams: ["farrayGet", "farraySet", 2, 112] as Miaoverse.Kernel_member,
-
-        iblLuminance: ["fscalarGet", "fscalarSet", 1, 116] as Miaoverse.Kernel_member,
-        iblRoughnessOneLevel: ["fscalarGet", "fscalarSet", 1, 117] as Miaoverse.Kernel_member,
-
-        ssrThickness: ["fscalarGet", "fscalarSet", 1, 120] as Miaoverse.Kernel_member,
-        ssrBias: ["fscalarGet", "fscalarSet", 1, 121] as Miaoverse.Kernel_member,
-        ssrDistance: ["fscalarGet", "fscalarSet", 1, 122] as Miaoverse.Kernel_member,
-        ssrStride: ["fscalarGet", "fscalarSet", 1, 123] as Miaoverse.Kernel_member,
-        refractionLodOffset: ["fscalarGet", "fscalarSet", 1, 124] as Miaoverse.Kernel_member,
-        temporalNoise: ["fscalarGet", "fscalarSet", 1, 125] as Miaoverse.Kernel_member,
-        aoSamplingQualityAndEdgeDistance: ["fscalarGet", "fscalarSet", 1, 126] as Miaoverse.Kernel_member,
-        aoBentNormals: ["fscalarGet", "fscalarSet", 1, 127] as Miaoverse.Kernel_member,
-
-        cascades: ["uscalarGet", "uscalarSet", 1, 128] as Miaoverse.Kernel_member,
-        directionalShadows: ["uscalarGet", "uscalarSet", 1, 129] as Miaoverse.Kernel_member,
-        ssContactShadowDistance: ["fscalarGet", "fscalarSet", 1, 130] as Miaoverse.Kernel_member,
-        shadowSamplingType: ["uscalarGet", "uscalarSet", 1, 131] as Miaoverse.Kernel_member,
-
-        shadowBias: ["fscalarGet", "fscalarSet", 1, 132] as Miaoverse.Kernel_member,
-        shadowBulbRadiusLs: ["fscalarGet", "fscalarSet", 1, 133] as Miaoverse.Kernel_member,
-        shadowPenumbraRatioScale: ["fscalarGet", "fscalarSet", 1, 134] as Miaoverse.Kernel_member,
-
-        vsmExponent: ["fscalarGet", "fscalarSet", 1, 136] as Miaoverse.Kernel_member,
-        vsmDepthScale: ["fscalarGet", "fscalarSet", 1, 137] as Miaoverse.Kernel_member,
-        vsmLightBleedReduction: ["fscalarGet", "fscalarSet", 1, 138] as Miaoverse.Kernel_member,
-
-        fogStart: ["fscalarGet", "fscalarSet", 1, 140] as Miaoverse.Kernel_member,
-        fogMaxOpacity: ["fscalarGet", "fscalarSet", 1, 141] as Miaoverse.Kernel_member,
-        fogHeight: ["fscalarGet", "fscalarSet", 1, 142] as Miaoverse.Kernel_member,
-        fogHeightFalloff: ["fscalarGet", "fscalarSet", 1, 143] as Miaoverse.Kernel_member,
-        fogDensity: ["fscalarGet", "fscalarSet", 1, 144] as Miaoverse.Kernel_member,
-        fogInscatteringStart: ["fscalarGet", "fscalarSet", 1, 145] as Miaoverse.Kernel_member,
-        fogInscatteringSize: ["fscalarGet", "fscalarSet", 1, 146] as Miaoverse.Kernel_member,
-        fogColorFromIbl: ["fscalarGet", "fscalarSet", 1, 147] as Miaoverse.Kernel_member,
-    } as const;
-
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Volume_kernel["_members"];
+    /**
+     * 创建体积组件内核实例。
+     * @param object3d 3D对象内核实例指针（体积组件唯一属于某个3D对象并跟随3D对象被销毁）。
+     * @returns 返回体积组件内核实例指针。
+     */
+    protected _Create: (object3d: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 }
+
+/** 体积组件内核实现的数据结构成员列表。 */
+export const Volume_member_index = {
+    ...Miaoverse.Binary_member_index,
+
+    enabled: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
+    object: ["ptrGet", "ptrSet", 1, 13] as Miaoverse.Kernel_member,
+    lastSib: ["ptrGet", "ptrSet", 1, 14] as Miaoverse.Kernel_member,
+    nextSib: ["ptrGet", "ptrSet", 1, 15] as Miaoverse.Kernel_member,
+
+    updated: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
+    iblPitch: ["fscalarGet", "fscalarSet", 1, 17] as Miaoverse.Kernel_member,
+    iblYaw: ["fscalarGet", "fscalarSet", 1, 18] as Miaoverse.Kernel_member,
+    iblRoll: ["fscalarGet", "fscalarSet", 1, 19] as Miaoverse.Kernel_member,
+
+    iblSH: ["farrayGet", "farraySet", 36, 20] as Miaoverse.Kernel_member,
+
+    fogColor: ["farrayGet", "farraySet", 3, 56] as Miaoverse.Kernel_member,
+
+    sunParams: ["farrayGet", "farraySet", 4, 60] as Miaoverse.Kernel_member,
+    iblColorIntensity: ["farrayGet", "farraySet", 4, 64] as Miaoverse.Kernel_member,
+    iblDirection: ["farrayGet", "farraySet", 3, 68] as Miaoverse.Kernel_member,
+
+    lightFarAttenuationParams: ["farrayGet", "farraySet", 2, 112] as Miaoverse.Kernel_member,
+
+    iblLuminance: ["fscalarGet", "fscalarSet", 1, 116] as Miaoverse.Kernel_member,
+    iblRoughnessOneLevel: ["fscalarGet", "fscalarSet", 1, 117] as Miaoverse.Kernel_member,
+
+    ssrThickness: ["fscalarGet", "fscalarSet", 1, 120] as Miaoverse.Kernel_member,
+    ssrBias: ["fscalarGet", "fscalarSet", 1, 121] as Miaoverse.Kernel_member,
+    ssrDistance: ["fscalarGet", "fscalarSet", 1, 122] as Miaoverse.Kernel_member,
+    ssrStride: ["fscalarGet", "fscalarSet", 1, 123] as Miaoverse.Kernel_member,
+    refractionLodOffset: ["fscalarGet", "fscalarSet", 1, 124] as Miaoverse.Kernel_member,
+    temporalNoise: ["fscalarGet", "fscalarSet", 1, 125] as Miaoverse.Kernel_member,
+    aoSamplingQualityAndEdgeDistance: ["fscalarGet", "fscalarSet", 1, 126] as Miaoverse.Kernel_member,
+    aoBentNormals: ["fscalarGet", "fscalarSet", 1, 127] as Miaoverse.Kernel_member,
+
+    cascades: ["uscalarGet", "uscalarSet", 1, 128] as Miaoverse.Kernel_member,
+    directionalShadows: ["uscalarGet", "uscalarSet", 1, 129] as Miaoverse.Kernel_member,
+    ssContactShadowDistance: ["fscalarGet", "fscalarSet", 1, 130] as Miaoverse.Kernel_member,
+    shadowSamplingType: ["uscalarGet", "uscalarSet", 1, 131] as Miaoverse.Kernel_member,
+
+    shadowBias: ["fscalarGet", "fscalarSet", 1, 132] as Miaoverse.Kernel_member,
+    shadowBulbRadiusLs: ["fscalarGet", "fscalarSet", 1, 133] as Miaoverse.Kernel_member,
+    shadowPenumbraRatioScale: ["fscalarGet", "fscalarSet", 1, 134] as Miaoverse.Kernel_member,
+
+    vsmExponent: ["fscalarGet", "fscalarSet", 1, 136] as Miaoverse.Kernel_member,
+    vsmDepthScale: ["fscalarGet", "fscalarSet", 1, 137] as Miaoverse.Kernel_member,
+    vsmLightBleedReduction: ["fscalarGet", "fscalarSet", 1, 138] as Miaoverse.Kernel_member,
+
+    fogStart: ["fscalarGet", "fscalarSet", 1, 140] as Miaoverse.Kernel_member,
+    fogMaxOpacity: ["fscalarGet", "fscalarSet", 1, 141] as Miaoverse.Kernel_member,
+    fogHeight: ["fscalarGet", "fscalarSet", 1, 142] as Miaoverse.Kernel_member,
+    fogHeightFalloff: ["fscalarGet", "fscalarSet", 1, 143] as Miaoverse.Kernel_member,
+    fogDensity: ["fscalarGet", "fscalarSet", 1, 144] as Miaoverse.Kernel_member,
+    fogInscatteringStart: ["fscalarGet", "fscalarSet", 1, 145] as Miaoverse.Kernel_member,
+    fogInscatteringSize: ["fscalarGet", "fscalarSet", 1, 146] as Miaoverse.Kernel_member,
+    fogColorFromIbl: ["fscalarGet", "fscalarSet", 1, 147] as Miaoverse.Kernel_member,
+} as const;

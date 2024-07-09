@@ -1,10 +1,10 @@
 import * as Miaoverse from "../mod.js";
-/** 体积组件。 */
+/** 体积组件实例。 */
 export declare class Volume extends Miaoverse.Resource<Volume> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     constructor(impl: Volume_kernel, ptr: Miaoverse.io_ptr, id: number);
@@ -18,8 +18,8 @@ export declare class Volume extends Miaoverse.Resource<Volume> {
     get enabled(): boolean;
     set enabled(b: boolean);
     /** 体积参数是否有更新。 */
-    get updated(): number;
-    set updated(value: number);
+    get updated(): boolean;
+    set updated(value: boolean);
     /** IBL绕X轴旋转角度。 */
     get iblPitch(): number;
     set iblPitch(value: number);
@@ -137,92 +137,81 @@ export declare class Volume extends Miaoverse.Resource<Volume> {
     /** 。 */
     get fogColorFromIbl(): number;
     set fogColorFromIbl(value: number);
-    /** 体积组件内核实现。 */
+    /** 内核实现。 */
     private _impl;
 }
-/** 体积组件（256字节）。 */
-export declare class Volume_kernel {
+/** 体积组件内核实现。 */
+export declare class Volume_kernel extends Miaoverse.Base_kernel<Volume, typeof Volume_member_index> {
     /**
-     * 获取内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @returns 返回对应属性值。
+     * 构造函数。
+     * @param _global 引擎实例。
      */
-    Get<T>(self: Miaoverse.io_ptr, key: Volume_kernel["_members_key"]): T;
+    constructor(_global: Miaoverse.Ploy3D);
     /**
-     * 设置内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @param value 属性值。
+     * 创建体积组件实例。
+     * @returns 返回体积组件实例。
      */
-    Set(self: Miaoverse.io_ptr, key: Volume_kernel["_members_key"], value: any): void;
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
-    /** 实例容器列表。 */
-    protected _instanceList: Volume[];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, Volume>;
-    /** 已分配实例数量。 */
-    protected _instanceCount: number;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number;
-    /** 待GC列表。 */
-    protected _gcList: Volume[];
-    /** 内核实现的数据结构成员列表。 */
-    protected _members: {
-        readonly enabled: Miaoverse.Kernel_member;
-        readonly object: Miaoverse.Kernel_member;
-        readonly lastSib: Miaoverse.Kernel_member;
-        readonly nextSib: Miaoverse.Kernel_member;
-        readonly updated: Miaoverse.Kernel_member;
-        readonly iblPitch: Miaoverse.Kernel_member;
-        readonly iblYaw: Miaoverse.Kernel_member;
-        readonly iblRoll: Miaoverse.Kernel_member;
-        readonly iblSH: Miaoverse.Kernel_member;
-        readonly fogColor: Miaoverse.Kernel_member;
-        readonly sunParams: Miaoverse.Kernel_member;
-        readonly iblColorIntensity: Miaoverse.Kernel_member;
-        readonly iblDirection: Miaoverse.Kernel_member;
-        readonly lightFarAttenuationParams: Miaoverse.Kernel_member;
-        readonly iblLuminance: Miaoverse.Kernel_member;
-        readonly iblRoughnessOneLevel: Miaoverse.Kernel_member;
-        readonly ssrThickness: Miaoverse.Kernel_member;
-        readonly ssrBias: Miaoverse.Kernel_member;
-        readonly ssrDistance: Miaoverse.Kernel_member;
-        readonly ssrStride: Miaoverse.Kernel_member;
-        readonly refractionLodOffset: Miaoverse.Kernel_member;
-        readonly temporalNoise: Miaoverse.Kernel_member;
-        readonly aoSamplingQualityAndEdgeDistance: Miaoverse.Kernel_member;
-        readonly aoBentNormals: Miaoverse.Kernel_member;
-        readonly cascades: Miaoverse.Kernel_member;
-        readonly directionalShadows: Miaoverse.Kernel_member;
-        readonly ssContactShadowDistance: Miaoverse.Kernel_member;
-        readonly shadowSamplingType: Miaoverse.Kernel_member;
-        readonly shadowBias: Miaoverse.Kernel_member;
-        readonly shadowBulbRadiusLs: Miaoverse.Kernel_member;
-        readonly shadowPenumbraRatioScale: Miaoverse.Kernel_member;
-        readonly vsmExponent: Miaoverse.Kernel_member;
-        readonly vsmDepthScale: Miaoverse.Kernel_member;
-        readonly vsmLightBleedReduction: Miaoverse.Kernel_member;
-        readonly fogStart: Miaoverse.Kernel_member;
-        readonly fogMaxOpacity: Miaoverse.Kernel_member;
-        readonly fogHeight: Miaoverse.Kernel_member;
-        readonly fogHeightFalloff: Miaoverse.Kernel_member;
-        readonly fogDensity: Miaoverse.Kernel_member;
-        readonly fogInscatteringStart: Miaoverse.Kernel_member;
-        readonly fogInscatteringSize: Miaoverse.Kernel_member;
-        readonly fogColorFromIbl: Miaoverse.Kernel_member;
-        readonly magic: Miaoverse.Kernel_member;
-        readonly version: Miaoverse.Kernel_member;
-        readonly byteSize: Miaoverse.Kernel_member;
-        readonly refCount: Miaoverse.Kernel_member;
-        readonly id: Miaoverse.Kernel_member;
-        readonly uuid: Miaoverse.Kernel_member;
-        readonly writeTS: Miaoverse.Kernel_member;
-        readonly readTS: Miaoverse.Kernel_member;
-        readonly last: Miaoverse.Kernel_member;
-        readonly next: Miaoverse.Kernel_member;
-    };
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Volume_kernel["_members"];
+    Create(object3d: Miaoverse.Object3D): Promise<Miaoverse.Volume>;
+    /**
+     * 创建体积组件内核实例。
+     * @param object3d 3D对象内核实例指针（体积组件唯一属于某个3D对象并跟随3D对象被销毁）。
+     * @returns 返回体积组件内核实例指针。
+     */
+    protected _Create: (object3d: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 }
+/** 体积组件内核实现的数据结构成员列表。 */
+export declare const Volume_member_index: {
+    readonly enabled: Miaoverse.Kernel_member;
+    readonly object: Miaoverse.Kernel_member;
+    readonly lastSib: Miaoverse.Kernel_member;
+    readonly nextSib: Miaoverse.Kernel_member;
+    readonly updated: Miaoverse.Kernel_member;
+    readonly iblPitch: Miaoverse.Kernel_member;
+    readonly iblYaw: Miaoverse.Kernel_member;
+    readonly iblRoll: Miaoverse.Kernel_member;
+    readonly iblSH: Miaoverse.Kernel_member;
+    readonly fogColor: Miaoverse.Kernel_member;
+    readonly sunParams: Miaoverse.Kernel_member;
+    readonly iblColorIntensity: Miaoverse.Kernel_member;
+    readonly iblDirection: Miaoverse.Kernel_member;
+    readonly lightFarAttenuationParams: Miaoverse.Kernel_member;
+    readonly iblLuminance: Miaoverse.Kernel_member;
+    readonly iblRoughnessOneLevel: Miaoverse.Kernel_member;
+    readonly ssrThickness: Miaoverse.Kernel_member;
+    readonly ssrBias: Miaoverse.Kernel_member;
+    readonly ssrDistance: Miaoverse.Kernel_member;
+    readonly ssrStride: Miaoverse.Kernel_member;
+    readonly refractionLodOffset: Miaoverse.Kernel_member;
+    readonly temporalNoise: Miaoverse.Kernel_member;
+    readonly aoSamplingQualityAndEdgeDistance: Miaoverse.Kernel_member;
+    readonly aoBentNormals: Miaoverse.Kernel_member;
+    readonly cascades: Miaoverse.Kernel_member;
+    readonly directionalShadows: Miaoverse.Kernel_member;
+    readonly ssContactShadowDistance: Miaoverse.Kernel_member;
+    readonly shadowSamplingType: Miaoverse.Kernel_member;
+    readonly shadowBias: Miaoverse.Kernel_member;
+    readonly shadowBulbRadiusLs: Miaoverse.Kernel_member;
+    readonly shadowPenumbraRatioScale: Miaoverse.Kernel_member;
+    readonly vsmExponent: Miaoverse.Kernel_member;
+    readonly vsmDepthScale: Miaoverse.Kernel_member;
+    readonly vsmLightBleedReduction: Miaoverse.Kernel_member;
+    readonly fogStart: Miaoverse.Kernel_member;
+    readonly fogMaxOpacity: Miaoverse.Kernel_member;
+    readonly fogHeight: Miaoverse.Kernel_member;
+    readonly fogHeightFalloff: Miaoverse.Kernel_member;
+    readonly fogDensity: Miaoverse.Kernel_member;
+    readonly fogInscatteringStart: Miaoverse.Kernel_member;
+    readonly fogInscatteringSize: Miaoverse.Kernel_member;
+    readonly fogColorFromIbl: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    /** 体积参数应用时间戳。 */
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};

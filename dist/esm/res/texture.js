@@ -1,11 +1,11 @@
 import * as Miaoverse from "../mod.js";
 export class Texture extends Miaoverse.Resource {
     constructor(impl, texture, id, uuid) {
-        super(impl["_global"], impl["_global"].env.ptrZero(), id);
-        this._uuid = uuid;
+        super(impl["_global"], 0, id);
         this._impl = impl;
-        this._texture = texture;
+        this._uuid = uuid;
         this._refCount = 1;
+        this._texture = texture;
     }
     get uuid() {
         return this._uuid;
@@ -13,14 +13,14 @@ export class Texture extends Miaoverse.Resource {
     get internalID() {
         return this._texture.id;
     }
-    _uuid;
     _impl;
-    _texture = null;
+    _uuid;
     _refCount;
+    _texture = null;
 }
-export class Texture_kernel {
+export class Texture_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
-        this._global = _global;
+        super(_global, {});
     }
     async CreateTexture(asset) {
         let texture = null;
@@ -37,8 +37,7 @@ export class Texture_kernel {
         }
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
-        const instance = new Texture(this, texture, id, asset.uuid || "");
-        this._instanceList[id] = instance;
+        const instance = this._instanceList[id] = new Texture(this, texture, id, asset.uuid || "");
         this._instanceCount++;
         this._gcList.push(instance);
         if (asset.uuid) {
@@ -133,9 +132,6 @@ export class Texture_kernel {
         };
         return data;
     }
-    GetInstanceByID(id) {
-        return this._instanceList[id];
-    }
     AddRef(id) {
         this._instanceList[id]["_refCount"]++;
     }
@@ -150,11 +146,5 @@ export class Texture_kernel {
         }
     }
     default2D;
-    _global;
-    _instanceList = [null];
-    _instanceLut = {};
-    _instanceCount = 0;
-    _instanceIdle = 1;
-    _gcList = [];
 }
 //# sourceMappingURL=texture.js.map

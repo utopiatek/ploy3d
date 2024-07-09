@@ -4,12 +4,12 @@ import * as Miaoverse from "../mod.js"
 export class ShaderRes extends Miaoverse.Resource<ShaderRes> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 实例管理器。
+     * @param shader 内部实例。
      * @param id 实例ID。
      */
     public constructor(impl: Shader_kernel, shader: Miaoverse.Shader, id: number) {
-        super(impl["_global"], impl["_global"].env.ptrZero(), id);
+        super(impl["_global"], 0 as never, id);
         this._impl = impl;
         this._shader = shader;
     }
@@ -29,24 +29,24 @@ export class ShaderRes extends Miaoverse.Resource<ShaderRes> {
         return this._shader.tuple.size;
     }
 
-    /** 材质资源内核实现。 */
+    /** 实例管理器。 */
     private _impl: Shader_kernel;
-    /** 资源实例内部实现。 */
+    /** 内部实例。 */
     private _shader: Miaoverse.Shader = null;
 }
 
-/** 着色器资源实例管理器。 */
-export class Shader_kernel {
+/** 着色器资源实例管理器（没有内核实现）。 */
+export class Shader_kernel extends Miaoverse.Base_kernel<ShaderRes, any> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      */
     public constructor(_global: Miaoverse.Ploy3D) {
-        this._global = _global;
+        super(_global, {});
     }
 
     /**
-     * 装载着色器资源实例。
+     * 装载着色器资源。
      * @param uri 着色器资源URI。
      * @param pkg 当前资源包注册信息。
      * @returns 异步返回着色器资源实例。
@@ -91,13 +91,13 @@ export class Shader_kernel {
         // 创建实例 ===============-----------------------
 
         const shader = this._global.context.CreateShader(desc.data.asset);
+
         const id = this._instanceIdle;
 
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
 
-        const instance = new ShaderRes(this, shader, id);
+        const instance = this._instanceList[id] = new ShaderRes(this, shader, id);
 
-        this._instanceList[id] = instance;
         this._instanceLut[uuid] = instance;
         this._instanceCount++;
 
@@ -107,33 +107,10 @@ export class Shader_kernel {
 
         return instance;
     }
-
-    /**
-     * 根据实例ID获取对象实例。
-     * @param id 实例ID。
-     * @returns 返回对象实例。
-     */
-    public GetInstanceByID(id: number) {
-        return this._instanceList[id];
-    }
-
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
-
-    /** 实例容器列表。 */
-    protected _instanceList: ShaderRes[] = [null];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, ShaderRes> = {};
-    /** 已分配实例数量。 */
-    protected _instanceCount: number = 0;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number = 1;
-    /** 待GC列表。 */
-    protected _gcList: ShaderRes[] = [];
 }
 
 /** 着色器资源描述符。 */
 export interface Asset_shader extends Miaoverse.Asset {
-    /** 着色器资产。 */
+    /** 着色器资产数据。 */
     asset: Miaoverse.ShaderAsset;
 }

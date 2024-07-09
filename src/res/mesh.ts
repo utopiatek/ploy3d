@@ -1,16 +1,17 @@
 import * as Miaoverse from "../mod.js"
 
-/** 网格资源。 */
+/** 网格资源实例。 */
 export class Mesh extends Miaoverse.Resource<Mesh> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     public constructor(impl: Mesh_kernel, ptr: Miaoverse.io_ptr, id: number) {
         super(impl["_global"], ptr, id);
         this._impl = impl;
+        this._impl.Set(this._ptr, "id", id);
 
         const env = this._global.env;
         const ptrVB = this.ptrVB;
@@ -113,7 +114,7 @@ export class Mesh extends Miaoverse.Resource<Mesh> {
         return this._triangles;
     }
 
-    /** 网格资源内核实现。 */
+    /** 内核实现。 */
     private _impl: Mesh_kernel;
     /** 顶点缓存数组。 */
     private _vertices: {
@@ -143,20 +144,20 @@ export class Mesh extends Miaoverse.Resource<Mesh> {
     }[];
 }
 
-/** 网格资源（192+字节）。 */
-export class Mesh_kernel {
+/** 网格资源内核实现。 */
+export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_index> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      */
     public constructor(_global: Miaoverse.Ploy3D) {
-        this._global = _global;
+        super(_global, Mesh_member_index);
     }
 
     /**
-     * 创建网格资源实例。
+     * 运行时创建网格资源实例。
      * @param asset 网格资源描述符。
-     * @returns 异步返回网格资源实例。
+     * @returns 返回网格资源实例。
      */
     public Create(asset: Asset_mesh) {
         let type = asset.creater.type;
@@ -188,7 +189,7 @@ export class Mesh_kernel {
         // ========================-------------------------------
 
         const res = this.MakeGeometry(data);
-        const ptr = this.InstanceMesh(res[1]);
+        const ptr = this._InstanceMesh(res[1]);
 
         this._global.internal.System_Delete(res[1]);
 
@@ -199,9 +200,6 @@ export class Mesh_kernel {
         // ========================-------------------------------
 
         const id = this._instanceIdle;
-
-        this.Set(ptr, "id", id);
-        this.Set(ptr, "uuid", asset.uuid);
 
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
 
@@ -214,6 +212,7 @@ export class Mesh_kernel {
         this._gcList.push(instance);
 
         if (asset.uuid) {
+            this.Set(ptr, "uuid", asset.uuid);
             this._instanceLut[asset.uuid] = instance;
         }
 
@@ -221,54 +220,9 @@ export class Mesh_kernel {
     }
 
     /**
-     * 根据内核对象指针获取对象实例。
-     * @param self 内核对象指针。
-     * @returns 返回对象实例。
-     */
-    public GetInstanceByPtr(ptr: Miaoverse.io_ptr) {
-        if (this._global.env.ptrValid(ptr)) {
-            const id = this.Get<number>(ptr, "id");
-            return this.GetInstanceByID(id);
-        }
-
-        return null;
-    }
-
-    /**
-     * 根据实例ID获取对象实例。
-     * @param id 实例ID。
-     * @returns 返回对象实例。
-     */
-    public GetInstanceByID(id: number) {
-        return this._instanceList[id];
-    }
-
-    /**
-     * 获取内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @returns 返回对应属性值。
-     */
-    public Get<T>(self: Miaoverse.io_ptr, key: Mesh_kernel["_members_key"]) {
-        const member = this._members[key];
-        return this._global.env[member[0]](self, member[3], member[2]) as T;
-    }
-
-    /**
-     * 设置内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @param value 属性值。
-     */
-    public Set<T>(self: Miaoverse.io_ptr, key: Mesh_kernel["_members_key"], value: any) {
-        const member = this._members[key];
-        this._global.env[member[1]](self, member[3], value as never);
-    }
-
-    /**
-     * 从网格数据构建网格实例。
-     * @param data 网格数据。
-     * @returns 返回网格实例。
+     * 从网格几何数据对象构建网格资源文件数据。
+     * @param data 网格几何数据对象。
+     * @returns 返回网格资源文件数据大小和数据指针。
      */
     public MakeGeometry(data: {
         /** 顶点数组。 */
@@ -327,7 +281,7 @@ export class Mesh_kernel {
         env.farraySet(data_ptr, normalsOffset, data.normals);
         env.farraySet(data_ptr, uvsOffset, data.uvs);
 
-        const resource = this.CreateMesh(data_ptr);
+        const resource = this._CreateMesh(data_ptr);
 
         this._global.internal.System_Delete(data_ptr);
 
@@ -337,9 +291,9 @@ export class Mesh_kernel {
     /**
      * 构建格栅网格。
      * @param desc 格栅网格描述符。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeGrid(desc: {
+    protected MakeGrid(desc: {
         /** 格栅边长。 */
         size: number;
         /** 划分格子数（偶数）。 */
@@ -401,9 +355,9 @@ export class Mesh_kernel {
     /**
      * 构建立方体网格。
      * @param desc 立方体网格描述符。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeBox(desc: {
+    protected MakeBox(desc: {
         /** 立方体宽度。 */
         width: number,
         /** 立方体高度。 */
@@ -519,9 +473,9 @@ export class Mesh_kernel {
     /**
      * 构建球体网格。
      * @param desc 球体网格描述。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeSphere(desc: {
+    protected MakeSphere(desc: {
         radius: number;
         widthSegments: number;
         heightSegments: number;
@@ -630,9 +584,9 @@ export class Mesh_kernel {
     /**
      * 构建圆柱体网格。
      * @param desc 圆柱体网格描述符。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeCylinder(desc: {
+    protected MakeCylinder(desc: {
         /** 顶面半径。 */
         radiusTop: number,
         /** 底面半径。 */
@@ -925,9 +879,9 @@ export class Mesh_kernel {
     /**
      * 构建LOD瓦片网格。
      * @param desc LOD瓦片网格描述符。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeLodTile(desc: {
+    protected MakeLodTile(desc: {
         /** 平面宽度。 */
         width: number;
         /** 平面高度。 */
@@ -1017,9 +971,9 @@ export class Mesh_kernel {
     /**
      * 构建LOD平面网格。
      * @param desc LOD平面网格描述符。
-     * @returns 返回构建异常信息。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeLodPlane(desc: {
+    protected MakeLodPlane(desc: {
         // LOD层级数（系统值8）
         levels: number,
         // LOD层级分块分段数（系统值64）
@@ -1178,157 +1132,164 @@ export class Mesh_kernel {
         };
     }
 
-    /** 实例化网格资源实例。 */
-    public InstanceMesh: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
-    /** 创建网格资源。 */
-    public CreateMesh: (data: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+    /**
+     * 实例化网格资源内核实例。
+     * @param data 网格资源文件数据指针。
+     * @returns 返回网格资源内核实例指针。
+     */
+    protected _InstanceMesh: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
-
-    /** 实例容器列表。 */
-    protected _instanceList: Mesh[] = [null];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, Mesh> = {};
-    /** 已分配实例数量。 */
-    protected _instanceCount: number = 0;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number = 1;
-    /** 待GC列表。 */
-    protected _gcList: Mesh[] = [];
-
-    /** 内核实现的数据结构成员列表。 */
-    protected _members = {
-        ...Miaoverse.Binary_member_index,
-
-        unloaded: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
-        reserved: ["uarrayGet", "uarraySet", 3, 13] as Miaoverse.Kernel_member,
-
-        geometryPTR: ["ptrGet", "ptrSet", 1, 16] as Miaoverse.Kernel_member,
-        geometryUUID: ["uuidGet", "uuidSet", 3, 17] as Miaoverse.Kernel_member,
-
-        uvPTR: ["ptrGet", "ptrSet", 1, 20] as Miaoverse.Kernel_member,
-        uvUUID: ["uuidGet", "uuidSet", 3, 21] as Miaoverse.Kernel_member,
-
-        skinPTR: ["ptrGet", "ptrSet", 1, 24] as Miaoverse.Kernel_member,
-        skinUUID: ["uuidGet", "uuidSet", 3, 25] as Miaoverse.Kernel_member,
-
-        morphPTR: ["ptrGet", "ptrSet", 1, 28] as Miaoverse.Kernel_member,
-        morphUUID: ["uuidGet", "uuidSet", 3, 29] as Miaoverse.Kernel_member,
-
-        vertexBufferLayout: ["uscalarGet", "uscalarSet", 1, 32] as Miaoverse.Kernel_member,
-        vertexBufferCount: ["uscalarGet", "uscalarSet", 1, 33] as Miaoverse.Kernel_member,
-        indexBufferFormat: ["uscalarGet", "uscalarSet", 1, 34] as Miaoverse.Kernel_member,
-        submeshCount: ["uscalarGet", "uscalarSet", 1, 35] as Miaoverse.Kernel_member,
-
-        vertexCount: ["uscalarGet", "uscalarSet", 1, 36] as Miaoverse.Kernel_member,
-        indexCount: ["uscalarGet", "uscalarSet", 1, 37] as Miaoverse.Kernel_member,
-
-        center: ["farrayGet", "farraySet", 3, 38] as Miaoverse.Kernel_member,
-        extents: ["farrayGet", "farraySet", 3, 41] as Miaoverse.Kernel_member,
-
-        skinMethod: ["uscalarGet", "uscalarSet", 1, 44] as Miaoverse.Kernel_member,
-
-        vertexBuffer: ["ptrGet", "ptrSet", 1, 45] as Miaoverse.Kernel_member,
-        indexBuffer: ["ptrGet", "ptrSet", 1, 46] as Miaoverse.Kernel_member,
-        meshData: ["ptrGet", "ptrSet", 1, 47] as Miaoverse.Kernel_member,
-    } as const;
-
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Mesh_kernel["_members"];
+    /**
+     * 创建网格资源文件数据。
+     * @param geo 网格几何数据指针（数据布局结构请查阅MakeGeometry代码）。
+     * @returns 返回网格资源文件数据大小和数据指针。
+     */
+    protected _CreateMesh: (geo: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
 }
 
-/** 几何体UV数据（80+字节）。 */
-export class UVSet_kernel {
-    /** 内核实现的数据结构成员列表。 */
-    protected _members = {
-        ...Miaoverse.Binary_member_index,
-
-        vertexCount: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
-        uvCount: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
-        mappingCount: ["uscalarGet", "uscalarSet", 1, 14] as Miaoverse.Kernel_member,
-        unloaded: ["uscalarGet", "uscalarSet", 1, 15] as Miaoverse.Kernel_member,
-
-        unused0: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
-        unused1: ["uscalarGet", "uscalarSet", 1, 17] as Miaoverse.Kernel_member,
-        uv: ["ptrGet", "ptrSet", 1, 18] as Miaoverse.Kernel_member,
-        polygonVertexIndices: ["ptrGet", "ptrSet", 1, 19] as Miaoverse.Kernel_member,
-    } as const;
-
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof UVSet_kernel["_members"];
+/** 几何UV数据内核实现。 */
+export class UVSet_kernel extends Miaoverse.Base_kernel<any, typeof UVSet_member_index> {
+    /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
+    public constructor(_global: Miaoverse.Ploy3D) {
+        super(_global, UVSet_member_index);
+    }
 }
 
-/** 基础网格几何体数据（144+字节）。 */
-export class Geometry_kernel {
-    /** 内核实现的数据结构成员列表。 */
-    protected _members = {
-        ...Miaoverse.Binary_member_index,
-
-        defaultUVPTR: ["ptrGet", "ptrSet", 1, 12] as Miaoverse.Kernel_member,
-        defaultUVUUID: ["uuidGet", "uuidSet", 3, 13] as Miaoverse.Kernel_member,
-
-        type: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
-        edgeInterpolationMode: ["uscalarGet", "uscalarSet", 1, 17] as Miaoverse.Kernel_member,
-        vertexCount: ["uscalarGet", "uscalarSet", 1, 18] as Miaoverse.Kernel_member,
-        polyCount: ["uscalarGet", "uscalarSet", 1, 19] as Miaoverse.Kernel_member,
-
-        center: ["farrayGet", "farraySet", 3, 20] as Miaoverse.Kernel_member,
-        extents: ["farrayGet", "farraySet", 3, 23] as Miaoverse.Kernel_member,
-
-        vertices: ["ptrGet", "ptrSet", 1, 26] as Miaoverse.Kernel_member,
-        polylist: ["ptrGet", "ptrSet", 1, 27] as Miaoverse.Kernel_member,
-
-        materialGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 28] as Miaoverse.Kernel_member,
-        polygonGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 29] as Miaoverse.Kernel_member,
-
-        materialGroupsName: ["ptrGet", "ptrSet", 1, 30] as Miaoverse.Kernel_member,
-        polygonGroupsName: ["ptrGet", "ptrSet", 1, 31] as Miaoverse.Kernel_member,
-
-        unloaded: ["uscalarGet", "uscalarSet", 1, 32] as Miaoverse.Kernel_member,
-        reserved: ["uarrayGet", "uarraySet", 3, 33] as Miaoverse.Kernel_member,
-    } as const;
-
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Geometry_kernel["_members"];
+/** 几何数据内核实现。 */
+export class Geometry_kernel extends Miaoverse.Base_kernel<any, typeof Geometry_member_index> {
+    /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
+    public constructor(_global: Miaoverse.Ploy3D) {
+        super(_global, Geometry_member_index);
+    }
 }
 
-/** 网格变形资源（128+字节）。 */
-export class Morph_kernel {
-    /** 内核实现的数据结构成员列表。 */
-    protected _members = {
-        ...Miaoverse.Binary_member_index,
-
-        type: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
-        deltasByteSize: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
-
-        min: ["farrayGet", "farraySet", 3, 14] as Miaoverse.Kernel_member,
-        max: ["farrayGet", "farraySet", 3, 17] as Miaoverse.Kernel_member,
-
-        textureWidth: ["uscalarGet", "uscalarSet", 1, 20] as Miaoverse.Kernel_member,
-        vertexCount: ["uscalarGet", "uscalarSet", 1, 21] as Miaoverse.Kernel_member,
-        targetCount: ["uscalarGet", "uscalarSet", 1, 22] as Miaoverse.Kernel_member,
-        morphTargets: ["ptrGet", "ptrSet", 1, 23] as Miaoverse.Kernel_member,
-
-        modifyCount: ["ptrGet", "ptrSet", 1, 24] as Miaoverse.Kernel_member,
-        deltas: ["ptrGet", "ptrSet", 1, 25] as Miaoverse.Kernel_member,
-        unloaded: ["uscalarGet", "uscalarSet", 1, 26] as Miaoverse.Kernel_member,
-        unused3: ["uscalarGet", "uscalarSet", 1, 27] as Miaoverse.Kernel_member,
-
-        reserved: ["uarrayGet", "uarraySet", 4, 28] as Miaoverse.Kernel_member,
-    } as const;
-
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Morph_kernel["_members"];
+/** 网格变形数据内核实现。 */
+export class Morph_kernel extends Miaoverse.Base_kernel<any, typeof Morph_member_index> {
+    /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
+    public constructor(_global: Miaoverse.Ploy3D) {
+        super(_global, Morph_member_index);
+    }
 }
 
-/** 网格资源。 */
+/** 网格资源内核实现的数据结构成员列表。 */
+export const Mesh_member_index = {
+    ...Miaoverse.Binary_member_index,
+
+    unloaded: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
+    reserved: ["uarrayGet", "uarraySet", 3, 13] as Miaoverse.Kernel_member,
+
+    geometryPTR: ["ptrGet", "ptrSet", 1, 16] as Miaoverse.Kernel_member,
+    geometryUUID: ["uuidGet", "uuidSet", 3, 17] as Miaoverse.Kernel_member,
+
+    uvPTR: ["ptrGet", "ptrSet", 1, 20] as Miaoverse.Kernel_member,
+    uvUUID: ["uuidGet", "uuidSet", 3, 21] as Miaoverse.Kernel_member,
+
+    skinPTR: ["ptrGet", "ptrSet", 1, 24] as Miaoverse.Kernel_member,
+    skinUUID: ["uuidGet", "uuidSet", 3, 25] as Miaoverse.Kernel_member,
+
+    morphPTR: ["ptrGet", "ptrSet", 1, 28] as Miaoverse.Kernel_member,
+    morphUUID: ["uuidGet", "uuidSet", 3, 29] as Miaoverse.Kernel_member,
+
+    vertexBufferLayout: ["uscalarGet", "uscalarSet", 1, 32] as Miaoverse.Kernel_member,
+    vertexBufferCount: ["uscalarGet", "uscalarSet", 1, 33] as Miaoverse.Kernel_member,
+    indexBufferFormat: ["uscalarGet", "uscalarSet", 1, 34] as Miaoverse.Kernel_member,
+    submeshCount: ["uscalarGet", "uscalarSet", 1, 35] as Miaoverse.Kernel_member,
+
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 36] as Miaoverse.Kernel_member,
+    indexCount: ["uscalarGet", "uscalarSet", 1, 37] as Miaoverse.Kernel_member,
+
+    center: ["farrayGet", "farraySet", 3, 38] as Miaoverse.Kernel_member,
+    extents: ["farrayGet", "farraySet", 3, 41] as Miaoverse.Kernel_member,
+
+    skinMethod: ["uscalarGet", "uscalarSet", 1, 44] as Miaoverse.Kernel_member,
+
+    vertexBuffer: ["ptrGet", "ptrSet", 1, 45] as Miaoverse.Kernel_member,
+    indexBuffer: ["ptrGet", "ptrSet", 1, 46] as Miaoverse.Kernel_member,
+    meshData: ["ptrGet", "ptrSet", 1, 47] as Miaoverse.Kernel_member,
+} as const;
+
+/** 几何UV数据内核实现的数据结构成员列表。 */
+export const UVSet_member_index = {
+    ...Miaoverse.Binary_member_index,
+
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
+    uvCount: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
+    mappingCount: ["uscalarGet", "uscalarSet", 1, 14] as Miaoverse.Kernel_member,
+    unloaded: ["uscalarGet", "uscalarSet", 1, 15] as Miaoverse.Kernel_member,
+
+    unused0: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
+    unused1: ["uscalarGet", "uscalarSet", 1, 17] as Miaoverse.Kernel_member,
+    uv: ["ptrGet", "ptrSet", 1, 18] as Miaoverse.Kernel_member,
+    polygonVertexIndices: ["ptrGet", "ptrSet", 1, 19] as Miaoverse.Kernel_member,
+} as const;
+
+/** 几何数据内核实现的数据结构成员列表。 */
+export const Geometry_member_index = {
+    ...Miaoverse.Binary_member_index,
+
+    defaultUVPTR: ["ptrGet", "ptrSet", 1, 12] as Miaoverse.Kernel_member,
+    defaultUVUUID: ["uuidGet", "uuidSet", 3, 13] as Miaoverse.Kernel_member,
+
+    type: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
+    edgeInterpolationMode: ["uscalarGet", "uscalarSet", 1, 17] as Miaoverse.Kernel_member,
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 18] as Miaoverse.Kernel_member,
+    polyCount: ["uscalarGet", "uscalarSet", 1, 19] as Miaoverse.Kernel_member,
+
+    center: ["farrayGet", "farraySet", 3, 20] as Miaoverse.Kernel_member,
+    extents: ["farrayGet", "farraySet", 3, 23] as Miaoverse.Kernel_member,
+
+    vertices: ["ptrGet", "ptrSet", 1, 26] as Miaoverse.Kernel_member,
+    polylist: ["ptrGet", "ptrSet", 1, 27] as Miaoverse.Kernel_member,
+
+    materialGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 28] as Miaoverse.Kernel_member,
+    polygonGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 29] as Miaoverse.Kernel_member,
+
+    materialGroupsName: ["ptrGet", "ptrSet", 1, 30] as Miaoverse.Kernel_member,
+    polygonGroupsName: ["ptrGet", "ptrSet", 1, 31] as Miaoverse.Kernel_member,
+
+    unloaded: ["uscalarGet", "uscalarSet", 1, 32] as Miaoverse.Kernel_member,
+    reserved: ["uarrayGet", "uarraySet", 3, 33] as Miaoverse.Kernel_member,
+} as const;
+
+/** 网格变形数据内核实现的数据结构成员列表。 */
+export const Morph_member_index = {
+    ...Miaoverse.Binary_member_index,
+
+    type: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
+    deltasByteSize: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
+
+    min: ["farrayGet", "farraySet", 3, 14] as Miaoverse.Kernel_member,
+    max: ["farrayGet", "farraySet", 3, 17] as Miaoverse.Kernel_member,
+
+    textureWidth: ["uscalarGet", "uscalarSet", 1, 20] as Miaoverse.Kernel_member,
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 21] as Miaoverse.Kernel_member,
+    targetCount: ["uscalarGet", "uscalarSet", 1, 22] as Miaoverse.Kernel_member,
+    morphTargets: ["ptrGet", "ptrSet", 1, 23] as Miaoverse.Kernel_member,
+
+    modifyCount: ["ptrGet", "ptrSet", 1, 24] as Miaoverse.Kernel_member,
+    deltas: ["ptrGet", "ptrSet", 1, 25] as Miaoverse.Kernel_member,
+    unloaded: ["uscalarGet", "uscalarSet", 1, 26] as Miaoverse.Kernel_member,
+    unused3: ["uscalarGet", "uscalarSet", 1, 27] as Miaoverse.Kernel_member,
+
+    reserved: ["uarrayGet", "uarraySet", 4, 28] as Miaoverse.Kernel_member,
+} as const;
+
+/** 网格资源描述符。 */
 export interface Asset_mesh extends Miaoverse.Asset {
-    /** 网格数据构建器。 */
+    /** 网格几何数据构建器。 */
     creater?: Asset_mesh_creater;
 }
 
-/** 网格数据构建器。 */
+/** 网格几何数据构建器。 */
 export interface Asset_mesh_creater {
     type: "grid" | "box" | "sphere" | "cylinder" | "lod_tile" | "lod_plane";
     grid?: Parameters<Mesh_kernel["MakeGrid"]>[0],

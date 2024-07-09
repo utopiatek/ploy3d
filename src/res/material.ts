@@ -4,13 +4,12 @@ import * as Miaoverse from "../mod.js"
 export class Material extends Miaoverse.Uniform<Material_kernel> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     public constructor(impl: Material_kernel, ptr: Miaoverse.io_ptr, id: number) {
         super(impl, ptr, id);
-
         this._view = new (this.tuple.view)(this);
     }
 
@@ -75,7 +74,7 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
      * @param name 属性名称。
      * @returns 返回贴图描述符。
      */
-    public GetTexture(name: string): Miaoverse.Asset_wrapper_texture {
+    public GetTexture(name: string): Miaoverse.TextureNode {
         if (!this.HasProperty(name + "_uuid")) {
             return null;
         }
@@ -83,11 +82,12 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
         const texture = this._global.resources.Texture.GetInstanceByID(this.view[name + "_uuid"][0]);
         const sampler = this.view[name + "_sampler"];
         const uvts = this.view[name + "_uvts"];
+        const color = sampler[1];
 
         return {
             texture,
             uvts,
-            default_color: sampler[1],
+            color: [(color >> 0) & 255, (color >> 8) & 255, (color >> 16) & 255, (color >> 24) & 255],
             sampler: this._global.device.ParseSamplerFlags(sampler[2])
         };
     }
@@ -97,7 +97,7 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
      * @param name 属性名称。
      * @param value 贴图描述符（注意，贴图URI必须是UUID）。
      */
-    public SetTexture(name: string, value: Miaoverse.Asset_wrapper_texture): void {
+    public SetTexture(name: string, value: Miaoverse.TextureNode): void {
         if (!this.HasProperty(name + "_uuid")) {
             return;
         }
@@ -126,8 +126,15 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
             this.view[name + "_uvts"] = value.uvts;
         }
 
-        if (value.default_color !== undefined) {
-            sampler[1] = value.default_color;
+        if (value.color !== undefined) {
+            let color = 0;
+
+            color += Math.floor(value.color[3]) << 24;
+            color += Math.floor(value.color[2]) << 16;
+            color += Math.floor(value.color[1]) << 8;
+            color += Math.floor(value.color[0]) << 0;
+
+            sampler[1] = color;
         }
 
         if (value.sampler !== undefined) {
@@ -158,7 +165,7 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
     }
     public set enableFlags(value: number) {
         this._impl.Set(this._ptr, "enableFlags", value);
-        this.updated = 1;
+        this.updated = true;
     }
 
     /** 材质使用的着色器资源。 */
@@ -182,8 +189,8 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
 export class FrameUniforms extends Miaoverse.Uniform<Material_kernel>{
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     public constructor(impl: Material_kernel, ptr: Miaoverse.io_ptr, id: number) {
@@ -255,18 +262,18 @@ export class FrameUniforms extends Miaoverse.Uniform<Material_kernel>{
     private _view: Record<string, Array<number>>;
 }
 
-/** 材质资源实例（G2，128+字节）。 */
-export class Material_kernel {
+/** 材质资源内核实现。 */
+export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUniforms, typeof Material_member_index> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      */
     public constructor(_global: Miaoverse.Ploy3D) {
-        this._global = _global;
+        super(_global, Material_member_index);
     }
 
     /**
-     * 装载材质资源实例。
+     * 装载材质资源。
      * @param uri 材质资源URI。
      * @param pkg 当前资源包注册信息。
      * @returns 异步返回材质资源实例。
@@ -314,7 +321,7 @@ export class Material_kernel {
             throw "获取着色器资源失败！";
         }
 
-        const ptr = this.InstanceMaterial(shader.uniformSize, this._global.env.ptrZero());
+        const ptr = this._InstanceMaterial(shader.uniformSize, this._global.env.ptrZero());
         const id = this._instanceIdle;
 
         // 设置实例 ===============-----------------------
@@ -340,7 +347,7 @@ export class Material_kernel {
                 }
             }
 
-            instance.updated = 1;
+            instance.updated = true;
             instance.writeTS = this._global.env.frameTS;
         }
 
@@ -369,7 +376,7 @@ export class Material_kernel {
     }
 
     /**
-     * 创建G0实例。
+     * 创建G0资源实例。
      * @param colorRT 颜色渲染目标贴图ID。
      * @param depthRT 深度渲染目标贴图ID。
      * @param gbufferRT GB渲染目标贴图ID。
@@ -377,7 +384,7 @@ export class Material_kernel {
      * @returns
      */
     public async CreateFrameUniforms(colorRT: number, depthRT: number, gbufferRT: number, spriteAtlas: number) {
-        const ptr = this.InstanceFrameUniforms();
+        const ptr = this._InstanceFrameUniforms();
         const id = this._instanceIdle;
 
         // 设置实例 ===============-----------------------
@@ -398,7 +405,7 @@ export class Material_kernel {
                 }
             }
 
-            instance.updated = 1;
+            instance.updated = true;
             instance.writeTS = this._global.env.frameTS;
         }
 
@@ -435,102 +442,49 @@ export class Material_kernel {
     }
 
     /**
-     * 根据内核对象指针获取对象实例。
-     * @param self 内核对象指针。
-     * @returns 返回对象实例。
+     * 实例化材质资源内核实例。
+     * @param size 材质属性集字节大小。
+     * @param data 材质资源保存数据。
+     * @returns 返回材质资源内核实例指针。
      */
-    public GetInstanceByPtr(ptr: Miaoverse.io_ptr) {
-        if (this._global.env.ptrValid(ptr)) {
-            const id = this.Get<number>(ptr, "id");
-            return this.GetInstanceByID(id);
-        }
-
-        return null;
-    }
+    protected _InstanceMaterial: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 
     /**
-     * 根据实例ID获取对象实例。
-     * @param id 实例ID。
-     * @returns 返回对象实例。
+     * 实例化G0资源内核实例。
+     * @returns 返回G0资源内核实例指针。
      */
-    public GetInstanceByID(id: number) {
-        return this._instanceList[id];
-    }
-
-    /**
-     * 获取内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @returns 返回对应属性值。
-     */
-    public Get<T>(self: Miaoverse.io_ptr, key: Material_kernel["_members_key"]) {
-        const member = this._members[key];
-        return this._global.env[member[0]](self, member[3], member[2]) as T;
-    }
-
-    /**
-     * 设置内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @param value 属性值。
-     */
-    public Set(self: Miaoverse.io_ptr, key: Material_kernel["_members_key"], value: any) {
-        const member = this._members[key];
-        this._global.env[member[1]](self, member[3], value as never);
-    }
-
-    /** 实例化材质资源实例。 */
-    protected InstanceMaterial: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
-    /** 实例化G0。 */
-    protected InstanceFrameUniforms: () => Miaoverse.io_ptr;
-
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
-
-    /** 实例容器列表。 */
-    protected _instanceList: (Material | FrameUniforms)[] = [null];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, (Material | FrameUniforms)> = {};
-    /** 已分配实例数量。 */
-    protected _instanceCount: number = 0;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number = 1;
-    /** 待GC列表。 */
-    protected _gcList: (Material | FrameUniforms)[] = [];
-
-    /** 材质资源内核实现的数据结构成员列表。 */
-    protected _members = {
-        ...Miaoverse.Uniform_member_index,
-
-        g0_colorRT: ["uscalarGet", "uscalarSet", 1, 20] as Miaoverse.Kernel_member,
-        g0_depthRT: ["uscalarGet", "uscalarSet", 1, 21] as Miaoverse.Kernel_member,
-        g0_gbufferRT: ["uscalarGet", "uscalarSet", 1, 22] as Miaoverse.Kernel_member,
-        g0_spriteAtlas: ["uscalarGet", "uscalarSet", 1, 23] as Miaoverse.Kernel_member,
-
-        g0_froxelList: ["ptrGet", "ptrSet", 1, 25] as Miaoverse.Kernel_member,
-        g0_lightVoxel: ["ptrGet", "ptrSet", 1, 26] as Miaoverse.Kernel_member,
-        g0_lightList: ["ptrGet", "ptrSet", 1, 27] as Miaoverse.Kernel_member,
-
-        shaderID: ["uscalarGet", "uscalarSet", 1, 20] as Miaoverse.Kernel_member,
-        shaderUUID: ["uuidGet", "uuidSet", 3, 21] as Miaoverse.Kernel_member,
-
-        enableFlags: ["uscalarGet", "uscalarSet", 1, 24] as Miaoverse.Kernel_member,
-    } as const;
-
-    /** 材质资源内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Material_kernel["_members"];
+    protected _InstanceFrameUniforms: () => Miaoverse.io_ptr;
 }
+
+/** 材质资源内核实现的数据结构成员列表。 */
+export const Material_member_index = {
+    ...Miaoverse.Uniform_member_index,
+
+    g0_colorRT: ["uscalarGet", "uscalarSet", 1, 20] as Miaoverse.Kernel_member,
+    g0_depthRT: ["uscalarGet", "uscalarSet", 1, 21] as Miaoverse.Kernel_member,
+    g0_gbufferRT: ["uscalarGet", "uscalarSet", 1, 22] as Miaoverse.Kernel_member,
+    g0_spriteAtlas: ["uscalarGet", "uscalarSet", 1, 23] as Miaoverse.Kernel_member,
+
+    g0_froxelList: ["ptrGet", "ptrSet", 1, 25] as Miaoverse.Kernel_member,
+    g0_lightVoxel: ["ptrGet", "ptrSet", 1, 26] as Miaoverse.Kernel_member,
+    g0_lightList: ["ptrGet", "ptrSet", 1, 27] as Miaoverse.Kernel_member,
+
+    shaderID: ["uscalarGet", "uscalarSet", 1, 20] as Miaoverse.Kernel_member,
+    shaderUUID: ["uuidGet", "uuidSet", 3, 21] as Miaoverse.Kernel_member,
+
+    enableFlags: ["uscalarGet", "uscalarSet", 1, 24] as Miaoverse.Kernel_member,
+} as const;
 
 /** 材质资源描述符。 */
 export interface Asset_material extends Miaoverse.Asset {
-    /** 着色器全局唯一ID。 */
+    /** 着色器URI。 */
     shader: string;
     /** 渲染设置标记集（RENDER_FLAGS）。 */
     flags: number;
     /** 材质属性集。 */
     properties: {
         /** 贴图属性设置列表。 */
-        textures: Record<string, Miaoverse.Asset_wrapper_texture>;
+        textures: Record<string, Miaoverse.TextureNode>;
         /** 向量属性设置列表（标量被视为一维向量）。 */
         vectors: Record<string, number[]>;
     };

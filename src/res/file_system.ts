@@ -4,6 +4,7 @@ import * as Miaoverse from "../mod.js"
 export class FileStorage {
     /**
      * 构造函数。
+     * @param _global 引擎实例。
      * @param root 根路径句柄。
      */
     public constructor(_global: Miaoverse.Ploy3D, root?: FileSystemDirectoryHandle) {
@@ -193,7 +194,7 @@ export class FileStorage {
         return false;
     }
 
-    /** 模块实例对象。 */
+    /** 引擎实例。 */
     private _global: Miaoverse.Ploy3D;
     /** 根路径句柄。 */
     private _dirRoot: FileSystemDirectoryHandle;
@@ -205,7 +206,7 @@ export class FileStorage {
 export class BinaryReader {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      * @param buffer 数据缓存。
      */
     public constructor(_global: Miaoverse.Ploy3D, buffer: ArrayBuffer) {
@@ -389,7 +390,7 @@ export class BinaryReader {
         this._position = position;
     }
 
-    /** 模块实例对象。 */
+    /** 引擎实例。 */
     private _global: Miaoverse.Ploy3D;
     /** 数据缓存。 */
     private _buffer: ArrayBuffer;
@@ -403,7 +404,7 @@ export class BinaryReader {
 export class BinaryWriter {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      * @param buffer 数据缓存。
      */
     public constructor(_global: Miaoverse.Ploy3D, buffer: ArrayBuffer) {
@@ -536,7 +537,7 @@ export class BinaryWriter {
         this._position = position;
     }
 
-    /** 模块实例对象。 */
+    /** 引擎实例。 */
     private _global: Miaoverse.Ploy3D;
     /** 数据缓存。 */
     private _buffer: ArrayBuffer;

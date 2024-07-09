@@ -33,10 +33,11 @@ export class Material extends Miaoverse.Uniform {
         const texture = this._global.resources.Texture.GetInstanceByID(this.view[name + "_uuid"][0]);
         const sampler = this.view[name + "_sampler"];
         const uvts = this.view[name + "_uvts"];
+        const color = sampler[1];
         return {
             texture,
             uvts,
-            default_color: sampler[1],
+            color: [(color >> 0) & 255, (color >> 8) & 255, (color >> 16) & 255, (color >> 24) & 255],
             sampler: this._global.device.ParseSamplerFlags(sampler[2])
         };
     }
@@ -62,8 +63,13 @@ export class Material extends Miaoverse.Uniform {
         if (value.uvts) {
             this.view[name + "_uvts"] = value.uvts;
         }
-        if (value.default_color !== undefined) {
-            sampler[1] = value.default_color;
+        if (value.color !== undefined) {
+            let color = 0;
+            color += Math.floor(value.color[3]) << 24;
+            color += Math.floor(value.color[2]) << 16;
+            color += Math.floor(value.color[1]) << 8;
+            color += Math.floor(value.color[0]) << 0;
+            sampler[1] = color;
         }
         if (value.sampler !== undefined) {
             sampler[2] = this._global.device.GenerateSamplerFlags(value.sampler);
@@ -82,7 +88,7 @@ export class Material extends Miaoverse.Uniform {
     }
     set enableFlags(value) {
         this._impl.Set(this._ptr, "enableFlags", value);
-        this.updated = 1;
+        this.updated = true;
     }
     get shader() {
         const shaderID = this._impl.Get(this._ptr, "shaderID");
@@ -143,9 +149,9 @@ export class FrameUniforms extends Miaoverse.Uniform {
     }
     _view;
 }
-export class Material_kernel {
+export class Material_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
-        this._global = _global;
+        super(_global, Material_member_index);
     }
     async Load(uri, pkg) {
         const uuid = this._global.resources.ToUUID(uri, pkg);
@@ -172,7 +178,7 @@ export class Material_kernel {
         if (!shader) {
             throw "获取着色器资源失败！";
         }
-        const ptr = this.InstanceMaterial(shader.uniformSize, this._global.env.ptrZero());
+        const ptr = this._InstanceMaterial(shader.uniformSize, this._global.env.ptrZero());
         const id = this._instanceIdle;
         this.Set(ptr, "id", id);
         this.Set(ptr, "uuid", asset.uuid);
@@ -188,7 +194,7 @@ export class Material_kernel {
                     instance.view[var_.decl.name] = var_.decl.value;
                 }
             }
-            instance.updated = 1;
+            instance.updated = true;
             instance.writeTS = this._global.env.frameTS;
         }
         instance.enableFlags = instance.enableFlags | asset.flags;
@@ -205,7 +211,7 @@ export class Material_kernel {
         return instance;
     }
     async CreateFrameUniforms(colorRT, depthRT, gbufferRT, spriteAtlas) {
-        const ptr = this.InstanceFrameUniforms();
+        const ptr = this._InstanceFrameUniforms();
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new FrameUniforms(this, ptr, id);
@@ -217,7 +223,7 @@ export class Material_kernel {
                     instance.view[var_.decl.name] = var_.decl.value;
                 }
             }
-            instance.updated = 1;
+            instance.updated = true;
             instance.writeTS = this._global.env.frameTS;
         }
         this.Set(ptr, "id", id);
@@ -240,45 +246,20 @@ export class Material_kernel {
             }
         }
     }
-    GetInstanceByPtr(ptr) {
-        if (this._global.env.ptrValid(ptr)) {
-            const id = this.Get(ptr, "id");
-            return this.GetInstanceByID(id);
-        }
-        return null;
-    }
-    GetInstanceByID(id) {
-        return this._instanceList[id];
-    }
-    Get(self, key) {
-        const member = this._members[key];
-        return this._global.env[member[0]](self, member[3], member[2]);
-    }
-    Set(self, key, value) {
-        const member = this._members[key];
-        this._global.env[member[1]](self, member[3], value);
-    }
-    InstanceMaterial;
-    InstanceFrameUniforms;
-    _global;
-    _instanceList = [null];
-    _instanceLut = {};
-    _instanceCount = 0;
-    _instanceIdle = 1;
-    _gcList = [];
-    _members = {
-        ...Miaoverse.Uniform_member_index,
-        g0_colorRT: ["uscalarGet", "uscalarSet", 1, 20],
-        g0_depthRT: ["uscalarGet", "uscalarSet", 1, 21],
-        g0_gbufferRT: ["uscalarGet", "uscalarSet", 1, 22],
-        g0_spriteAtlas: ["uscalarGet", "uscalarSet", 1, 23],
-        g0_froxelList: ["ptrGet", "ptrSet", 1, 25],
-        g0_lightVoxel: ["ptrGet", "ptrSet", 1, 26],
-        g0_lightList: ["ptrGet", "ptrSet", 1, 27],
-        shaderID: ["uscalarGet", "uscalarSet", 1, 20],
-        shaderUUID: ["uuidGet", "uuidSet", 3, 21],
-        enableFlags: ["uscalarGet", "uscalarSet", 1, 24],
-    };
-    _members_key;
+    _InstanceMaterial;
+    _InstanceFrameUniforms;
 }
+export const Material_member_index = {
+    ...Miaoverse.Uniform_member_index,
+    g0_colorRT: ["uscalarGet", "uscalarSet", 1, 20],
+    g0_depthRT: ["uscalarGet", "uscalarSet", 1, 21],
+    g0_gbufferRT: ["uscalarGet", "uscalarSet", 1, 22],
+    g0_spriteAtlas: ["uscalarGet", "uscalarSet", 1, 23],
+    g0_froxelList: ["ptrGet", "ptrSet", 1, 25],
+    g0_lightVoxel: ["ptrGet", "ptrSet", 1, 26],
+    g0_lightList: ["ptrGet", "ptrSet", 1, 27],
+    shaderID: ["uscalarGet", "uscalarSet", 1, 20],
+    shaderUUID: ["uuidGet", "uuidSet", 3, 21],
+    enableFlags: ["uscalarGet", "uscalarSet", 1, 24],
+};
 //# sourceMappingURL=material.js.map

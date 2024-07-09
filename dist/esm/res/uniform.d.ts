@@ -1,11 +1,11 @@
 /// <reference types="@webgpu/types" />
 import * as Miaoverse from "../mod.js";
-/** 着色器属性统一缓存实例。 */
+/** 统一缓存实例。 */
 export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     constructor(impl: any, ptr: Miaoverse.io_ptr, id: number);
@@ -37,8 +37,8 @@ export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     get bindingID(): number;
     set bindingID(value: number);
     /** 属性块数据更新状态。 */
-    get updated(): number;
-    set updated(value: number);
+    get updated(): boolean;
+    set updated(value: boolean);
     /** 资源绑定组布局ID（同时也是着色器内部实例ID）。 */
     get layoutID(): number;
     /** 资源绑定组属性元组。 */
@@ -55,7 +55,7 @@ export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     get bufferPtr(): Miaoverse.io_ptr;
     /** 缓存字节大小（256的倍数）。 */
     get bufferSize(): number;
-    /** 统一缓存内核实现。 */
+    /** 内核实现。 */
     protected _impl: T & {
         /**
          * 获取内核对象属性值。
@@ -83,7 +83,7 @@ export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     /** 缓存绑定偏移。 */
     protected dynamicOffsets?: number[];
 }
-/** 着色器属性统一缓存实例（80字节）。 */
+/** 统一缓存内核实现的数据结构成员列表。 */
 export declare const Uniform_member_index: {
     /** BUFFER数据成员（使用BUFFER指针读取） */
     readonly buffer_bufferID: Miaoverse.Kernel_member;
@@ -95,7 +95,7 @@ export declare const Uniform_member_index: {
     readonly bn_bufferID: Miaoverse.Kernel_member;
     readonly bn_offset: Miaoverse.Kernel_member;
     readonly bn_size: Miaoverse.Kernel_member;
-    /** SE_UNIFORM数据成员 */
+    /** UNIFORM数据成员 */
     readonly buffer: Miaoverse.Kernel_member;
     readonly bufferID: Miaoverse.Kernel_member;
     readonly bufferBlockOffset: Miaoverse.Kernel_member;

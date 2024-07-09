@@ -57,7 +57,11 @@ export class Resources {
         this.Mesh = new Miaoverse.Mesh_kernel(_global);
         this.MeshRenderer = new Miaoverse.MeshRenderer_kernel(_global);
         this.Camera = new Miaoverse.Camera_kernel(_global);
+        this.Light = new Miaoverse.Light_kernel(_global);
+        this.Volume = new Miaoverse.Volume_kernel(_global);
+        this.Animator = new Miaoverse.Animator_kernel(_global);
         this.Object = new Miaoverse.Object_kernel(_global);
+        this.Scene = new Miaoverse.Scene_kernel(_global);
     }
 
     /**
@@ -492,9 +496,9 @@ export class Resources {
 
     /** 矢量数学方法内核实现。 */
     public VMath: Miaoverse.VMath_kernel;
-    /** 着色器资源实例管理器。 */
+    /** 着色器资源实例管理器（没有内核实现）。 */
     public Shader: Miaoverse.Shader_kernel;
-    /** 贴图资源实例管理器。 */
+    /** 贴图资源实例管理器（没有内核实现）。 */
     public Texture: Miaoverse.Texture_kernel;
     /** 材质资源内核实现。 */
     public Material: Miaoverse.Material_kernel;
@@ -504,8 +508,16 @@ export class Resources {
     public MeshRenderer: Miaoverse.MeshRenderer_kernel;
     /** 相机组件内核实现。 */
     public Camera: Miaoverse.Camera_kernel;
+    /** 光源组件内核实现。 */
+    public Light: Miaoverse.Light_kernel;
+    /** 体积组件内核实现。 */
+    public Volume: Miaoverse.Volume_kernel;
+    /** 动画组件内核实现。 */
+    public Animator: Miaoverse.Animator_kernel;
     /** 3D对象内核实现。 */
     public Object: Miaoverse.Object_kernel;
+    /** 场景内核实现。 */
+    public Scene: Miaoverse.Scene_kernel;
 }
 
 /** 资源实例基类。*/
@@ -525,6 +537,11 @@ export class Resource<T> {
     /** 实例ID。 */
     public get id() {
         return this._id;
+    }
+
+    /** 内核实例指针。 */
+    public get internalPtr() {
+        return this._ptr;
     }
 
     /** 模块实例对象。 */
@@ -599,8 +616,6 @@ export interface Package {
     list: string[];
 }
 
-//========================================
-
 /** 资源描述符基类。 */
 export interface Asset {
     /** 全局唯一ID。 */
@@ -612,27 +627,6 @@ export interface Asset {
     /** 用户可理解的外部标签。 */
     label: string;
 }
-
-export type Kernel_member = [Kernel_member_getter, Kernel_member_setter, number, number];
-export type Kernel_member_getter = "uscalarGet" | "fscalarGet" | "uarrayGet" | "farrayGet" | "ptrGet" | "uuidGet" | "stringGet";
-export type Kernel_member_setter = "uscalarSet" | "fscalarSet" | "uarraySet" | "farraySet" | "ptrSet" | "uuidSet" | "stringSet";
-
-/** 二进制数据基类（48字节）。 */
-export const Binary_member_index = {
-    magic: ["uscalarGet", "uscalarSet", 1, 0] as Kernel_member,
-    version: ["uscalarGet", "uscalarSet", 1, 1] as Kernel_member,
-    byteSize: ["uscalarGet", "uscalarSet", 1, 2] as Kernel_member,
-    refCount: ["uscalarGet", "uscalarSet", 1, 3] as Kernel_member,
-
-    id: ["uscalarGet", "uscalarSet", 1, 4] as Kernel_member,
-    uuid: ["uuidGet", "uuidSet", 3, 5] as Kernel_member,
-
-    writeTS: ["uscalarGet", "uscalarSet", 1, 8] as Kernel_member,
-    readTS: ["uscalarGet", "uscalarSet", 1, 9] as Kernel_member,
-
-    last: ["ptrGet", "ptrSet", 1, 10] as Kernel_member,
-    next: ["ptrGet", "ptrSet", 1, 11] as Kernel_member,
-} as const;
 
 /** 类型ID枚举。 */
 export const enum CLASSID {

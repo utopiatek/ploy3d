@@ -91,9 +91,9 @@ export declare class Resources {
     private _pkg_caches;
     /** 矢量数学方法内核实现。 */
     VMath: Miaoverse.VMath_kernel;
-    /** 着色器资源实例管理器。 */
+    /** 着色器资源实例管理器（没有内核实现）。 */
     Shader: Miaoverse.Shader_kernel;
-    /** 贴图资源实例管理器。 */
+    /** 贴图资源实例管理器（没有内核实现）。 */
     Texture: Miaoverse.Texture_kernel;
     /** 材质资源内核实现。 */
     Material: Miaoverse.Material_kernel;
@@ -103,8 +103,16 @@ export declare class Resources {
     MeshRenderer: Miaoverse.MeshRenderer_kernel;
     /** 相机组件内核实现。 */
     Camera: Miaoverse.Camera_kernel;
+    /** 光源组件内核实现。 */
+    Light: Miaoverse.Light_kernel;
+    /** 体积组件内核实现。 */
+    Volume: Miaoverse.Volume_kernel;
+    /** 动画组件内核实现。 */
+    Animator: Miaoverse.Animator_kernel;
     /** 3D对象内核实现。 */
     Object: Miaoverse.Object_kernel;
+    /** 场景内核实现。 */
+    Scene: Miaoverse.Scene_kernel;
 }
 /** 资源实例基类。*/
 export declare class Resource<T> {
@@ -117,6 +125,8 @@ export declare class Resource<T> {
     constructor(_global: Miaoverse.Ploy3D, ptr: Miaoverse.io_ptr, id: number);
     /** 实例ID。 */
     get id(): number;
+    /** 内核实例指针。 */
+    get internalPtr(): never;
     /** 模块实例对象。 */
     protected _global: Miaoverse.Ploy3D;
     /** 实例内部指针。 */
@@ -193,22 +203,6 @@ export interface Asset {
     /** 用户可理解的外部标签。 */
     label: string;
 }
-export type Kernel_member = [Kernel_member_getter, Kernel_member_setter, number, number];
-export type Kernel_member_getter = "uscalarGet" | "fscalarGet" | "uarrayGet" | "farrayGet" | "ptrGet" | "uuidGet" | "stringGet";
-export type Kernel_member_setter = "uscalarSet" | "fscalarSet" | "uarraySet" | "farraySet" | "ptrSet" | "uuidSet" | "stringSet";
-/** 二进制数据基类（48字节）。 */
-export declare const Binary_member_index: {
-    readonly magic: Miaoverse.Kernel_member;
-    readonly version: Miaoverse.Kernel_member;
-    readonly byteSize: Miaoverse.Kernel_member;
-    readonly refCount: Miaoverse.Kernel_member;
-    readonly id: Miaoverse.Kernel_member;
-    readonly uuid: Miaoverse.Kernel_member;
-    readonly writeTS: Miaoverse.Kernel_member;
-    readonly readTS: Miaoverse.Kernel_member;
-    readonly last: Miaoverse.Kernel_member;
-    readonly next: Miaoverse.Kernel_member;
-};
 /** 类型ID枚举。 */
 export declare const enum CLASSID {
     /** 无效类型。 */

@@ -117,7 +117,7 @@ export interface PropTuple {
         /** 标准材质材质属性启用标志集。 */
         enableFlags: number;
         /** 属性块数据更新状态。 */
-        updated: number;
+        updated: boolean;
         /** 属性缓存块地址。 */
         blockPtr: Miaoverse.io_ptr;
     }) => Record<string, Array<number>>;

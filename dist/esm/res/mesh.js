@@ -3,6 +3,7 @@ export class Mesh extends Miaoverse.Resource {
     constructor(impl, ptr, id) {
         super(impl["_global"], ptr, id);
         this._impl = impl;
+        this._impl.Set(this._ptr, "id", id);
         const env = this._global.env;
         const ptrVB = this.ptrVB;
         const ptrIB = this.ptrIB;
@@ -75,9 +76,9 @@ export class Mesh extends Miaoverse.Resource {
     _vertices;
     _triangles;
 }
-export class Mesh_kernel {
+export class Mesh_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
-        this._global = _global;
+        super(_global, Mesh_member_index);
     }
     Create(asset) {
         let type = asset.creater.type;
@@ -104,40 +105,21 @@ export class Mesh_kernel {
             return null;
         }
         const res = this.MakeGeometry(data);
-        const ptr = this.InstanceMesh(res[1]);
+        const ptr = this._InstanceMesh(res[1]);
         this._global.internal.System_Delete(res[1]);
         if (!this._global.env.ptrValid(ptr)) {
             return null;
         }
         const id = this._instanceIdle;
-        this.Set(ptr, "id", id);
-        this.Set(ptr, "uuid", asset.uuid);
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new Mesh(this, ptr, id);
         this._instanceCount++;
         this._gcList.push(instance);
         if (asset.uuid) {
+            this.Set(ptr, "uuid", asset.uuid);
             this._instanceLut[asset.uuid] = instance;
         }
         return instance;
-    }
-    GetInstanceByPtr(ptr) {
-        if (this._global.env.ptrValid(ptr)) {
-            const id = this.Get(ptr, "id");
-            return this.GetInstanceByID(id);
-        }
-        return null;
-    }
-    GetInstanceByID(id) {
-        return this._instanceList[id];
-    }
-    Get(self, key) {
-        const member = this._members[key];
-        return this._global.env[member[0]](self, member[3], member[2]);
-    }
-    Set(self, key, value) {
-        const member = this._members[key];
-        this._global.env[member[1]](self, member[3], value);
     }
     MakeGeometry(data) {
         let vCount = data.vertices.length / 3;
@@ -174,7 +156,7 @@ export class Mesh_kernel {
         env.farraySet(data_ptr, verticesOffset, data.vertices);
         env.farraySet(data_ptr, normalsOffset, data.normals);
         env.farraySet(data_ptr, uvsOffset, data.uvs);
-        const resource = this.CreateMesh(data_ptr);
+        const resource = this._CreateMesh(data_ptr);
         this._global.internal.System_Delete(data_ptr);
         return resource;
     }
@@ -662,94 +644,93 @@ export class Mesh_kernel {
             groups
         };
     }
-    InstanceMesh;
-    CreateMesh;
-    _global;
-    _instanceList = [null];
-    _instanceLut = {};
-    _instanceCount = 0;
-    _instanceIdle = 1;
-    _gcList = [];
-    _members = {
-        ...Miaoverse.Binary_member_index,
-        unloaded: ["uscalarGet", "uscalarSet", 1, 12],
-        reserved: ["uarrayGet", "uarraySet", 3, 13],
-        geometryPTR: ["ptrGet", "ptrSet", 1, 16],
-        geometryUUID: ["uuidGet", "uuidSet", 3, 17],
-        uvPTR: ["ptrGet", "ptrSet", 1, 20],
-        uvUUID: ["uuidGet", "uuidSet", 3, 21],
-        skinPTR: ["ptrGet", "ptrSet", 1, 24],
-        skinUUID: ["uuidGet", "uuidSet", 3, 25],
-        morphPTR: ["ptrGet", "ptrSet", 1, 28],
-        morphUUID: ["uuidGet", "uuidSet", 3, 29],
-        vertexBufferLayout: ["uscalarGet", "uscalarSet", 1, 32],
-        vertexBufferCount: ["uscalarGet", "uscalarSet", 1, 33],
-        indexBufferFormat: ["uscalarGet", "uscalarSet", 1, 34],
-        submeshCount: ["uscalarGet", "uscalarSet", 1, 35],
-        vertexCount: ["uscalarGet", "uscalarSet", 1, 36],
-        indexCount: ["uscalarGet", "uscalarSet", 1, 37],
-        center: ["farrayGet", "farraySet", 3, 38],
-        extents: ["farrayGet", "farraySet", 3, 41],
-        skinMethod: ["uscalarGet", "uscalarSet", 1, 44],
-        vertexBuffer: ["ptrGet", "ptrSet", 1, 45],
-        indexBuffer: ["ptrGet", "ptrSet", 1, 46],
-        meshData: ["ptrGet", "ptrSet", 1, 47],
-    };
-    _members_key;
+    _InstanceMesh;
+    _CreateMesh;
 }
-export class UVSet_kernel {
-    _members = {
-        ...Miaoverse.Binary_member_index,
-        vertexCount: ["uscalarGet", "uscalarSet", 1, 12],
-        uvCount: ["uscalarGet", "uscalarSet", 1, 13],
-        mappingCount: ["uscalarGet", "uscalarSet", 1, 14],
-        unloaded: ["uscalarGet", "uscalarSet", 1, 15],
-        unused0: ["uscalarGet", "uscalarSet", 1, 16],
-        unused1: ["uscalarGet", "uscalarSet", 1, 17],
-        uv: ["ptrGet", "ptrSet", 1, 18],
-        polygonVertexIndices: ["ptrGet", "ptrSet", 1, 19],
-    };
-    _members_key;
+export class UVSet_kernel extends Miaoverse.Base_kernel {
+    constructor(_global) {
+        super(_global, UVSet_member_index);
+    }
 }
-export class Geometry_kernel {
-    _members = {
-        ...Miaoverse.Binary_member_index,
-        defaultUVPTR: ["ptrGet", "ptrSet", 1, 12],
-        defaultUVUUID: ["uuidGet", "uuidSet", 3, 13],
-        type: ["uscalarGet", "uscalarSet", 1, 16],
-        edgeInterpolationMode: ["uscalarGet", "uscalarSet", 1, 17],
-        vertexCount: ["uscalarGet", "uscalarSet", 1, 18],
-        polyCount: ["uscalarGet", "uscalarSet", 1, 19],
-        center: ["farrayGet", "farraySet", 3, 20],
-        extents: ["farrayGet", "farraySet", 3, 23],
-        vertices: ["ptrGet", "ptrSet", 1, 26],
-        polylist: ["ptrGet", "ptrSet", 1, 27],
-        materialGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 28],
-        polygonGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 29],
-        materialGroupsName: ["ptrGet", "ptrSet", 1, 30],
-        polygonGroupsName: ["ptrGet", "ptrSet", 1, 31],
-        unloaded: ["uscalarGet", "uscalarSet", 1, 32],
-        reserved: ["uarrayGet", "uarraySet", 3, 33],
-    };
-    _members_key;
+export class Geometry_kernel extends Miaoverse.Base_kernel {
+    constructor(_global) {
+        super(_global, Geometry_member_index);
+    }
 }
-export class Morph_kernel {
-    _members = {
-        ...Miaoverse.Binary_member_index,
-        type: ["uscalarGet", "uscalarSet", 1, 12],
-        deltasByteSize: ["uscalarGet", "uscalarSet", 1, 13],
-        min: ["farrayGet", "farraySet", 3, 14],
-        max: ["farrayGet", "farraySet", 3, 17],
-        textureWidth: ["uscalarGet", "uscalarSet", 1, 20],
-        vertexCount: ["uscalarGet", "uscalarSet", 1, 21],
-        targetCount: ["uscalarGet", "uscalarSet", 1, 22],
-        morphTargets: ["ptrGet", "ptrSet", 1, 23],
-        modifyCount: ["ptrGet", "ptrSet", 1, 24],
-        deltas: ["ptrGet", "ptrSet", 1, 25],
-        unloaded: ["uscalarGet", "uscalarSet", 1, 26],
-        unused3: ["uscalarGet", "uscalarSet", 1, 27],
-        reserved: ["uarrayGet", "uarraySet", 4, 28],
-    };
-    _members_key;
+export class Morph_kernel extends Miaoverse.Base_kernel {
+    constructor(_global) {
+        super(_global, Morph_member_index);
+    }
 }
+export const Mesh_member_index = {
+    ...Miaoverse.Binary_member_index,
+    unloaded: ["uscalarGet", "uscalarSet", 1, 12],
+    reserved: ["uarrayGet", "uarraySet", 3, 13],
+    geometryPTR: ["ptrGet", "ptrSet", 1, 16],
+    geometryUUID: ["uuidGet", "uuidSet", 3, 17],
+    uvPTR: ["ptrGet", "ptrSet", 1, 20],
+    uvUUID: ["uuidGet", "uuidSet", 3, 21],
+    skinPTR: ["ptrGet", "ptrSet", 1, 24],
+    skinUUID: ["uuidGet", "uuidSet", 3, 25],
+    morphPTR: ["ptrGet", "ptrSet", 1, 28],
+    morphUUID: ["uuidGet", "uuidSet", 3, 29],
+    vertexBufferLayout: ["uscalarGet", "uscalarSet", 1, 32],
+    vertexBufferCount: ["uscalarGet", "uscalarSet", 1, 33],
+    indexBufferFormat: ["uscalarGet", "uscalarSet", 1, 34],
+    submeshCount: ["uscalarGet", "uscalarSet", 1, 35],
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 36],
+    indexCount: ["uscalarGet", "uscalarSet", 1, 37],
+    center: ["farrayGet", "farraySet", 3, 38],
+    extents: ["farrayGet", "farraySet", 3, 41],
+    skinMethod: ["uscalarGet", "uscalarSet", 1, 44],
+    vertexBuffer: ["ptrGet", "ptrSet", 1, 45],
+    indexBuffer: ["ptrGet", "ptrSet", 1, 46],
+    meshData: ["ptrGet", "ptrSet", 1, 47],
+};
+export const UVSet_member_index = {
+    ...Miaoverse.Binary_member_index,
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 12],
+    uvCount: ["uscalarGet", "uscalarSet", 1, 13],
+    mappingCount: ["uscalarGet", "uscalarSet", 1, 14],
+    unloaded: ["uscalarGet", "uscalarSet", 1, 15],
+    unused0: ["uscalarGet", "uscalarSet", 1, 16],
+    unused1: ["uscalarGet", "uscalarSet", 1, 17],
+    uv: ["ptrGet", "ptrSet", 1, 18],
+    polygonVertexIndices: ["ptrGet", "ptrSet", 1, 19],
+};
+export const Geometry_member_index = {
+    ...Miaoverse.Binary_member_index,
+    defaultUVPTR: ["ptrGet", "ptrSet", 1, 12],
+    defaultUVUUID: ["uuidGet", "uuidSet", 3, 13],
+    type: ["uscalarGet", "uscalarSet", 1, 16],
+    edgeInterpolationMode: ["uscalarGet", "uscalarSet", 1, 17],
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 18],
+    polyCount: ["uscalarGet", "uscalarSet", 1, 19],
+    center: ["farrayGet", "farraySet", 3, 20],
+    extents: ["farrayGet", "farraySet", 3, 23],
+    vertices: ["ptrGet", "ptrSet", 1, 26],
+    polylist: ["ptrGet", "ptrSet", 1, 27],
+    materialGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 28],
+    polygonGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 29],
+    materialGroupsName: ["ptrGet", "ptrSet", 1, 30],
+    polygonGroupsName: ["ptrGet", "ptrSet", 1, 31],
+    unloaded: ["uscalarGet", "uscalarSet", 1, 32],
+    reserved: ["uarrayGet", "uarraySet", 3, 33],
+};
+export const Morph_member_index = {
+    ...Miaoverse.Binary_member_index,
+    type: ["uscalarGet", "uscalarSet", 1, 12],
+    deltasByteSize: ["uscalarGet", "uscalarSet", 1, 13],
+    min: ["farrayGet", "farraySet", 3, 14],
+    max: ["farrayGet", "farraySet", 3, 17],
+    textureWidth: ["uscalarGet", "uscalarSet", 1, 20],
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 21],
+    targetCount: ["uscalarGet", "uscalarSet", 1, 22],
+    morphTargets: ["ptrGet", "ptrSet", 1, 23],
+    modifyCount: ["ptrGet", "ptrSet", 1, 24],
+    deltas: ["ptrGet", "ptrSet", 1, 25],
+    unloaded: ["uscalarGet", "uscalarSet", 1, 26],
+    unused3: ["uscalarGet", "uscalarSet", 1, 27],
+    reserved: ["uarrayGet", "uarraySet", 4, 28],
+};
 //# sourceMappingURL=mesh.js.map

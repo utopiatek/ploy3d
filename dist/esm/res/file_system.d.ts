@@ -3,6 +3,7 @@ import * as Miaoverse from "../mod.js";
 export declare class FileStorage {
     /**
      * 构造函数。
+     * @param _global 引擎实例。
      * @param root 根路径句柄。
      */
     constructor(_global: Miaoverse.Ploy3D, root?: FileSystemDirectoryHandle);
@@ -42,7 +43,7 @@ export declare class FileStorage {
      * @returns 存在时返回真。
      */
     HasFile(path: string, filename: string): Promise<boolean>;
-    /** 模块实例对象。 */
+    /** 引擎实例。 */
     private _global;
     /** 根路径句柄。 */
     private _dirRoot;
@@ -53,7 +54,7 @@ export declare class FileStorage {
 export declare class BinaryReader {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      * @param buffer 数据缓存。
      */
     constructor(_global: Miaoverse.Ploy3D, buffer: ArrayBuffer);
@@ -132,7 +133,7 @@ export declare class BinaryReader {
     get Position(): number;
     /** 当前读取指针。 */
     set Position(position: number);
-    /** 模块实例对象。 */
+    /** 引擎实例。 */
     private _global;
     /** 数据缓存。 */
     private _buffer;
@@ -145,7 +146,7 @@ export declare class BinaryReader {
 export declare class BinaryWriter {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      * @param buffer 数据缓存。
      */
     constructor(_global: Miaoverse.Ploy3D, buffer: ArrayBuffer);
@@ -215,7 +216,7 @@ export declare class BinaryWriter {
     get Position(): number;
     /** 当前写入指针。 */
     set Position(position: number);
-    /** 模块实例对象。 */
+    /** 引擎实例。 */
     private _global;
     /** 数据缓存。 */
     private _buffer;

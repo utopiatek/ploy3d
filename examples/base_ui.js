@@ -33,7 +33,28 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
     async InitScene(progress) {
         console.log(this.engine);
 
-        const mesh = this.engine.resources.Mesh.Create({
+        const resources = this.engine.resources;
+        const scene = await resources.Scene.Create();
+        const object3d = await resources.Object.Create(scene);
+        const volume = await resources.Volume.Create(object3d);
+        const camera = await resources.Camera.Create(object3d);
+
+        const texture2d = await resources.Texture.CreateTexture({
+            uuid: "",
+            classid: 25,
+            name: "_builtin2D",
+            label: "_builtin2D",
+            uri: "1-1-1.miaokit.builtins:/texture/25-0_color.ktx2"
+        });
+
+        resources.Texture.default2D = texture2d;
+
+        const colorRT = this.engine.device.CreateTextureRT(2048, 2048, 1, 6, "rgba16float", true, false);
+        const depthRT = this.engine.device.CreateTextureRT(2048, 2048, 1, 6, "depth32float", true, false);
+        const gbRT = this.engine.device.CreateTextureRT(2048, 2048, 2, 1, "rgba32uint", true, false);
+        const frameUniformsG0 = await resources.Material.CreateFrameUniforms(colorRT, depthRT, gbRT, 0);
+        const materialG2 = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-1_standard_ui.json");
+        const mesh = resources.Mesh.Create({
             uuid: "",
             classid: /*CLASSID.ASSET_MESH*/38,
             name: "cube mesh",
@@ -51,30 +72,11 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
                 }
             }
         });
-
-        const colorRT = this.engine.device.CreateTextureRT(2048, 2048, 1, 6, "rgba16float", true, false);
-        const depthRT = this.engine.device.CreateTextureRT(2048, 2048, 1, 6, "depth32float", true, false);
-        const gbRT = this.engine.device.CreateTextureRT(2048, 2048, 2, 1, "rgba32uint", true, false);
-
-        const g0 = await this.engine.resources.Material.CreateFrameUniforms(colorRT, depthRT, gbRT, 0);
-        const g1 = await this.engine.resources.MeshRenderer.CreateMeshRenderer(null, null);
-        const g2 = await this.engine.resources.Material.Load("1-1-1.miaokit.builtins:/material/32-1_standard_ui.json");
-        const camera = await this.engine.resources.Camera.CreateCamera();
-
-        const texture2D = await this.engine.resources.Texture.CreateTexture({
-            uuid: "",
-            classid: 25,
-            name: "_builtin2D",
-            label: "_builtin2D",
-            uri: "1-1-1.miaokit.builtins:/texture/25-0_color.ktx2"
-        });
-
-        this.engine.resources.Texture.default2D = texture2D;
-
+        const meshRendererG1 = await resources.MeshRenderer.Create(mesh, null);
         const pipeline = this.engine.context.CreateRenderPipeline({
-            g0: g0.layoutID,
-            g1: g1.layoutID,
-            g2: g2.layoutID,
+            g0: frameUniformsG0.layoutID,
+            g1: meshRendererG1.layoutID,
+            g2: materialG2.layoutID,
             g3: 0,
             flags: 0,
             topology: 3,
@@ -82,16 +84,19 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
             cullMode: 1
         });
 
-        console.log("mesh", mesh);
+        console.log("scene:", scene);
+        console.log("object3d:", object3d);
+        console.log("volume:", volume);
+        console.log("camera:", camera);
+        console.log("texture2d:", texture2d);
         console.log("colorRT", colorRT);
         console.log("depthRT", depthRT);
         console.log("gbRT", gbRT);
-        console.log("g0", g0);
-        console.log("g1", g1);
-        console.log("g2", g2);
-        console.log("camera", camera);
-        console.log("pipeline", pipeline);
-        console.log("texture2D", texture2D);
+        console.log("frameUniformsG0:", frameUniformsG0);
+        console.log("materialG2:", materialG2);
+        console.log("mesh:", mesh);
+        console.log("meshRendererG1:", meshRendererG1);
+        console.log("pipeline:", pipeline);
 
         //以上测试================------------------------
 
@@ -100,9 +105,9 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
             passEncoder.setPipeline(pipeline);
             this.engine.context.SetVertexBuffers(0, mesh.vertices, passEncoder);
             this.engine.context.SetIndexBuffer(mesh.ibFormat, mesh.triangles[0], passEncoder);
-            g0.Bind(passEncoder);
-            g1.Bind(passEncoder);
-            g2.Bind(passEncoder);
+            frameUniformsG0.Bind(passEncoder);
+            meshRendererG1.Bind(passEncoder);
+            materialG2.Bind(passEncoder);
             // 需要保证顶点缓存足够大
             passEncoder.draw(4 * 30);
         };

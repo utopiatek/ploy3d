@@ -4,23 +4,24 @@ import * as Miaoverse from "../mod.js"
 export class Object3D extends Miaoverse.Resource<Object3D> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     public constructor(impl: Object_kernel, ptr: Miaoverse.io_ptr, id: number) {
         super(impl["_global"], ptr, id);
         this._impl = impl;
+        this._impl.Set(this._ptr, "id", id);
     }
 
     /**
-     * 设置父级变换组件。
-     * @param p 父级变换组件。
-     * @param worldPositionStays 是否维持世界空间位置。
+     * 设置父级对象实例。
+     * @param parent 父级对象实例。
+     * @param worldPositionStays 是否保持世界空间位置。
      */
     public SetParent(parent: Object3D, worldPositionStays?: boolean) {
         const parentPtr = parent ? parent._ptr : this._global.env.ptrZero();
-        this._impl.SetParent(this._ptr, parentPtr, worldPositionStays ? 1 : 0);
+        this._impl["_SetParent"](this._ptr, parentPtr, worldPositionStays ? 1 : 0);
     }
 
     /** 遍历处理每个子对象。 */
@@ -34,11 +35,6 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
             child = child.nextSib;
             index++;
         }
-    }
-
-    /** 实例ID。 */
-    public get id(): number {
-        return this._impl.Get(this._ptr, "id");
     }
 
     /** 变换组件更新时间戳。 */
@@ -65,7 +61,7 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
     }
     public set active(b: boolean) {
         this._impl.Set(this._ptr, "enabled", b ? 1 : 0);
-        this._impl.Flush(this._ptr, 2);
+        this._impl["_Flush"](this._ptr, 2);
     }
 
     /** 对象自定义层标记。 */
@@ -74,7 +70,7 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
     }
     public set layers(value: number) {
         this._impl.Set(this._ptr, "layers", value);
-        this._impl.Flush(this._ptr, 2);
+        this._impl["_Flush"](this._ptr, 2);
     }
 
     /** 对象高亮状态。 */
@@ -93,7 +89,7 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         }
 
         this._impl.Set(this._ptr, "flags", flags);
-        this._impl.Flush(this._ptr, 2);
+        this._impl["_Flush"](this._ptr, 2);
     }
 
     /** 对象坐标不跟随世界空间原点变化。 */
@@ -112,7 +108,7 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         }
 
         this._impl.Set(this._ptr, "flags", flags);
-        this._impl.Flush(this._ptr, 2);
+        this._impl["_Flush"](this._ptr, 2);
     }
 
     /** 本地坐标（父级空间）。 */
@@ -122,7 +118,7 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
     }
     public set localPosition(value: Miaoverse.Vector3) {
         this._impl.Set(this._ptr, "localPosition", value.values);
-        this._impl.Flush(this._ptr, 1);
+        this._impl["_Flush"](this._ptr, 1);
     }
 
     /** 本地缩放（父级空间）。 */
@@ -132,10 +128,10 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
     }
     public set localScale(value: Miaoverse.Vector3) {
         this._impl.Set(this._ptr, "localScale", value.values);
-        this._impl.Flush(this._ptr, 1);
+        this._impl["_Flush"](this._ptr, 1);
     }
 
-    /** 父级变换组件。 */
+    /** 父级对象实例。 */
     public get parent(): Object3D {
         const ptr = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "parent");
         return this._impl.GetInstanceByPtr(ptr);
@@ -162,7 +158,7 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
     }
     public set localRotation(value: Miaoverse.Quaternion) {
         this._impl.Set(this._ptr, "localRotation", value.values);
-        this._impl.Flush(this._ptr, 1);
+        this._impl["_Flush"](this._ptr, 1);
     }
 
     /** 世界空间坐标。 */
@@ -170,7 +166,7 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         return this.wfmMat.MultiplyVector3(1, this._global.Vector3([0, 0, 0]));
     }
     public set position(pos: Miaoverse.Vector3) {
-        this._impl.SetPosition(this._ptr, pos.x, pos.y, pos.z);
+        this._impl["_SetPosition"](this._ptr, pos.x, pos.y, pos.z);
     }
 
     /** 世界空间旋转欧拉角（单位度）。 */
@@ -181,26 +177,26 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         this.rotation = v.toQuaternion();
     }
 
-    /** 旋转（世界空间，缩放造成空间尺度变形，方向被扭曲，所以带缩放的变换矩阵变换方向无法得到等比例空间的方向）。 */
+    /** 旋转（世界空间。缩放造成空间尺度变形，方向被扭曲，所以带缩放的变换矩阵变换方向无法得到等比例空间的方向）。 */
     public get rotation(): Miaoverse.Quaternion {
-        this._impl.Flush(this._ptr, 4);
+        this._impl["_Flush"](this._ptr, 4);
         const values = this._impl.Get<number[]>(this._ptr, "worldRotation");
         return this._global.Quaternion(values);
     }
     public set rotation(q: Miaoverse.Quaternion) {
-        this._impl.SetRotation(this._ptr, q.x, q.y, q.z, q.w);
+        this._impl["_SetRotation"](this._ptr, q.x, q.y, q.z, q.w);
     }
 
     /** 对象空间到世界空间变换矩阵。 */
     public get wfmMat(): Miaoverse.Matrix4x4 {
-        this._impl.Flush(this._ptr, 4);
+        this._impl["_Flush"](this._ptr, 4);
         const values = this._impl.Get<number[]>(this._ptr, "wfmMat");
         return this._global.Matrix4x4(values);
     }
 
     /** 世界空间到对象空间变换矩阵。 */
     public get mfwMat(): Miaoverse.Matrix4x4 {
-        this._impl.Flush(this._ptr, 4);
+        this._impl["_Flush"](this._ptr, 4);
         const values = this._impl.Get<number[]>(this._ptr, "mfwMat");
         return this._global.Matrix4x4(values);
     }
@@ -230,19 +226,19 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         return this._impl.Get<number>(this._ptr, "childCount");
     }
 
-    /** 上一个兄弟变换组件指针。 */
+    /** 上一个兄弟实例。 */
     public get lastSib(): Object3D {
         const lastSib = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "lastSib");
         return this._impl.GetInstanceByPtr(lastSib);
     }
 
-    /** 下一个兄弟变换组件指针。 */
+    /** 下一个兄弟实例。 */
     public get nextSib(): Object3D {
         const nextSib = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "nextSib");
         return this._impl.GetInstanceByPtr(nextSib);
     }
 
-    /** 层次结构中最顶级对象变换组件。 */
+    /** 层次结构中最顶级实例。 */
     public get root(): Object3D {
         let root = this.parent;
 
@@ -258,127 +254,83 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         return root;
     }
 
-    /** 3D对象内核实现。 */
+    /** 内核实现。 */
     private _impl: Object_kernel;
 }
 
-/** 3D对象内核实现（512字节）。 */
-export class Object_kernel {
+/** 3D对象内核实现。 */
+export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object_member_index>  {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      */
     public constructor(_global: Miaoverse.Ploy3D) {
-        this._global = _global;
+        super(_global, Object_member_index);
     }
 
     /**
-     * 根据内核对象指针获取对象实例。
-     * @param self 内核对象指针。
-     * @returns 返回对象实例。
+     * 创建3D对象实例。
+     * @returns 返回3D对象实例。
      */
-    public GetInstanceByPtr(ptr: Miaoverse.io_ptr): Miaoverse.Object3D {
-        if (this._global.env.ptrValid(ptr)) {
-            const id = this.Get<number>(ptr, "id");
-            return this.GetInstanceByID(id);
-        }
+    public async Create(scene: Miaoverse.Scene) {
+        const ptr = this._Instance(scene.internalPtr, 0 as never);
+        const id = this._instanceIdle;
 
-        return null;
+        // 设置实例 ===============-----------------------
+
+        this._instanceIdle = this._instanceList[id]?.id || id + 1;
+
+        const instance = this._instanceList[id] = new Object3D(this, ptr, id);
+
+        this._instanceCount++;
+
+        return instance;
     }
 
     /**
-     * 根据实例ID获取对象实例。
-     * @param id 实例ID。
-     * @returns 返回对象实例。
+     * 实例化3D对象内核实例。
+     * @param scene 场景内核实例指针。
+     * @param node 3D对象节点数据指针。
+     * @returns 返回3D对象内核实例指针。
      */
-    public GetInstanceByID(id: number) {
-        return this._instanceList[id];
-    }
+    protected _Instance: (scene: Miaoverse.io_ptr, node: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 
     /**
-     * 获取内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @returns 返回对应属性值。
+     * 销毁3D对象内核实例。
+     * @param object3d 3D对象内核实例指针。
      */
-    public Get<T>(self: Miaoverse.io_ptr, key: Object_kernel["_members_key"]) {
-        const member = this._members[key];
-        return this._global.env[member[0]](self, member[3], member[2]) as T;
-    }
+    protected _Destroy: (object3d: Miaoverse.io_ptr) => void;
 
     /**
-     * 设置内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @param value 属性值。
-     */
-    public Set<T>(self: Miaoverse.io_ptr, key: Object_kernel["_members_key"], value: any) {
-        const member = this._members[key];
-        this._global.env[member[1]](self, member[3], value as never);
-    }
-
-    /**
-     * 刷新3D对象实例状态。
-     * @param self 实例指针。
-     * @param ctrl 刷新控制方法（1-标记变换组件参数存在更新，2-标记对象参数存在更新，4-应用变化组件更新，8-应用对象整体更新）。
+     * 刷新3D对象内核实例状态。
+     * @param object3d 3D对象内核实例指针。
+     * @param ctrl 刷新方法（1-标记变换组件参数更新，2-标记3D对象参数更新，4-应用变换组件参数更新，8-应用3D对象整体更新）。
      * @returns 返回变换组件最新状态时间戳。
      */
-    public Flush: (self: Miaoverse.io_ptr, ctrl: number) => number;
-    /** 变换组件更新。 */
-    public UpdateTransform: (self: Miaoverse.io_ptr) => number;
-    /** 更新应用变换组件、渲染设置和G1。 */
-    public Update: (self: Miaoverse.io_ptr) => number;
-    /** 设置世界空间坐标。 */
-    public SetPosition: (self: Miaoverse.io_ptr, vx: number, vy: number, vz: number) => void;
-    /** 设置世界空间旋转四元数。 */
-    public SetRotation: (self: Miaoverse.io_ptr, qx: number, qy: number, qz: number, qw: number) => void;
-    /** 设置父级对象。 */
-    public SetParent: (self: Miaoverse.io_ptr, parent: Miaoverse.io_ptr, staysWorld: Miaoverse.io_uint) => void;
+    protected _Flush: (object3d: Miaoverse.io_ptr, ctrl: number) => number;
 
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
+    /**
+     * 设置世界空间坐标。
+     * @param object3d 3D对象内核实例指针。
+     */
+    protected _SetPosition: (object3d: Miaoverse.io_ptr, vx: number, vy: number, vz: number) => void;
 
-    /** 实例容器列表。 */
-    protected _instanceList: Miaoverse.Object3D[] = [null];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, Miaoverse.Object3D> = {};
-    /** 已分配实例数量。 */
-    protected _instanceCount: number = 0;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number = 1;
+    /**
+     * 设置世界空间旋转四元数。
+     * @param object3d 3D对象内核实例指针。
+     */
+    protected _SetRotation: (object3d: Miaoverse.io_ptr, qx: number, qy: number, qz: number, qw: number) => void;
 
-    /** 3D对象内核实现的数据结构成员列表。 */
-    protected _members = {
-        ...Node_member_index,
-
-        source: ["uscalarGet", "uscalarSet", 1, 64] as Miaoverse.Kernel_member,
-        instance: ["uscalarGet", "uscalarSet", 1, 65] as Miaoverse.Kernel_member,
-        parentTS: ["uscalarGet", "uscalarSet", 1, 66] as Miaoverse.Kernel_member,
-        gisTS: ["uscalarGet", "uscalarSet", 1, 67] as Miaoverse.Kernel_member,
-
-        childCount: ["uscalarGet", "uscalarSet", 1, 68] as Miaoverse.Kernel_member,
-        updated: ["uscalarGet", "uscalarSet", 1, 69] as Miaoverse.Kernel_member,
-        nextEdit: ["ptrGet", "ptrSet", 1, 70] as Miaoverse.Kernel_member,
-        nextDraw: ["ptrGet", "ptrSet", 1, 71] as Miaoverse.Kernel_member,
-
-        scene: ["ptrGet", "ptrSet", 1, 72] as Miaoverse.Kernel_member,
-        children: ["ptrGet", "ptrSet", 1, 73] as Miaoverse.Kernel_member,
-        lastSib: ["ptrGet", "ptrSet", 1, 74] as Miaoverse.Kernel_member,
-        nextSib: ["ptrGet", "ptrSet", 1, 75] as Miaoverse.Kernel_member,
-
-        worldRotation: ["farrayGet", "farraySet", 4, 76] as Miaoverse.Kernel_member,
-
-        reserved2: ["uarrayGet", "uarraySet", 4, 92] as Miaoverse.Kernel_member,
-
-        wfmMat: ["farrayGet", "farraySet", 16, 96] as Miaoverse.Kernel_member,
-        mfwMat: ["farrayGet", "farraySet", 16, 112] as Miaoverse.Kernel_member,
-    } as const;
-
-    /** 3D对象内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Object_kernel["_members"];
+    /**
+     * 设置父级3D对象。
+     * @param object3d 3D对象内核实例指针。
+     * @param parent 父级3D对象内核实例指针。
+     * @param staysWorld 是否维持世界空间坐标。
+     */
+    protected _SetParent: (object3d: Miaoverse.io_ptr, parent: Miaoverse.io_ptr, staysWorld: Miaoverse.io_uint) => void;
 }
 
-/** 场景节点资源（256字节）。 */
+/** 场景节点内核实现的数据结构成员列表。 */
 export const Node_member_index = {
     ...Miaoverse.Binary_member_index,
 
@@ -410,4 +362,31 @@ export const Node_member_index = {
     name: ["stringGet", "stringSet", 64, 40] as Miaoverse.Kernel_member,
 
     reserved: ["uarrayGet", "uarraySet", 8, 56] as Miaoverse.Kernel_member,
+} as const;
+
+/** 3D对象内核实现的数据结构成员列表。 */
+export const Object_member_index = {
+    ...Node_member_index,
+
+    source: ["uscalarGet", "uscalarSet", 1, 64] as Miaoverse.Kernel_member,
+    instance: ["uscalarGet", "uscalarSet", 1, 65] as Miaoverse.Kernel_member,
+    parentTS: ["uscalarGet", "uscalarSet", 1, 66] as Miaoverse.Kernel_member,
+    gisTS: ["uscalarGet", "uscalarSet", 1, 67] as Miaoverse.Kernel_member,
+
+    childCount: ["uscalarGet", "uscalarSet", 1, 68] as Miaoverse.Kernel_member,
+    updated: ["uscalarGet", "uscalarSet", 1, 69] as Miaoverse.Kernel_member,
+    nextEdit: ["ptrGet", "ptrSet", 1, 70] as Miaoverse.Kernel_member,
+    nextDraw: ["ptrGet", "ptrSet", 1, 71] as Miaoverse.Kernel_member,
+
+    scene: ["ptrGet", "ptrSet", 1, 72] as Miaoverse.Kernel_member,
+    children: ["ptrGet", "ptrSet", 1, 73] as Miaoverse.Kernel_member,
+    lastSib: ["ptrGet", "ptrSet", 1, 74] as Miaoverse.Kernel_member,
+    nextSib: ["ptrGet", "ptrSet", 1, 75] as Miaoverse.Kernel_member,
+
+    worldRotation: ["farrayGet", "farraySet", 4, 76] as Miaoverse.Kernel_member,
+
+    reserved2: ["uarrayGet", "uarraySet", 16, 80] as Miaoverse.Kernel_member,
+
+    wfmMat: ["farrayGet", "farraySet", 16, 96] as Miaoverse.Kernel_member,
+    mfwMat: ["farrayGet", "farraySet", 16, 112] as Miaoverse.Kernel_member,
 } as const;

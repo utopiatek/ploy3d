@@ -3,8 +3,8 @@ import * as Miaoverse from "../mod.js";
 export declare class Material extends Miaoverse.Uniform<Material_kernel> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     constructor(impl: Material_kernel, ptr: Miaoverse.io_ptr, id: number);
@@ -36,13 +36,13 @@ export declare class Material extends Miaoverse.Uniform<Material_kernel> {
      * @param name 属性名称。
      * @returns 返回贴图描述符。
      */
-    GetTexture(name: string): Miaoverse.Asset_wrapper_texture;
+    GetTexture(name: string): Miaoverse.TextureNode;
     /**
      * 设置贴图属性。
      * @param name 属性名称。
      * @param value 贴图描述符（注意，贴图URI必须是UUID）。
      */
-    SetTexture(name: string, value: Miaoverse.Asset_wrapper_texture): void;
+    SetTexture(name: string, value: Miaoverse.TextureNode): void;
     /**
      * 判断材质是否包含指定属性。
      * @param name 属性名称（注意贴图属性需要加上"_uuid"后缀）。
@@ -65,8 +65,8 @@ export declare class Material extends Miaoverse.Uniform<Material_kernel> {
 export declare class FrameUniforms extends Miaoverse.Uniform<Material_kernel> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     constructor(impl: Material_kernel, ptr: Miaoverse.io_ptr, id: number);
@@ -111,15 +111,15 @@ export declare class FrameUniforms extends Miaoverse.Uniform<Material_kernel> {
     /** 属性访问视图。 */
     private _view;
 }
-/** 材质资源实例（G2，128+字节）。 */
-export declare class Material_kernel {
+/** 材质资源内核实现。 */
+export declare class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUniforms, typeof Material_member_index> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      */
     constructor(_global: Miaoverse.Ploy3D);
     /**
-     * 装载材质资源实例。
+     * 装载材质资源。
      * @param uri 材质资源URI。
      * @param pkg 当前资源包注册信息。
      * @returns 异步返回材质资源实例。
@@ -132,7 +132,7 @@ export declare class Material_kernel {
      */
     Create(asset: Asset_material): Promise<Miaoverse.Material>;
     /**
-     * 创建G0实例。
+     * 创建G0资源实例。
      * @param colorRT 颜色渲染目标贴图ID。
      * @param depthRT 深度渲染目标贴图ID。
      * @param gbufferRT GB渲染目标贴图ID。
@@ -146,99 +146,67 @@ export declare class Material_kernel {
      */
     Dispose(id: number): void;
     /**
-     * 根据内核对象指针获取对象实例。
-     * @param self 内核对象指针。
-     * @returns 返回对象实例。
+     * 实例化材质资源内核实例。
+     * @param size 材质属性集字节大小。
+     * @param data 材质资源保存数据。
+     * @returns 返回材质资源内核实例指针。
      */
-    GetInstanceByPtr(ptr: Miaoverse.io_ptr): Miaoverse.FrameUniforms | Miaoverse.Material;
+    protected _InstanceMaterial: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
     /**
-     * 根据实例ID获取对象实例。
-     * @param id 实例ID。
-     * @returns 返回对象实例。
+     * 实例化G0资源内核实例。
+     * @returns 返回G0资源内核实例指针。
      */
-    GetInstanceByID(id: number): Miaoverse.FrameUniforms | Miaoverse.Material;
-    /**
-     * 获取内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @returns 返回对应属性值。
-     */
-    Get<T>(self: Miaoverse.io_ptr, key: Material_kernel["_members_key"]): T;
-    /**
-     * 设置内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @param value 属性值。
-     */
-    Set(self: Miaoverse.io_ptr, key: Material_kernel["_members_key"], value: any): void;
-    /** 实例化材质资源实例。 */
-    protected InstanceMaterial: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
-    /** 实例化G0。 */
-    protected InstanceFrameUniforms: () => Miaoverse.io_ptr;
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
-    /** 实例容器列表。 */
-    protected _instanceList: (Material | FrameUniforms)[];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, (Material | FrameUniforms)>;
-    /** 已分配实例数量。 */
-    protected _instanceCount: number;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number;
-    /** 待GC列表。 */
-    protected _gcList: (Material | FrameUniforms)[];
-    /** 材质资源内核实现的数据结构成员列表。 */
-    protected _members: {
-        readonly g0_colorRT: Miaoverse.Kernel_member;
-        readonly g0_depthRT: Miaoverse.Kernel_member;
-        readonly g0_gbufferRT: Miaoverse.Kernel_member;
-        readonly g0_spriteAtlas: Miaoverse.Kernel_member;
-        readonly g0_froxelList: Miaoverse.Kernel_member;
-        readonly g0_lightVoxel: Miaoverse.Kernel_member;
-        readonly g0_lightList: Miaoverse.Kernel_member;
-        readonly shaderID: Miaoverse.Kernel_member;
-        readonly shaderUUID: Miaoverse.Kernel_member;
-        readonly enableFlags: Miaoverse.Kernel_member;
-        readonly buffer_bufferID: Miaoverse.Kernel_member;
-        readonly buffer_size: Miaoverse.Kernel_member;
-        readonly buffer_addr: Miaoverse.Kernel_member;
-        readonly buffer_next: Miaoverse.Kernel_member;
-        readonly bn_buffer: Miaoverse.Kernel_member;
-        readonly bn_bufferID: Miaoverse.Kernel_member;
-        readonly bn_offset: Miaoverse.Kernel_member;
-        readonly bn_size: Miaoverse.Kernel_member;
-        readonly buffer: Miaoverse.Kernel_member;
-        readonly bufferID: Miaoverse.Kernel_member;
-        readonly bufferBlockOffset: Miaoverse.Kernel_member; /** GB渲染目标贴图ID。 */
-        readonly bufferBlockSize: Miaoverse.Kernel_member;
-        readonly group: Miaoverse.Kernel_member;
-        readonly binding: Miaoverse.Kernel_member; /** 精灵图集ID（用于UI和粒子）。 */
-        readonly updated: Miaoverse.Kernel_member;
-        readonly unused3: Miaoverse.Kernel_member;
-        readonly magic: Miaoverse.Kernel_member;
-        readonly version: Miaoverse.Kernel_member;
-        readonly byteSize: Miaoverse.Kernel_member;
-        readonly refCount: Miaoverse.Kernel_member;
-        readonly id: Miaoverse.Kernel_member;
-        readonly uuid: Miaoverse.Kernel_member;
-        readonly writeTS: Miaoverse.Kernel_member;
-        readonly readTS: Miaoverse.Kernel_member;
-        readonly last: Miaoverse.Kernel_member;
-        readonly next: Miaoverse.Kernel_member;
-    };
-    /** 材质资源内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Material_kernel["_members"];
+    protected _InstanceFrameUniforms: () => Miaoverse.io_ptr;
 }
+/** 材质资源内核实现的数据结构成员列表。 */
+export declare const Material_member_index: {
+    readonly g0_colorRT: Miaoverse.Kernel_member;
+    readonly g0_depthRT: Miaoverse.Kernel_member;
+    readonly g0_gbufferRT: Miaoverse.Kernel_member;
+    readonly g0_spriteAtlas: Miaoverse.Kernel_member;
+    readonly g0_froxelList: Miaoverse.Kernel_member;
+    readonly g0_lightVoxel: Miaoverse.Kernel_member;
+    readonly g0_lightList: Miaoverse.Kernel_member;
+    readonly shaderID: Miaoverse.Kernel_member;
+    readonly shaderUUID: Miaoverse.Kernel_member;
+    readonly enableFlags: Miaoverse.Kernel_member;
+    readonly buffer_bufferID: Miaoverse.Kernel_member;
+    readonly buffer_size: Miaoverse.Kernel_member;
+    readonly buffer_addr: Miaoverse.Kernel_member;
+    readonly buffer_next: Miaoverse.Kernel_member;
+    readonly bn_buffer: Miaoverse.Kernel_member;
+    readonly bn_bufferID: Miaoverse.Kernel_member;
+    readonly bn_offset: Miaoverse.Kernel_member;
+    readonly bn_size: Miaoverse.Kernel_member;
+    readonly buffer: Miaoverse.Kernel_member;
+    readonly bufferID: Miaoverse.Kernel_member;
+    readonly bufferBlockOffset: Miaoverse.Kernel_member;
+    readonly bufferBlockSize: Miaoverse.Kernel_member;
+    readonly group: Miaoverse.Kernel_member;
+    readonly binding: Miaoverse.Kernel_member;
+    readonly updated: Miaoverse.Kernel_member;
+    readonly unused3: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};
 /** 材质资源描述符。 */
 export interface Asset_material extends Miaoverse.Asset {
-    /** 着色器全局唯一ID。 */
+    /** 着色器URI。 */
     shader: string;
     /** 渲染设置标记集（RENDER_FLAGS）。 */
     flags: number;
     /** 材质属性集。 */
     properties: {
         /** 贴图属性设置列表。 */
-        textures: Record<string, Miaoverse.Asset_wrapper_texture>;
+        textures: Record<string, Miaoverse.TextureNode>;
         /** 向量属性设置列表（标量被视为一维向量）。 */
         vectors: Record<string, number[]>;
     };

@@ -3,10 +3,11 @@ export class Object3D extends Miaoverse.Resource {
     constructor(impl, ptr, id) {
         super(impl["_global"], ptr, id);
         this._impl = impl;
+        this._impl.Set(this._ptr, "id", id);
     }
     SetParent(parent, worldPositionStays) {
         const parentPtr = parent ? parent._ptr : this._global.env.ptrZero();
-        this._impl.SetParent(this._ptr, parentPtr, worldPositionStays ? 1 : 0);
+        this._impl["_SetParent"](this._ptr, parentPtr, worldPositionStays ? 1 : 0);
     }
     ForEachChild(proc) {
         let child = this.firstChild;
@@ -17,9 +18,6 @@ export class Object3D extends Miaoverse.Resource {
             child = child.nextSib;
             index++;
         }
-    }
-    get id() {
-        return this._impl.Get(this._ptr, "id");
     }
     get writeTS() {
         return this._impl.Get(this._ptr, "writeTS");
@@ -38,14 +36,14 @@ export class Object3D extends Miaoverse.Resource {
     }
     set active(b) {
         this._impl.Set(this._ptr, "enabled", b ? 1 : 0);
-        this._impl.Flush(this._ptr, 2);
+        this._impl["_Flush"](this._ptr, 2);
     }
     get layers() {
         return this._impl.Get(this._ptr, "layers");
     }
     set layers(value) {
         this._impl.Set(this._ptr, "layers", value);
-        this._impl.Flush(this._ptr, 2);
+        this._impl["_Flush"](this._ptr, 2);
     }
     get highlight() {
         const flags = this._impl.Get(this._ptr, "flags");
@@ -60,7 +58,7 @@ export class Object3D extends Miaoverse.Resource {
             flags = flags & ~1;
         }
         this._impl.Set(this._ptr, "flags", flags);
-        this._impl.Flush(this._ptr, 2);
+        this._impl["_Flush"](this._ptr, 2);
     }
     get staticWorld() {
         const flags = this._impl.Get(this._ptr, "flags");
@@ -75,7 +73,7 @@ export class Object3D extends Miaoverse.Resource {
             flags = flags & ~2;
         }
         this._impl.Set(this._ptr, "flags", flags);
-        this._impl.Flush(this._ptr, 2);
+        this._impl["_Flush"](this._ptr, 2);
     }
     get localPosition() {
         const values = this._impl.Get(this._ptr, "localPosition");
@@ -83,7 +81,7 @@ export class Object3D extends Miaoverse.Resource {
     }
     set localPosition(value) {
         this._impl.Set(this._ptr, "localPosition", value.values);
-        this._impl.Flush(this._ptr, 1);
+        this._impl["_Flush"](this._ptr, 1);
     }
     get localScale() {
         const values = this._impl.Get(this._ptr, "localScale");
@@ -91,7 +89,7 @@ export class Object3D extends Miaoverse.Resource {
     }
     set localScale(value) {
         this._impl.Set(this._ptr, "localScale", value.values);
-        this._impl.Flush(this._ptr, 1);
+        this._impl["_Flush"](this._ptr, 1);
     }
     get parent() {
         const ptr = this._impl.Get(this._ptr, "parent");
@@ -113,13 +111,13 @@ export class Object3D extends Miaoverse.Resource {
     }
     set localRotation(value) {
         this._impl.Set(this._ptr, "localRotation", value.values);
-        this._impl.Flush(this._ptr, 1);
+        this._impl["_Flush"](this._ptr, 1);
     }
     get position() {
         return this.wfmMat.MultiplyVector3(1, this._global.Vector3([0, 0, 0]));
     }
     set position(pos) {
-        this._impl.SetPosition(this._ptr, pos.x, pos.y, pos.z);
+        this._impl["_SetPosition"](this._ptr, pos.x, pos.y, pos.z);
     }
     get eulerAngles() {
         return this.rotation.eulerAngles;
@@ -128,20 +126,20 @@ export class Object3D extends Miaoverse.Resource {
         this.rotation = v.toQuaternion();
     }
     get rotation() {
-        this._impl.Flush(this._ptr, 4);
+        this._impl["_Flush"](this._ptr, 4);
         const values = this._impl.Get(this._ptr, "worldRotation");
         return this._global.Quaternion(values);
     }
     set rotation(q) {
-        this._impl.SetRotation(this._ptr, q.x, q.y, q.z, q.w);
+        this._impl["_SetRotation"](this._ptr, q.x, q.y, q.z, q.w);
     }
     get wfmMat() {
-        this._impl.Flush(this._ptr, 4);
+        this._impl["_Flush"](this._ptr, 4);
         const values = this._impl.Get(this._ptr, "wfmMat");
         return this._global.Matrix4x4(values);
     }
     get mfwMat() {
-        this._impl.Flush(this._ptr, 4);
+        this._impl["_Flush"](this._ptr, 4);
         const values = this._impl.Get(this._ptr, "mfwMat");
         return this._global.Matrix4x4(values);
     }
@@ -181,59 +179,24 @@ export class Object3D extends Miaoverse.Resource {
     }
     _impl;
 }
-export class Object_kernel {
+export class Object_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
-        this._global = _global;
+        super(_global, Object_member_index);
     }
-    GetInstanceByPtr(ptr) {
-        if (this._global.env.ptrValid(ptr)) {
-            const id = this.Get(ptr, "id");
-            return this.GetInstanceByID(id);
-        }
-        return null;
+    async Create(scene) {
+        const ptr = this._Instance(scene.internalPtr, 0);
+        const id = this._instanceIdle;
+        this._instanceIdle = this._instanceList[id]?.id || id + 1;
+        const instance = this._instanceList[id] = new Object3D(this, ptr, id);
+        this._instanceCount++;
+        return instance;
     }
-    GetInstanceByID(id) {
-        return this._instanceList[id];
-    }
-    Get(self, key) {
-        const member = this._members[key];
-        return this._global.env[member[0]](self, member[3], member[2]);
-    }
-    Set(self, key, value) {
-        const member = this._members[key];
-        this._global.env[member[1]](self, member[3], value);
-    }
-    Flush;
-    UpdateTransform;
-    Update;
-    SetPosition;
-    SetRotation;
-    SetParent;
-    _global;
-    _instanceList = [null];
-    _instanceLut = {};
-    _instanceCount = 0;
-    _instanceIdle = 1;
-    _members = {
-        ...Node_member_index,
-        source: ["uscalarGet", "uscalarSet", 1, 64],
-        instance: ["uscalarGet", "uscalarSet", 1, 65],
-        parentTS: ["uscalarGet", "uscalarSet", 1, 66],
-        gisTS: ["uscalarGet", "uscalarSet", 1, 67],
-        childCount: ["uscalarGet", "uscalarSet", 1, 68],
-        updated: ["uscalarGet", "uscalarSet", 1, 69],
-        nextEdit: ["ptrGet", "ptrSet", 1, 70],
-        nextDraw: ["ptrGet", "ptrSet", 1, 71],
-        scene: ["ptrGet", "ptrSet", 1, 72],
-        children: ["ptrGet", "ptrSet", 1, 73],
-        lastSib: ["ptrGet", "ptrSet", 1, 74],
-        nextSib: ["ptrGet", "ptrSet", 1, 75],
-        worldRotation: ["farrayGet", "farraySet", 4, 76],
-        reserved2: ["uarrayGet", "uarraySet", 4, 92],
-        wfmMat: ["farrayGet", "farraySet", 16, 96],
-        mfwMat: ["farrayGet", "farraySet", 16, 112],
-    };
-    _members_key;
+    _Instance;
+    _Destroy;
+    _Flush;
+    _SetPosition;
+    _SetRotation;
+    _SetParent;
 }
 export const Node_member_index = {
     ...Miaoverse.Binary_member_index,
@@ -257,5 +220,24 @@ export const Node_member_index = {
     unused3: ["uscalarGet", "uscalarSet", 1, 39],
     name: ["stringGet", "stringSet", 64, 40],
     reserved: ["uarrayGet", "uarraySet", 8, 56],
+};
+export const Object_member_index = {
+    ...Node_member_index,
+    source: ["uscalarGet", "uscalarSet", 1, 64],
+    instance: ["uscalarGet", "uscalarSet", 1, 65],
+    parentTS: ["uscalarGet", "uscalarSet", 1, 66],
+    gisTS: ["uscalarGet", "uscalarSet", 1, 67],
+    childCount: ["uscalarGet", "uscalarSet", 1, 68],
+    updated: ["uscalarGet", "uscalarSet", 1, 69],
+    nextEdit: ["ptrGet", "ptrSet", 1, 70],
+    nextDraw: ["ptrGet", "ptrSet", 1, 71],
+    scene: ["ptrGet", "ptrSet", 1, 72],
+    children: ["ptrGet", "ptrSet", 1, 73],
+    lastSib: ["ptrGet", "ptrSet", 1, 74],
+    nextSib: ["ptrGet", "ptrSet", 1, 75],
+    worldRotation: ["farrayGet", "farraySet", 4, 76],
+    reserved2: ["uarrayGet", "uarraySet", 16, 80],
+    wfmMat: ["farrayGet", "farraySet", 16, 96],
+    mfwMat: ["farrayGet", "farraySet", 16, 112],
 };
 //# sourceMappingURL=object3d.js.map

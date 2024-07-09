@@ -1,10 +1,10 @@
 import * as Miaoverse from "../mod.js";
-/** 网格资源。 */
+/** 网格资源实例。 */
 export declare class Mesh extends Miaoverse.Resource<Mesh> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
      * @param id 实例ID。
      */
     constructor(impl: Mesh_kernel, ptr: Miaoverse.io_ptr, id: number);
@@ -58,56 +58,30 @@ export declare class Mesh extends Miaoverse.Resource<Mesh> {
         /** 数据字节大小。 */
         size: number;
     }[];
-    /** 网格资源内核实现。 */
+    /** 内核实现。 */
     private _impl;
     /** 顶点缓存数组。 */
     private _vertices;
     /** 索引缓存数组。 */
     private _triangles;
 }
-/** 网格资源（192+字节）。 */
-export declare class Mesh_kernel {
+/** 网格资源内核实现。 */
+export declare class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_index> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      */
     constructor(_global: Miaoverse.Ploy3D);
     /**
-     * 创建网格资源实例。
+     * 运行时创建网格资源实例。
      * @param asset 网格资源描述符。
-     * @returns 异步返回网格资源实例。
+     * @returns 返回网格资源实例。
      */
     Create(asset: Asset_mesh): Miaoverse.Mesh;
     /**
-     * 根据内核对象指针获取对象实例。
-     * @param self 内核对象指针。
-     * @returns 返回对象实例。
-     */
-    GetInstanceByPtr(ptr: Miaoverse.io_ptr): Miaoverse.Mesh;
-    /**
-     * 根据实例ID获取对象实例。
-     * @param id 实例ID。
-     * @returns 返回对象实例。
-     */
-    GetInstanceByID(id: number): Miaoverse.Mesh;
-    /**
-     * 获取内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @returns 返回对应属性值。
-     */
-    Get<T>(self: Miaoverse.io_ptr, key: Mesh_kernel["_members_key"]): T;
-    /**
-     * 设置内核对象属性值。
-     * @param self 实例指针。
-     * @param key 内核对象数据成员名称。
-     * @param value 属性值。
-     */
-    Set<T>(self: Miaoverse.io_ptr, key: Mesh_kernel["_members_key"], value: any): void;
-    /**
-     * 从网格数据构建网格实例。
-     * @param data 网格数据。
-     * @returns 返回网格实例。
+     * 从网格几何数据对象构建网格资源文件数据。
+     * @param data 网格几何数据对象。
+     * @returns 返回网格资源文件数据大小和数据指针。
      */
     MakeGeometry(data: {
         /** 顶点数组。 */
@@ -127,190 +101,250 @@ export declare class Mesh_kernel {
     /**
      * 构建格栅网格。
      * @param desc 格栅网格描述符。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeGrid;
+    protected MakeGrid(desc: {
+        /** 格栅边长。 */
+        size: number;
+        /** 划分格子数（偶数）。 */
+        divisions: number;
+    }): Parameters<Mesh_kernel["MakeGeometry"]>[0];
     /**
      * 构建立方体网格。
      * @param desc 立方体网格描述符。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeBox;
+    protected MakeBox(desc: {
+        /** 立方体宽度。 */
+        width: number;
+        /** 立方体高度。 */
+        height: number;
+        /** 立方体深度。 */
+        depth: number;
+        /** 立方体宽度分段数。 */
+        widthSegments: number;
+        /** 立方体高度分段数。 */
+        heightSegments: number;
+        /** 立方体深度分段数。 */
+        depthSegments: number;
+    }): Parameters<Mesh_kernel["MakeGeometry"]>[0];
     /**
      * 构建球体网格。
      * @param desc 球体网格描述。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeSphere;
+    protected MakeSphere(desc: {
+        radius: number;
+        widthSegments: number;
+        heightSegments: number;
+        phiStart: number;
+        phiLength: number;
+        thetaStart: number;
+        thetaLength: number;
+    }): Parameters<Mesh_kernel["MakeGeometry"]>[0];
     /**
      * 构建圆柱体网格。
      * @param desc 圆柱体网格描述符。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeCylinder;
+    protected MakeCylinder(desc: {
+        /** 顶面半径。 */
+        radiusTop: number;
+        /** 底面半径。 */
+        radiusBottom: number;
+        /** 圆柱高度。 */
+        height: number;
+        /** 径向分段数。 */
+        radialSegments: number;
+        /** 高度分段数。 */
+        heightSegments: number;
+        /** 是否开口（删除顶面和底面）。 */
+        openEnded: boolean;
+        /** 径面起始弧度。 */
+        thetaStart: number;
+        /** 镜面弧长（2Π封闭）。 */
+        thetaLength: number;
+    }): Parameters<Mesh_kernel["MakeGeometry"]>[0];
     /**
      * 构建LOD瓦片网格。
      * @param desc LOD瓦片网格描述符。
-     * @returns 返回网格数据。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeLodTile;
+    protected MakeLodTile(desc: {
+        /** 平面宽度。 */
+        width: number;
+        /** 平面高度。 */
+        height: number;
+        /** 平面宽度分段数（偶数）。 */
+        widthSegments: number;
+        /** 平面高度分段数（偶数）。 */
+        heightSegments: number;
+        /** 是否翻转面朝向。 */
+        flipFace?: boolean;
+    }): Parameters<Mesh_kernel["MakeGeometry"]>[0];
     /**
      * 构建LOD平面网格。
      * @param desc LOD平面网格描述符。
-     * @returns 返回构建异常信息。
+     * @returns 返回网格几何数据对象。
      */
-    private MakeLodPlane;
-    /** 实例化网格资源实例。 */
-    InstanceMesh: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
-    /** 创建网格资源。 */
-    CreateMesh: (data: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
-    /** 实例容器列表。 */
-    protected _instanceList: Mesh[];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, Mesh>;
-    /** 已分配实例数量。 */
-    protected _instanceCount: number;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number;
-    /** 待GC列表。 */
-    protected _gcList: Mesh[];
-    /** 内核实现的数据结构成员列表。 */
-    protected _members: {
-        readonly unloaded: Miaoverse.Kernel_member;
-        readonly reserved: Miaoverse.Kernel_member;
-        readonly geometryPTR: Miaoverse.Kernel_member;
-        readonly geometryUUID: Miaoverse.Kernel_member;
-        readonly uvPTR: Miaoverse.Kernel_member;
-        readonly uvUUID: Miaoverse.Kernel_member;
-        readonly skinPTR: Miaoverse.Kernel_member;
-        readonly skinUUID: Miaoverse.Kernel_member;
-        readonly morphPTR: Miaoverse.Kernel_member;
-        readonly morphUUID: Miaoverse.Kernel_member;
-        readonly vertexBufferLayout: Miaoverse.Kernel_member;
-        readonly vertexBufferCount: Miaoverse.Kernel_member;
-        readonly indexBufferFormat: Miaoverse.Kernel_member;
-        readonly submeshCount: Miaoverse.Kernel_member;
-        readonly vertexCount: Miaoverse.Kernel_member;
-        readonly indexCount: Miaoverse.Kernel_member;
-        readonly center: Miaoverse.Kernel_member;
-        readonly extents: Miaoverse.Kernel_member;
-        readonly skinMethod: Miaoverse.Kernel_member;
-        readonly vertexBuffer: Miaoverse.Kernel_member;
-        readonly indexBuffer: Miaoverse.Kernel_member;
-        readonly meshData: Miaoverse.Kernel_member;
-        readonly magic: Miaoverse.Kernel_member;
-        readonly version: Miaoverse.Kernel_member;
-        readonly byteSize: Miaoverse.Kernel_member;
-        readonly refCount: Miaoverse.Kernel_member;
-        readonly id: Miaoverse.Kernel_member;
-        readonly uuid: Miaoverse.Kernel_member;
-        readonly writeTS: Miaoverse.Kernel_member;
-        readonly readTS: Miaoverse.Kernel_member;
-        readonly last: Miaoverse.Kernel_member;
-        readonly next: Miaoverse.Kernel_member;
-    };
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Mesh_kernel["_members"];
+    protected MakeLodPlane(desc: {
+        levels: number;
+        segments: number;
+    }): Parameters<Mesh_kernel["MakeGeometry"]>[0];
+    /**
+     * 实例化网格资源内核实例。
+     * @param data 网格资源文件数据指针。
+     * @returns 返回网格资源内核实例指针。
+     */
+    protected _InstanceMesh: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    /**
+     * 创建网格资源文件数据。
+     * @param geo 网格几何数据指针（数据布局结构请查阅MakeGeometry代码）。
+     * @returns 返回网格资源文件数据大小和数据指针。
+     */
+    protected _CreateMesh: (geo: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
 }
-/** 几何体UV数据（80+字节）。 */
-export declare class UVSet_kernel {
-    /** 内核实现的数据结构成员列表。 */
-    protected _members: {
-        readonly vertexCount: Miaoverse.Kernel_member;
-        readonly uvCount: Miaoverse.Kernel_member;
-        readonly mappingCount: Miaoverse.Kernel_member;
-        readonly unloaded: Miaoverse.Kernel_member;
-        readonly unused0: Miaoverse.Kernel_member;
-        readonly unused1: Miaoverse.Kernel_member;
-        readonly uv: Miaoverse.Kernel_member;
-        readonly polygonVertexIndices: Miaoverse.Kernel_member;
-        readonly magic: Miaoverse.Kernel_member;
-        readonly version: Miaoverse.Kernel_member;
-        readonly byteSize: Miaoverse.Kernel_member;
-        readonly refCount: Miaoverse.Kernel_member;
-        readonly id: Miaoverse.Kernel_member;
-        readonly uuid: Miaoverse.Kernel_member;
-        readonly writeTS: Miaoverse.Kernel_member;
-        readonly readTS: Miaoverse.Kernel_member;
-        readonly last: Miaoverse.Kernel_member;
-        readonly next: Miaoverse.Kernel_member;
-    };
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof UVSet_kernel["_members"];
+/** 几何UV数据内核实现。 */
+export declare class UVSet_kernel extends Miaoverse.Base_kernel<any, typeof UVSet_member_index> {
+    /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
+    constructor(_global: Miaoverse.Ploy3D);
 }
-/** 基础网格几何体数据（144+字节）。 */
-export declare class Geometry_kernel {
-    /** 内核实现的数据结构成员列表。 */
-    protected _members: {
-        readonly defaultUVPTR: Miaoverse.Kernel_member;
-        readonly defaultUVUUID: Miaoverse.Kernel_member;
-        readonly type: Miaoverse.Kernel_member;
-        readonly edgeInterpolationMode: Miaoverse.Kernel_member;
-        readonly vertexCount: Miaoverse.Kernel_member;
-        readonly polyCount: Miaoverse.Kernel_member;
-        readonly center: Miaoverse.Kernel_member;
-        readonly extents: Miaoverse.Kernel_member;
-        readonly vertices: Miaoverse.Kernel_member;
-        readonly polylist: Miaoverse.Kernel_member;
-        readonly materialGroupsNameLength: Miaoverse.Kernel_member;
-        readonly polygonGroupsNameLength: Miaoverse.Kernel_member;
-        readonly materialGroupsName: Miaoverse.Kernel_member;
-        readonly polygonGroupsName: Miaoverse.Kernel_member;
-        readonly unloaded: Miaoverse.Kernel_member;
-        readonly reserved: Miaoverse.Kernel_member;
-        readonly magic: Miaoverse.Kernel_member;
-        readonly version: Miaoverse.Kernel_member;
-        readonly byteSize: Miaoverse.Kernel_member;
-        readonly refCount: Miaoverse.Kernel_member;
-        readonly id: Miaoverse.Kernel_member;
-        readonly uuid: Miaoverse.Kernel_member;
-        readonly writeTS: Miaoverse.Kernel_member;
-        readonly readTS: Miaoverse.Kernel_member;
-        readonly last: Miaoverse.Kernel_member;
-        readonly next: Miaoverse.Kernel_member;
-    };
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Geometry_kernel["_members"];
+/** 几何数据内核实现。 */
+export declare class Geometry_kernel extends Miaoverse.Base_kernel<any, typeof Geometry_member_index> {
+    /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
+    constructor(_global: Miaoverse.Ploy3D);
 }
-/** 网格变形资源（128+字节）。 */
-export declare class Morph_kernel {
-    /** 内核实现的数据结构成员列表。 */
-    protected _members: {
-        readonly type: Miaoverse.Kernel_member;
-        readonly deltasByteSize: Miaoverse.Kernel_member;
-        readonly min: Miaoverse.Kernel_member;
-        readonly max: Miaoverse.Kernel_member;
-        readonly textureWidth: Miaoverse.Kernel_member;
-        readonly vertexCount: Miaoverse.Kernel_member;
-        readonly targetCount: Miaoverse.Kernel_member;
-        readonly morphTargets: Miaoverse.Kernel_member;
-        readonly modifyCount: Miaoverse.Kernel_member;
-        readonly deltas: Miaoverse.Kernel_member;
-        readonly unloaded: Miaoverse.Kernel_member;
-        readonly unused3: Miaoverse.Kernel_member;
-        readonly reserved: Miaoverse.Kernel_member;
-        readonly magic: Miaoverse.Kernel_member;
-        readonly version: Miaoverse.Kernel_member;
-        readonly byteSize: Miaoverse.Kernel_member;
-        readonly refCount: Miaoverse.Kernel_member;
-        readonly id: Miaoverse.Kernel_member;
-        readonly uuid: Miaoverse.Kernel_member;
-        readonly writeTS: Miaoverse.Kernel_member;
-        readonly readTS: Miaoverse.Kernel_member;
-        readonly last: Miaoverse.Kernel_member;
-        readonly next: Miaoverse.Kernel_member;
-    };
-    /** 内核实现的数据结构成员名称声明列表。 */
-    protected _members_key: keyof Morph_kernel["_members"];
+/** 网格变形数据内核实现。 */
+export declare class Morph_kernel extends Miaoverse.Base_kernel<any, typeof Morph_member_index> {
+    /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
+    constructor(_global: Miaoverse.Ploy3D);
 }
-/** 网格资源。 */
+/** 网格资源内核实现的数据结构成员列表。 */
+export declare const Mesh_member_index: {
+    readonly unloaded: Miaoverse.Kernel_member;
+    readonly reserved: Miaoverse.Kernel_member;
+    readonly geometryPTR: Miaoverse.Kernel_member;
+    readonly geometryUUID: Miaoverse.Kernel_member;
+    readonly uvPTR: Miaoverse.Kernel_member;
+    readonly uvUUID: Miaoverse.Kernel_member;
+    readonly skinPTR: Miaoverse.Kernel_member;
+    readonly skinUUID: Miaoverse.Kernel_member;
+    readonly morphPTR: Miaoverse.Kernel_member;
+    readonly morphUUID: Miaoverse.Kernel_member;
+    readonly vertexBufferLayout: Miaoverse.Kernel_member;
+    readonly vertexBufferCount: Miaoverse.Kernel_member;
+    readonly indexBufferFormat: Miaoverse.Kernel_member;
+    readonly submeshCount: Miaoverse.Kernel_member;
+    readonly vertexCount: Miaoverse.Kernel_member;
+    readonly indexCount: Miaoverse.Kernel_member;
+    readonly center: Miaoverse.Kernel_member;
+    readonly extents: Miaoverse.Kernel_member;
+    readonly skinMethod: Miaoverse.Kernel_member;
+    readonly vertexBuffer: Miaoverse.Kernel_member;
+    readonly indexBuffer: Miaoverse.Kernel_member;
+    readonly meshData: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};
+/** 几何UV数据内核实现的数据结构成员列表。 */
+export declare const UVSet_member_index: {
+    readonly vertexCount: Miaoverse.Kernel_member;
+    readonly uvCount: Miaoverse.Kernel_member;
+    readonly mappingCount: Miaoverse.Kernel_member;
+    readonly unloaded: Miaoverse.Kernel_member;
+    readonly unused0: Miaoverse.Kernel_member;
+    readonly unused1: Miaoverse.Kernel_member;
+    readonly uv: Miaoverse.Kernel_member;
+    readonly polygonVertexIndices: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};
+/** 几何数据内核实现的数据结构成员列表。 */
+export declare const Geometry_member_index: {
+    readonly defaultUVPTR: Miaoverse.Kernel_member;
+    readonly defaultUVUUID: Miaoverse.Kernel_member;
+    readonly type: Miaoverse.Kernel_member;
+    readonly edgeInterpolationMode: Miaoverse.Kernel_member;
+    readonly vertexCount: Miaoverse.Kernel_member;
+    readonly polyCount: Miaoverse.Kernel_member;
+    readonly center: Miaoverse.Kernel_member;
+    readonly extents: Miaoverse.Kernel_member;
+    readonly vertices: Miaoverse.Kernel_member;
+    readonly polylist: Miaoverse.Kernel_member;
+    readonly materialGroupsNameLength: Miaoverse.Kernel_member;
+    readonly polygonGroupsNameLength: Miaoverse.Kernel_member;
+    readonly materialGroupsName: Miaoverse.Kernel_member;
+    readonly polygonGroupsName: Miaoverse.Kernel_member;
+    readonly unloaded: Miaoverse.Kernel_member;
+    readonly reserved: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};
+/** 网格变形数据内核实现的数据结构成员列表。 */
+export declare const Morph_member_index: {
+    readonly type: Miaoverse.Kernel_member;
+    readonly deltasByteSize: Miaoverse.Kernel_member;
+    readonly min: Miaoverse.Kernel_member;
+    readonly max: Miaoverse.Kernel_member;
+    readonly textureWidth: Miaoverse.Kernel_member;
+    readonly vertexCount: Miaoverse.Kernel_member;
+    readonly targetCount: Miaoverse.Kernel_member;
+    readonly morphTargets: Miaoverse.Kernel_member;
+    readonly modifyCount: Miaoverse.Kernel_member;
+    readonly deltas: Miaoverse.Kernel_member;
+    readonly unloaded: Miaoverse.Kernel_member;
+    readonly unused3: Miaoverse.Kernel_member;
+    readonly reserved: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};
+/** 网格资源描述符。 */
 export interface Asset_mesh extends Miaoverse.Asset {
-    /** 网格数据构建器。 */
+    /** 网格几何数据构建器。 */
     creater?: Asset_mesh_creater;
 }
-/** 网格数据构建器。 */
+/** 网格几何数据构建器。 */
 export interface Asset_mesh_creater {
     type: "grid" | "box" | "sphere" | "cylinder" | "lod_tile" | "lod_plane";
     grid?: Parameters<Mesh_kernel["MakeGrid"]>[0];

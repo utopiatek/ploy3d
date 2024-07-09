@@ -481,7 +481,7 @@ export class Context {
                 return function (value: number[]) {
                     const master = this.master as ConstructorParameters<Miaoverse.PropTuple["view"]>[0];
                     env.arraySet(var_.decl.format, master.blockPtr, var_.offset >> 2, value);
-                    master.updated = 1;
+                    master.updated = true;
                 };
             }
             else {
@@ -502,7 +502,7 @@ export class Context {
 
                         master.enableFlags = enableFlags;
 
-                        master.updated = 1;
+                        master.updated = true;
                     };
                 }
                 else if (undefined === specFlag) {
@@ -520,7 +520,7 @@ export class Context {
 
                         env.arraySet(var_.decl.format, master.blockPtr, var_.offset >> 2, value);
 
-                        master.updated = 1;
+                        master.updated = true;
                     };
                 }
                 else {
@@ -550,7 +550,7 @@ export class Context {
 
                         master.enableFlags = enableFlags;
 
-                        master.updated = 1;
+                        master.updated = true;
                     };
                 }
             }
@@ -842,20 +842,20 @@ export class Context {
 
             "reserved0": { note: "保留字段", sign: "mat4x4<f32>" },
 
-            "gis": { note: "GIS，世界空间原点处墨卡托坐标、相机世界空间观察点墨卡托坐标", sign: "vec4<f32>" },
+            "reserved3": { note: "保留字段", sign: "vec4<f32>" },
             "camera_wPos": { note: "相机，世界空间中的相机位置，W位不使用", sign: "vec4<f32>" },
             "camera_wDir": { note: "相机，世界空间中的相机观察方向和距观察目标距离", sign: "vec4<f32>" },
             "camera_params": { note: "x : cameraFar 远平面距离。y : oneOverFarMinusNear 1/(f-n), 始终为正数。z : nearOverFarMinusNear n/(f-n), 始终为正数。w : ev100 EV100参数。", sign: "vec4<f32>" },
 
             "resolution": { note: "视口，width, height, 1/width, 1/height", sign: "vec4<f32>", value: [1024.0, 1024.0, 0.000977, 0.000977] },
             "clipControl": { note: "用于将Z范围从[0, 1]转换到[-1, 1]", sign: "vec4<f32>", value: [1.0, 0.0] },
-            "reserved1": { note: "保留字段", sign: "vec4<f32>" },
+            "cascadeSplits": { note: "CSM，视锥在相机空间中的划分位置，不包含近平面。不使用的分量值为-INF", sign: "vec4<f32>", value: [-6.3457, 0.0, 0.0, 0.0] },
             "reserved2": { note: "保留字段", sign: "vec4<f32>" },
 
-            "cascadeSplits": { note: "CSM，视锥在相机空间中的划分位置，不包含近平面。不使用的分量值为-INF", sign: "vec4<f32>", value: [-6.3457, 0.0, 0.0, 0.0] },
-            "froxelCountXY": { note: "视锥体素化截面的横竖细分数", sign: "vec4<f32>" },
-            "zParams": { note: "着色器使用的视锥体素化参数1", sign: "vec4<f32>" },
-            "fParams": { note: "着色器使用的视锥体素化参数2", sign: "vec4<u32>" },
+            "froxelCount": { note: "视锥体素化细分参数：Dim、CountX、CountY、CountZ", sign: "vec4<u32>" },
+            "froxelCountZ": { note: "视锥体素化细分参数：NearZ、FarZ、LinearZ、Reserved", sign: "vec4<f32>" },
+            "froxelParamsF": { note: "着色器使用的视锥体素化参数1：1、CountX、CountX * CountY、CountX * CountY * CountZ", sign: "vec4<u32>" },
+            "froxelParamsZ": { note: "着色器使用的视锥体素化参数2：用于计算片元所属体素索引", sign: "vec4<f32>" },
 
             // 1408===================----------------------------------
 

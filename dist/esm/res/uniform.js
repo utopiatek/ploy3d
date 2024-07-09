@@ -3,6 +3,7 @@ export class Uniform extends Miaoverse.Resource {
     constructor(impl, ptr, id) {
         super(impl["_global"], ptr, id);
         this._impl = impl;
+        this._impl.Set(this._ptr, "id", id);
         const buffer = this._impl.Get(ptr, "buffer");
         this._bufferPtr = this._impl.Get(buffer, "buffer_addr");
         this._bufferSize = this._impl.Get(buffer, "buffer_size");
@@ -11,7 +12,7 @@ export class Uniform extends Miaoverse.Resource {
     Bind(passEncoder) {
         if (this.updated) {
             this._global.device.WriteBuffer(this.bufferID, this.offset, this._global.env.buffer, (this.bufferPtr << 2) + this.offset, this.size);
-            this.updated = 0;
+            this.updated = false;
             this.writeTS = this._global.env.frameTS;
         }
         if (this.bindingID == 0) {
@@ -53,10 +54,10 @@ export class Uniform extends Miaoverse.Resource {
         this._impl.Set(this._ptr, "binding", value);
     }
     get updated() {
-        return this._impl.Get(this._ptr, "updated");
+        return this._impl.Get(this._ptr, "updated") > 0;
     }
     set updated(value) {
-        this._impl.Set(this._ptr, "updated", value);
+        this._impl.Set(this._ptr, "updated", value ? 1 : 0);
     }
     get layoutID() {
         return this.group + 1;

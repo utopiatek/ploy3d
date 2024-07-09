@@ -3,8 +3,8 @@ import * as Miaoverse from "../mod.js";
 export declare class ShaderRes extends Miaoverse.Resource<ShaderRes> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
-     * @param ptr 实例内部指针。
+     * @param impl 实例管理器。
+     * @param shader 内部实例。
      * @param id 实例ID。
      */
     constructor(impl: Shader_kernel, shader: Miaoverse.Shader, id: number);
@@ -14,46 +14,28 @@ export declare class ShaderRes extends Miaoverse.Resource<ShaderRes> {
     get shader(): Miaoverse.Shader;
     /** 着色器属性统一变量块大小。 */
     get uniformSize(): number;
-    /** 材质资源内核实现。 */
+    /** 实例管理器。 */
     private _impl;
-    /** 资源实例内部实现。 */
+    /** 内部实例。 */
     private _shader;
 }
-/** 着色器资源实例管理器。 */
-export declare class Shader_kernel {
+/** 着色器资源实例管理器（没有内核实现）。 */
+export declare class Shader_kernel extends Miaoverse.Base_kernel<ShaderRes, any> {
     /**
      * 构造函数。
-     * @param _global 模块实例对象。
+     * @param _global 引擎实例。
      */
     constructor(_global: Miaoverse.Ploy3D);
     /**
-     * 装载着色器资源实例。
+     * 装载着色器资源。
      * @param uri 着色器资源URI。
      * @param pkg 当前资源包注册信息。
      * @returns 异步返回着色器资源实例。
      */
     Load(uri: string, pkg?: Miaoverse.PackageReg): Promise<Miaoverse.ShaderRes>;
-    /**
-     * 根据实例ID获取对象实例。
-     * @param id 实例ID。
-     * @returns 返回对象实例。
-     */
-    GetInstanceByID(id: number): Miaoverse.ShaderRes;
-    /** 模块实例对象。 */
-    protected _global: Miaoverse.Ploy3D;
-    /** 实例容器列表。 */
-    protected _instanceList: ShaderRes[];
-    /** 已分配实例查找表（通过UUID字符串）。 */
-    protected _instanceLut: Record<string, ShaderRes>;
-    /** 已分配实例数量。 */
-    protected _instanceCount: number;
-    /** 待空闲实例索引。 */
-    protected _instanceIdle: number;
-    /** 待GC列表。 */
-    protected _gcList: ShaderRes[];
 }
 /** 着色器资源描述符。 */
 export interface Asset_shader extends Miaoverse.Asset {
-    /** 着色器资产。 */
+    /** 着色器资产数据。 */
     asset: Miaoverse.ShaderAsset;
 }

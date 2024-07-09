@@ -1,7 +1,7 @@
 import * as Miaoverse from "../mod.js";
 export class ShaderRes extends Miaoverse.Resource {
     constructor(impl, shader, id) {
-        super(impl["_global"], impl["_global"].env.ptrZero(), id);
+        super(impl["_global"], 0, id);
         this._impl = impl;
         this._shader = shader;
     }
@@ -17,9 +17,9 @@ export class ShaderRes extends Miaoverse.Resource {
     _impl;
     _shader = null;
 }
-export class Shader_kernel {
+export class Shader_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
-        this._global = _global;
+        super(_global, {});
     }
     async Load(uri, pkg) {
         const uuid = this._global.resources.ToUUID(uri, pkg);
@@ -50,21 +50,11 @@ export class Shader_kernel {
         const shader = this._global.context.CreateShader(desc.data.asset);
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
-        const instance = new ShaderRes(this, shader, id);
-        this._instanceList[id] = instance;
+        const instance = this._instanceList[id] = new ShaderRes(this, shader, id);
         this._instanceLut[uuid] = instance;
         this._instanceCount++;
         this._gcList.push(instance);
         return instance;
     }
-    GetInstanceByID(id) {
-        return this._instanceList[id];
-    }
-    _global;
-    _instanceList = [null];
-    _instanceLut = {};
-    _instanceCount = 0;
-    _instanceIdle = 1;
-    _gcList = [];
 }
 //# sourceMappingURL=shader.js.map
