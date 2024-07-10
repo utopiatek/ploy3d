@@ -401,7 +401,7 @@ export class Context {
         const webgl = this._global.config.webgl;
         let code = webgl ? `\nlayout(std140) uniform ${uniformGroup.tname} {\n` : `\nstruct ${uniformGroup.tname} {\n`;
         let offset = 0;
-        if (uniformGroup.group == 2) {
+        if (uniformGroup.group == 0 || uniformGroup.group == 2) {
             if (webgl) {
                 code += "    mat4 sysMat1;\n";
                 code += "    mat4 sysMat2;\n";
@@ -430,14 +430,14 @@ export class Context {
             else {
                 code += "    " + prop.decl.name + " : " + desc.signWGSL + ",\n";
             }
-            PropView.prototype[prop.decl.name] = {
+            Object.defineProperty(PropView.prototype, prop.decl.name, {
                 enumerable: true,
                 configurable: false,
                 set: specSet(prop),
                 get() {
                     return env.arrayGet(prop.decl.format, this.master.blockPtr, prop.offset >> 2, prop.size >> 2);
                 }
-            };
+            });
         };
         const padding = (sign, name) => {
             if (webgl) {
@@ -587,8 +587,6 @@ export class Context {
     }
     GenerateGroupLayout_G0() {
         const properties = {
-            "sysMat1": { note: "系统占用字段1", sign: "mat4x4<f32>" },
-            "sysMat2": { note: "系统占用字段2", sign: "mat4x4<f32>" },
             "lfgMat": { note: "变换矩阵：全局->灯光。CONFIG_MAX_SHADOW_CASCADES == 4", sign: "mat4x4<f32>" },
             "lfgMat1": { note: "变换矩阵：全局->灯光。CONFIG_MAX_SHADOW_CASCADES == 4", sign: "mat4x4<f32>" },
             "lfgMat2": { note: "变换矩阵：全局->灯光。CONFIG_MAX_SHADOW_CASCADES == 4", sign: "mat4x4<f32>" },
@@ -986,6 +984,12 @@ struct ObjectUniforms {
 @group(1) @binding(3) var morphTG : texture_2d<f32>;
             `;
         }
+        class PropView {
+            constructor(master) {
+                this.master = master;
+            }
+            master;
+        }
         const list = [
             {
                 index: 0,
@@ -1100,12 +1104,27 @@ struct ObjectUniforms {
                 }
             }
         ];
+        const env = this._global.env;
+        for (let prop of list) {
+            Object.defineProperty(PropView.prototype, prop.decl.name, {
+                enumerable: true,
+                configurable: false,
+                set(value) {
+                    const master = this.master;
+                    env.arraySet(prop.decl.format, master.blockPtr, prop.offset >> 2, value);
+                    master.updated = true;
+                },
+                get() {
+                    return env.arrayGet(prop.decl.format, this.master.blockPtr, prop.offset >> 2, prop.size >> 2);
+                }
+            });
+        }
         const propLayout = {
             group: 1,
             tuple: {
                 vars: list,
                 size: 256,
-                view: null,
+                view: PropView,
             },
             vscode: code,
             fscode: code,

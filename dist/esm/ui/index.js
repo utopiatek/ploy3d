@@ -14,7 +14,6 @@ export class CalynUI {
         this._createrLut["Layout_grid"] = { type: "layout", creater: Layout_grid };
         this._createrLut["Layout_vert_list"] = { type: "layout", creater: Layout_vert_list };
         this._createrLut["Layout_frame_1"] = { type: "layout", creater: Layout_frame_1 };
-        this.InitEventSystem();
     }
     async Init() {
         return this;

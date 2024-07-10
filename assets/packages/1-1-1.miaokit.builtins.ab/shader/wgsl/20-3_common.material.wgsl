@@ -5,69 +5,69 @@
 
 // 片段的屏幕空间坐标
 // 在WGSL中，gl_FragCoord的等价内置变量是@builtin(position)
-var<private> gl_FragCoord = vec4f(0.0);
+var<private> gl_FragCoord: vec4f = vec4f(0.0);
 
 // 材质需要完整定义以下值，并标记出实际启用了哪些值
 // 材质表面不透明度（material_alpha = computeMaskedAlpha(inputs_alpha、inputs_maskThreshold)）
 // #MATERIAL_HAS_ALPHA
-var<private> material_alpha = 1.0;
+var<private> material_alpha: f32 = 1.0;
 // 材质金属成分的反射率【F0】，非金属成分的折射光线散射率【pixel_diffuseColor】（未预乘不透明度），UNLIT模型输出颜色
 // #MATERIAL_HAS_BASECOLOR
-var<private> material_baseColor = vec3f(0.0);
+var<private> material_baseColor: vec3f = vec3f(0.0);
 // 清漆层强度，控制清漆层反射率
 // #MATERIAL_HAS_CLEAR_COAT
-var<private> material_clearCoat = 0.0;
+var<private> material_clearCoat: f32 = 0.0;
 // 清漆层粗糙度线性值（取值范围[MIN_PERCEPTUAL_ROUGHNESS, 1]）
 // #MATERIAL_HAS_CLEAR_COAT_ROUGHNESS
-var<private> material_clearCoatPerceptualRoughness = 0.5;
+var<private> material_clearCoatPerceptualRoughness: f32 = 0.5;
 // 各项异性计算的偏移方向(anisotropicT，正数)或(anisotropicB，负数)和强度参数([-1, 1]线性值，0为各向同性)
 // #MATERIAL_HAS_ANISOTROPY
-var<private> material_anisotropy = 0.0;
+var<private> material_anisotropy: f32 = 0.0;
 // 环境光遮蔽度（[0, 1]线性值）
 // #MATERIAL_HAS_AMBIENT_OCCLUSION
-var<private> material_ambientOcclusion = 1.0;
+var<private> material_ambientOcclusion: f32 = 1.0;
 // 粗糙度线性值（用于折射计算，取值范围[0, 1]）
 // #MATERIAL_HAS_ROUGHNESS
-var<private> material_perceptualRoughnessUnclamped = 0.5;
+var<private> material_perceptualRoughnessUnclamped: f32 = 0.5;
 // 材质表面金属度
 // #MATERIAL_HAS_METALLI
-var<private> material_metallic = 0.0;
+var<private> material_metallic: f32 = 0.0;
 // 材质表面非金属成分反射率【F0】
 // #MATERIAL_HAS_SPECULAR
-var<private> material_reflectance = 0.5;
+var<private> material_reflectance: f32 = 0.5;
 // 自发光颜色强度（HDR）
 // #MATERIAL_HAS_EMISSIVE
-var<private> material_emissive = vec3f(0.0);
+var<private> material_emissive: vec3f = vec3f(0.0);
 // 附加的用于和光照计算后的结果混合产生最后输出的颜色
 // #MATERIAL_HAS_POST_LIGHTING_COLOR
-var<private> material_postLightingColor = vec4f(0.0);
+var<private> material_postLightingColor: vec4f = vec4f(0.0);
 // PBR计算所用的次表面光照颜色，光穿过物体被吸收后的散射颜色
 // #MATERIAL_HAS_SUBSURFACECOLOR
-var<private> material_subsurfaceColor = vec3f(0.0);
+var<private> material_subsurfaceColor: vec3f = vec3f(0.0);
 // 次表面光照强度
 // #MATERIAL_HAS_SUBSURFACE_POWER
-var<private> material_subsurfacePower = 12.0;
+var<private> material_subsurfacePower: f32 = 12.0;
 // 光泽层、布料（绒毛）的反射率【F0】
 // #MATERIAL_HAS_SHEENCOLOR
-var<private> material_sheenColor = vec3f(0.0);
+var<private> material_sheenColor: vec3f = vec3f(0.0);
 // 光泽层粗糙度线性值（取值范围[MIN_PERCEPTUAL_ROUGHNESS, 1]）
 // #MATERIAL_HAS_SHEEN_ROUGHNESS
-var<private> material_sheenPerceptualRoughness = 0.0;
+var<private> material_sheenPerceptualRoughness: f32 = 0.0;
 // 材质的物理折射率（光在真空中的传播速度与光在该介质中的传播速度之比，可用于计算出f0）
 // #MATERIAL_HAS_IOR
-var<private> material_ior = 1.5;
+var<private> material_ior: f32 = 1.5;
 // 折射光线穿过率（折射后有多少比重光通过物体，剩余比重被吸收和散射，取值范围[0.0, 1.0]）
 // #MATERIAL_HAS_TRANSMISSION
-var<private> material_transmission = 1.0;
+var<private> material_transmission: f32 = 1.0;
 // 材质对穿过它的光线的吸收率（比如穿过墨水瓶）
 // #MATERIAL_HAS_ABSORPTION
-var<private> material_absorption = vec3f(0.0);
+var<private> material_absorption: vec3f = vec3f(0.0);
 // 实心半透明材质厚度（也用于次表面散射波瓣衰减）
 // #MATERIAL_HAS_THICKNESS
-var<private> material_thickness = 0.5;
+var<private> material_thickness: f32 = 0.5;
 // 空心半透明材质壳厚度
 // #MATERIAL_HAS_MICRO_THICKNESS
-var<private> material_uThickness = 0.1;
+var<private> material_uThickness: f32 = 0.1;
 
 // 参数a为不透明度，当a小于threshold时，丢弃该像素
 fn computeMaskedAlpha(a: f32, threshold: f32) -> f32 {
@@ -86,44 +86,44 @@ fn computeMaskedAlpha(a: f32, threshold: f32) -> f32 {
 }
 
 // 着色光照模型标识(shading_model = SHADING_MODEL)
-var<private> shading_model = 0u;
+var<private> shading_model: u32 = 0u;
 // 渲染标志集
 // 最高8BIT记录混合模式(会写入GBUFFER)
 // 次高8BIT记录着色模型相关通道开关(会写入GBUFFER)
 // 最低16BIT记录在延迟着色中记录各材质属性启用状态(最多记录4个属性启用)
-var<private> shading_flags = 0u;
+var<private> shading_flags: u32 = 0u;
 // 相机空间坐标
-var<private> shading_position = vec3f(0.0, 0.0, -1.0);
+var<private> shading_position: vec3f = vec3f(0.0, 0.0, -1.0);
 // 相机空间单位化几何法线
-var<private> shading_geometricNormal = vec3f(0.0, 0.0, 1.0);
+var<private> shading_geometricNormal: vec3f = vec3f(0.0, 0.0, 1.0);
 // TBN矩阵（切线空间 -> 相机空间）
 // 我们使用非规范化的插值值，并假设使用Mikktspace算法计算切线，http://mikktspace.com/
-var<private> shading_tangentToView = mat3x3f(1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, 1.0);
+var<private> shading_tangentToView: mat3x3f = mat3x3f(1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, 1.0);
 
 // 视口空间坐标（NDC之后，屏幕空间，原点位于左下角）
 // 裁剪空间坐标vertex_clipPosition进行透视除法后从[-1, 1]范围转换到[0, 1]范围（shading_normalizedViewportCoord = vertex_clipPosition.xy * (0.5 / vertex_clipPosition.w) + 0.5）
 // 我们避免了使用矩阵乘法，也因此多开销了4个varyings单元，使用矩阵乘法的方法如下
 // p = cfvMat * shading_position;
 // shading_normalizedViewportCoord = p.xy * 0.5 / p.w + 0.5
-var<private> shading_normalizedViewportCoord = vec2f(0.5, 0.5);
+var<private> shading_normalizedViewportCoord: vec2f = vec2f(0.5, 0.5);
 // 相机空间单位化观察向量，从片元指向相机（shading_view = normalize(-shading_position)）
-var<private> shading_view = vec3f(0.0, 0.0, 1.0);
+var<private> shading_view: vec3f = vec3f(0.0, 0.0, 1.0);
 // 单位化细节法线(相机空间，normalize(shading_tangentToView * inputs_normal))
 // #MATERIAL_HAS_NORMAL
-var<private> shading_normal = vec3f(0.0, 0.0, 1.0);
+var<private> shading_normal: vec3f = vec3f(0.0, 0.0, 1.0);
 // 片元的相机空间内观察向量(shading_view)的反射向量(基于shading_normal反射，指向离开片元方向)
-var<private> shading_reflected = vec3f(0.0, 0.0, 1.0);
+var<private> shading_reflected: vec3f = vec3f(0.0, 0.0, 1.0);
 // 片元的shading_normal与shading_view的点积，表示两者夹角大小。1表示夹角等于0，0表示夹角等于90，负数表示夹角大于90，夹取到[MIN_N_DOT_V, 1]正数
-var<private> shading_NoV = 1.0;
+var<private> shading_NoV: f32 = 1.0;
 // 环境光偏向法线(相机空间，normalize(shading_tangentToView * inputs_bentNormal)，指向当前片元不被其它片元遮挡光照的平均方向，也即光线传入的主要方向(材质通过烘焙提供，可选))
 // #MATERIAL_HAS_BENT_NORMAL
-var<private> shading_bentNormal = vec3f(0.0, 0.0, 1.0);
+var<private> shading_bentNormal: vec3f = vec3f(0.0, 0.0, 1.0);
 // 清漆层法线
 // #MATERIAL_HAS_CLEAR_COAT_NORMAL
-var<private> shading_clearCoatNormal = vec3f(0.0, 0.0, 1.0);
+var<private> shading_clearCoatNormal: vec3f = vec3f(0.0, 0.0, 1.0);
 // 各项异性计算的切线方向参数(相机空间，normalize(shading_tangentToView * inputs_anisotropyDirection))
 // #MATERIAL_HAS_ANISOTROPY_DIRECTION
-var<private> shading_anisotropicT = vec3f(1.0, 0.0, 0.0);
+var<private> shading_anisotropicT: vec3f = vec3f(1.0, 0.0, 0.0);
 
 // 根据材质属性输入，计算光照可能用到的一些全局变量
 fn prepareShading(clipPosition: vec4f, normal: vec3f, bentNormal: vec3f, clearCoatNormal: vec3f, anisotropyDirection: vec3f) {

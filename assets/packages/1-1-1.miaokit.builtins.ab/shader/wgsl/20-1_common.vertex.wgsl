@@ -71,7 +71,8 @@ fn morphPosition(
         let offset_t = tangent_ - tangent;
 
         // 当前变形目标的变形权重
-        let weight = weights[i / 4u][i % 4u];
+        // TODO: let weight = weights[i / 4u][i % 4u];
+        let weight = weights[0u][i % 4u];
 
         out.position += weight * offset;
         out.normal += weight * offset_n;
@@ -129,23 +130,23 @@ fn computeLightSpacePosition(viewPosition: vec3f, viewNormal: vec3f, cascade: u3
 // ======================================================================================================
 
 // 实例化绘制中当前实例索引
-var<private> gl_InstanceID = 0u;
+var<private> gl_InstanceID: u32 = 0u;
 // 当前处理顶点索引
-var<private> gl_VertexID = 0u;
+var<private> gl_VertexID: u32 = 0u;
 
 // 实例对象ID
-var<private> instance_id = 0u;
+var<private> instance_id: u32 = 0u;
 // 实例对象状态标志集
-var<private> instance_flags = 0u;
+var<private> instance_flags: u32 = 0u;
 // 实例对象自定义层标志集
-var<private> instance_layers = 0u;
+var<private> instance_layers: u32 = 0u;
 // 实例对象用户数据
-var<private> instance_user = 0u;
+var<private> instance_user: u32 = 0u;
 
 // 对象网格包围盒中心
-var<private> instance_bbCenter = vec3(0.0);
+var<private> instance_bbCenter: vec3f = vec3(0.0);
 // 对象网格包围盒延展大小
-var<private> instance_bbExtents = vec3(0.5);
+var<private> instance_bbExtents: vec3f = vec3(0.5);
 
 // 世界空间到相机空间变换矩阵
 var<private> instance_vfwMat: mat4x4f;
@@ -220,13 +221,13 @@ struct InputVS_3 {
 };
 
 // 进行网格变形和骨骼蒙皮后的模型空间顶点坐标
-var<private> mesh_position = vec3f(0.0);
+var<private> mesh_position: vec3f = vec3f(0.0);
 // 顶点纹理坐标0
-var<private> mesh_uv = vec2f(0.0);
+var<private> mesh_uv: vec2f = vec2f(0.0);
 // 进行网格变形和骨骼蒙皮后的模型空间顶点法线
-var<private> mesh_normal = vec3f(0.0, 0.0, 1.0);
+var<private> mesh_normal: vec3f = vec3f(0.0, 0.0, 1.0);
 // 进行网格变形和骨骼蒙皮后的模型空间顶点切线（W通道为负表示切线方向需要镜像）
-var<private> mesh_tangent = vec4f(1.0, 0.0, 0.0, 1.0);
+var<private> mesh_tangent: vec4f = vec4f(1.0, 0.0, 0.0, 1.0);
 
 // 初始化顶点属性
 fn init_vertex_0(vertex: InputVS_0) {

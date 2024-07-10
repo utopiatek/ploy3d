@@ -41,14 +41,14 @@ struct InputFS {
     @location(5) uv: vec2f,
 };
 
-var<private> gl_FrontFacing = false;
+var<private> gl_FrontFacing: bool = false;
 
-var<private> inputs_depth = 0.0;
-var<private> inputs_position = vec3f(0.0);
-var<private> inputs_uv = vec2f(0.0);
-var<private> inputs_geometricNormal = vec3f(0.0, 0.0, 1.0);
-var<private> inputs_geometricTangent = vec3f(1.0, 0.0, 0.0);
-var<private> inputs_vftMat = mat3x3f(1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, 1.0);
+var<private> inputs_depth: f32 = 0.0;
+var<private> inputs_position: vec3f = vec3f(0.0);
+var<private> inputs_uv: vec2f = vec2f(0.0);
+var<private> inputs_geometricNormal: vec3f = vec3f(0.0, 0.0, 1.0);
+var<private> inputs_geometricTangent: vec3f = vec3f(1.0, 0.0, 0.0);
+var<private> inputs_vftMat: mat3x3f = mat3x3f(1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, 1.0);
 
 fn varyings_init(frag: InputFS) {
     gl_FrontFacing = frag.gl_FrontFacing;

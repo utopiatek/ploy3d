@@ -664,6 +664,18 @@ export class PloyApp {
         }
 
         return new Promise<void>(async (resolve, reject) => {
+            const events = ["click", "dblclick", "mousewheel", "wheel", "pointerout", "pointerup", "pointerdown", "pointermove", "contextmenu"];
+
+            for (let type of events) {
+                const listeners = this.event_listener[type] || (this.event_listener[type] = []);
+
+                this.ui_canvas.addEventListener(type, async (event) => {
+                    for (let listener of listeners) {
+                        await listener(event);
+                    }
+                });
+            }
+
             resolve();
         });
     }

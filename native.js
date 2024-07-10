@@ -1,15 +1,11 @@
 /** 引入该模块用于创建系统窗口。 */
 import * as sdl2 from "https://deno.land/x/sdl2@0.9.0/mod.ts";
-/** 导入PLOY3D引擎。 */
-import * as ploycloud from "./dist/esm/mod"
-/** 引入该模块用于创建2D画布。 */
-import CanvasKitInit from "./lib/canvaskit";
 /** DOM/XML解析器，我们主要使用DOMParser来解析SVG文件。 */
 import { DOMParser } from "https://esm.sh/linkedom";
-/** SVG文件渲染库（测试未通过）。 */
-/// import { Canvg, presets } from 'npm:canvg';
 /** 导入ECharts库。 */
 import * as echarts from "echarts";
+/** 导入PLOY3D引擎。 */
+import * as ploycloud from "./dist/esm/mod"
 /** 导入应用实现[base_ui]。 */
 import * as app_base_ui from "./examples/base_ui"
 
@@ -19,238 +15,31 @@ globalThis.DOMParser = DOMParser;
 /** 文件加载根路径。 */
 const cwd = "file://" + Deno.cwd() + "/";
 
-/** 入口函数。 */
-async function Main(canvaskit) {
+/**
+ * 入口函数。
+ * @param {FileSystemDirectoryHandle} fs_root 如果非未定义，则启用本地文件系统。
+ * @returns 返回事件处理协程。
+ */
+async function Main(fs_root) {
+    if (fs_root !== undefined) {
+        if (fs_root == null) {
+            fs_root = {};
+        }
+    }
+
+    if (fs_root) {
+        console.info("用户已授权读写本地文件系统目录。");
+    }
+
     /** 
      * DENO环境下的兼容设置。
      * @param {ConstructorParameters<typeof ploycloud.Ploy3D>[0]} config 引擎模块实例选项。
      */
     const env_configure = function (config) {
-        // 【src/device.ts:Device.InitGPU】获取GPU适配器后才能获取SDL2窗口表面，这应该是DENO的一个BUG
-
-        // GPU设备上下文，用于创建GPU贴图表面
-        let gpu_ctx = null;
-
-        function MakeUrl(path) {
-            if (!path.startsWith("http")) {
-                if (!path.startsWith("file://")) {
-                    if (path.startsWith("./") || path.startsWith("/") || path.startsWith(".\\") || path.startsWith("\\")) {
-                        path = cwd + path;
-                    }
-                    else {
-                        path = "file://" + path;
-                    }
-                }
-            }
-
-            return path;
-        }
-
-        function CreateCanvas(width, height) {
-            engine.Track("CreateCanvas: " + width + " " + height, 1);
-
-            const texture_id = engine.device.CreateTextureRT(width, height, 1, 1, "rgba8unorm", true, true);
-            const texture = engine.device._texturesRT.list[texture_id].texture;
-
-            if (!gpu_ctx) {
-                gpu_ctx = engine.canvaskit.MakeGPUDeviceContext(engine.device["_device"]);
-            }
-
-            // GPU光栅化表面
-            // const surface = engine.canvaskit.MakeGPUTextureSurface(gpu_ctx, texture, width, height, engine.canvaskit.ColorSpace.SRGB);
-
-            // 表面结构信息
-            const ii = {
-                alphaType: canvaskit.AlphaType.Premul,
-                colorSpace: canvaskit.ColorSpace.SRGB,
-                colorType: canvaskit.ColorType.RGBA_8888,
-                height: height,
-                width: width
-            };
-
-            // 表面像素容器
-            const pixels = canvaskit.Malloc(Uint8Array, 4 * width * height);
-            // 表面行字节大小
-            const bytesPerRow = 4 * width;
-
-            // CPU光栅化表面
-            const surface = canvaskit.MakeRasterDirectSurface(ii, pixels, bytesPerRow);
-
-            // 在MakeCanvas前我们需要替换MakeSurface为MakeRasterDirectSurface
-            const MakeSurface = canvaskit.MakeSurface;
-
-            // 替换MakeSurface为MakeRasterDirectSurface
-            canvaskit.MakeSurface = function (width_, height_) {
-                if (width == width_ && height == height_) {
-                    return surface;
-                }
-
-                engine.Track("Deno.CreateCanvas: MakeSurface设置异常！", 3);
-                return null;
-            };
-
-            // 创建Canvas2D模拟接口，用于HTML画布不可用的环境（例如 Node、无头服务器）
-            // measureText仅返回宽度，不进行整形。它只对ASCII字母有效
-            // 不支持textAlign
-            // 不支持textBaseAlign
-            // fillText不支持width参数
-            const canvas2d = canvaskit.MakeCanvas(width, height);
-
-            // 在MakeCanvas后我们需要还原MakeSurface
-            canvaskit.MakeSurface = MakeSurface;
-
-            // BEG兼容性扩展 ================-------------------------
-
-            canvas2d.width = width;
-            canvas2d.height = height;
-
-            // 我们需要创建贴图来提交canvas2d内容到窗口
-            const tex_creator = engine.app.sdl_canvas.textureCreator();
-            const transfer = tex_creator.createTexture(sdl2.PixelFormat.ABGR8888, sdl2.TextureAccess.Streaming, width, height);
-            const src_rect = new sdl2.Rect(0, 0, width, height);
-            const dst_rect = new sdl2.Rect(0, 0, width, height);
-
-            // 提交canvas2d内容到窗口（通常我们拷贝到WebGPU纹理而不是直接提交到窗口）
-            function Present() {
-                // GPU贴图表面不能直接提交显示
-                // return;
-
-                // 当前canvas2d像素数据
-                const data = pixels.toTypedArray();
-
-                // 上传数据到传输贴图
-                transfer.update(data, bytesPerRow, src_rect);
-
-                // 拷贝到窗口
-                engine.app.sdl_canvas.copy(transfer, src_rect, dst_rect);
-
-                // 刷新显示
-                engine.app.sdl_canvas.present();
-            };
-
-            // 记录扩展信息
-            canvas2d._extra = {
-                ii,
-                pixels,
-                bytesPerRow,
-                texture,
-                surface,
-                transfer,
-                src_rect,
-                dst_rect,
-                Present
-            };
-
-            // ECharts会调用该接口注册事件监听器
-            canvas2d.addEventListener = function () {
-                // ...
-            };
-
-            // 需要扩展兼容CanvasRenderingContext2D实现
-            ConfigCanvasContext(canvas2d);
-
-            // END兼容性扩展 ================-------------------------
-
-            // TODO：需要实现调用canvas2d.dispose()释放
-            return canvas2d;
-        }
-
-        function ConfigCanvasContext(canvas2d) {
-            const getContext = canvas2d.getContext.bind(canvas2d);
-
-            canvas2d.getContext = function (type) {
-                const ctx = getContext(type);
-                const font = ctx._font;
-
-                // ===================-----------------------
-
-                let setTypeface = font.setTypeface.bind(font);
-                let defaultTF = undefined;
-
-                font.setTypeface = function (face) {
-                    if (defaultTF === undefined) {
-                        defaultTF = face;
-                    }
-
-                    setTypeface(defaultTF);
-                };
-
-                ctx.font = "16px Arial";
-
-                // ===================-----------------------
-
-                const measureText = ctx.measureText.bind(ctx);
-
-                ctx.measureText = function (text) {
-                    const metrics = measureText(text);
-                    const bounds = font.getMetrics().bounds;
-                    const height = bounds[2] + bounds[0];
-
-                    // 参数actualBoundingBoxDescent表示从textBaseline属性指示的水平线到用于渲染文本的边界矩形底部的距离
-                    metrics.actualBoundingBoxDescent = bounds[0];
-                    // 参数actualBoundingBoxAscent表示从textBaseline属性指示的水平线到用于渲染文本的边界矩形顶部的距离
-                    metrics.actualBoundingBoxAscent = height + bounds[0];
-
-                    return metrics;
-                }
-
-                // ===================-----------------------
-
-                const drawImage = ctx.drawImage.bind(ctx);
-
-                ctx.drawImage = function (image, sx, sy, sw, sh, dx, dy, dw, dh) {
-                    if (image._extra) {
-                        image = image._extra.surface.makeImageSnapshot();
-                    }
-
-                    drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
-                };
-
-                return ctx;
-            };
-
-        }
-
-        async function LoadImage(src) {
-            const creator = engine.app.ui_canvas;
-
-            // https://developer.mozilla.org/zh-CN/docs/Web/API/Path2D/Path2D
-            if (src.endsWith(".svg")) {
-                engine.Track("Deno.LoadImage: 占不支持.svg图片！", 3);
-                return null;
-            }
-            else {
-                const arrayBuffer = await engine.Fetch(src, null, "arrayBuffer");
-                const image = creator.decodeImage(arrayBuffer);
-
-                // 随engine.app.ui_canvas一同释放
-                return image;
-            }
-        }
-
         async function InitWindow(app, title, width, height, progress) {
+            //【src/device.ts:Device.InitGPU】获取GPU适配器后才能获取SDL2窗口表面，这应该是DENO的一个BUG
             app.sdl_window = new engine.sdl2.WindowBuilder(title, width, height).build();
             app.sdl_canvas = app.sdl_window.canvas();
-        }
-
-        async function InitUI(app) {
-            // Deno环境下CanvasKit依赖GPU贴图，因此在引擎初始化后创建主UI画布
-
-            const font = await engine.Fetch("./lib/Songti.ttc", null, "arrayBuffer");
-
-            const width = engine.config.initWidth;
-            const height = engine.config.initHeight;
-
-            app.ui_canvas = engine.CreateCanvas(width, height);
-
-            // UI画布渲染上下文依赖该字体，所以先注册该字体
-            app.ui_canvas.loadFont(font, {
-                'family': 'Arial',
-                'style': 'normal',
-                'weight': '400',
-            });
-
-            app.ui_ctx = app.ui_canvas.getContext("2d");
         }
 
         async function InitEvent(app) {
@@ -376,6 +165,7 @@ async function Main(canvaskit) {
             let start = temp_e;
             let moved = false;
             let clickTS = 0;
+            let button = 0;
 
             function TransmitMouseEvent(e) {
                 const e_ = {
@@ -383,7 +173,8 @@ async function Main(canvaskit) {
                     timeStamp: e.timestamp,
                     type: typeLut[e.type],
                     which: e.which,
-                    //button: event.button,
+                    buttons: e.button == 3 ? 2 : e.button,
+                    button: e.button,
                     clientX: e.x,
                     clientY: e.y,
                     layerX: e.x,
@@ -447,7 +238,7 @@ async function Main(canvaskit) {
 
             const eventBuf = new Uint8Array(56);
             const eventEnum = engine.sdl2.EventType;
-            const lib_sdl2 = Deno.dlopen(/*"libSDL2.dylib"*/"SDL2.dll", {
+            const lib_sdl2 = Deno.dlopen(Deno.build.os == "darwin" ? "libSDL2.dylib" : "SDL2.dll", {
                 "SDL_PollEvent": {
                     "parameters": ["pointer"],
                     "result": "i32",
@@ -467,6 +258,7 @@ async function Main(canvaskit) {
                         timestamp: view.getUint32(4),
                         windowID: view.getUint32(8),
                         which: view.getUint32(12),
+                        button: button,
                         state: view.getUint32(16),
                         x: view.getInt32(20),
                         y: view.getInt32(24),
@@ -475,6 +267,7 @@ async function Main(canvaskit) {
                     };
                 }
                 else if (type == eventEnum.MouseButtonDown) {
+                    button = view.getUint8(16 + 0);
                     return {
                         type: view.getUint32(),
                         timestamp: view.getUint32(4),
@@ -489,6 +282,7 @@ async function Main(canvaskit) {
                     };
                 }
                 else if (type == eventEnum.MouseButtonUp) {
+                    button = 0;
                     return {
                         type: view.getUint32(),
                         timestamp: view.getUint32(4),
@@ -552,16 +346,26 @@ async function Main(canvaskit) {
             });
         }
 
+        async function InitUI(app) {
+            // Deno环境下CanvasKit依赖GPU贴图，因此在引擎初始化后创建主UI画布
+            // TODO ...
+        }
+
         if (!config.MakeUrl) {
-            config.MakeUrl = MakeUrl;
-        }
+            config.MakeUrl = function (path) {
+                if (!path.startsWith("http")) {
+                    if (!path.startsWith("file://")) {
+                        if (path.startsWith("./") || path.startsWith("/") || path.startsWith(".\\") || path.startsWith("\\")) {
+                            path = cwd + path;
+                        }
+                        else {
+                            path = "file://" + path;
+                        }
+                    }
+                }
 
-        if (!config.CreateCanvas) {
-            config.CreateCanvas = CreateCanvas;
-        }
-
-        if (!config.LoadImage) {
-            config.LoadImage = LoadImage;
+                return path;
+            };
         }
 
         if (config.echarts) {
@@ -570,10 +374,10 @@ async function Main(canvaskit) {
 
             config.echarts.setPlatformAPI({
                 createCanvas(width = 512, height = 512) {
-                    return CreateCanvas(width, height);
+                    return engine.CreateCanvas(width, height);
                 },
                 loadImage(src, onload, onerror) {
-                    LoadImage(src).then(onload).catch(onerror);
+                    engine.LoadImage(src).then(onload).catch(onerror);
                     return null;
                 }
             });
@@ -591,8 +395,8 @@ async function Main(canvaskit) {
     /** @type {ploycloud.Ploy3D} 引擎实例。 */
     const engine = new ploycloud.Ploy3D(env_configure({
         sdl2: sdl2,
-        canvaskit: canvaskit,
         echarts: echarts,
+        rootFS: fs_root,
         appLut: {
             "base_ui": app_base_ui.PloyApp_base_ui
         }
@@ -613,12 +417,9 @@ async function Main(canvaskit) {
     await ploycloud.Start(engine, "base_ui", "PLOY3D引擎", 1280, 720);
 }
 
-fetch(/*"file:///Users/miaokit/repo/skia-canvaskit-0.38.2/out/canvaskit_wasm/canvaskit.wasm"*/cwd + "lib/canvaskit.wasm")
-    .then(async function (res) {
-        const wasmBinary = await res["arrayBuffer"]();
-        const canvaskit = await CanvasKitInit({ wasmBinary });
-        await Main(canvaskit);
-    }).catch(function (e) {
-        console.error(e);
-        Deno.exit();
-    });
+Main(null).then(() => {
+    console.log("应用运行中，按ESC键结束运行 ...")
+}).catch((e) => {
+    console.error(e);
+    Deno.exit();
+});

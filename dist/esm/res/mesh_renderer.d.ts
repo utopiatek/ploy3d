@@ -8,6 +8,10 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
      * @param id 实例ID。
      */
     constructor(impl: MeshRenderer_kernel, ptr: Miaoverse.io_ptr, id: number);
+    /** 数据块在缓存中的字节大小（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
+    get size(): number;
+    /** 数据块在缓存中的字节偏移（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
+    get offset(): number;
     /** 是否启用组件。 */
     get enabled(): boolean;
     set enabled(b: boolean);
@@ -37,6 +41,10 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
     };
     /** 需要在G1绑定对象中设置网格变形目标数据贴图ID。 */
     get g1_morphTargets(): number;
+    /** 属性访问视图。 */
+    get view(): Record<string, number[]>;
+    /** 属性访问视图。 */
+    private _view;
 }
 /** 网格渲染器组件内核实现。 */
 export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typeof MeshRendere_member_index> {
@@ -106,6 +114,7 @@ export declare const MeshRendere_member_index: {
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
+    /** 是否启用组件。 */
     readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;

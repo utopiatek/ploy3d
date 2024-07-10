@@ -105,6 +105,9 @@ export class FrameUniforms extends Miaoverse.Uniform {
         super(impl, ptr, id);
         this._view = new (this.tuple.view)(this);
     }
+    UpdateFrameUniforms(camera, volume) {
+        this._impl["_UpdateFrameUniforms"](this.internalPtr, camera.internalPtr, volume.internalPtr);
+    }
     get enableFlags() {
         return this._impl.Get(this._ptr, "enableFlags");
     }
@@ -248,6 +251,7 @@ export class Material_kernel extends Miaoverse.Base_kernel {
     }
     _InstanceMaterial;
     _InstanceFrameUniforms;
+    _UpdateFrameUniforms;
 }
 export const Material_member_index = {
     ...Miaoverse.Uniform_member_index,

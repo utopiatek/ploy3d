@@ -22,6 +22,28 @@ export class FileStorage {
      */
     public async ReadFile<T>(path: string, filename: string, type: "text" | "arrayBuffer" | "json") {
         try {
+            // ===================--------------------------------------
+            if (Deno) {
+                const url = path + filename;
+
+                if (type == "arrayBuffer") {
+                    const data = await Deno.readFile(url);
+                    return data.buffer;
+                }
+                else {
+                    const text = await Deno.readTextFile(url);
+                    if (type == "text") {
+                        return text;
+                    }
+                    else {
+                        return JSON.parse(text);
+                    }
+                }
+
+                return null;
+            }
+            // ===================--------------------------------------
+
             const dirHandle = await this.GetDir(path);
             if (!dirHandle) {
                 this._global.Track("FileStorage.ReadFile: 指定的本地路径" + path + "不存在！", 3);
@@ -61,6 +83,13 @@ export class FileStorage {
      */
     public async WriteFile(path: string, filename: string, data: string | BufferSource | Blob) {
         try {
+            // ===================--------------------------------------
+            if (Deno) {
+                console.error("TODO: FileStorage.WriteFile");
+                return;
+            }
+            // ===================--------------------------------------
+
             const dirHandle = await this.GetDir(path);
             if (!dirHandle) {
                 this._global.Track("FileStorage.WriteFile: 指定的本地路径" + path + "不存在！", 3);
@@ -96,6 +125,38 @@ export class FileStorage {
      */
     public async Map<T>(path: string, tochildren: boolean, callbackfn: (entry: FileSystemHandle, index: number, path: string) => Promise<T>) {
         try {
+            // ===================--------------------------------------
+            if (Deno) {
+                const array_: T[] = [];
+
+                const Map_ = async (path_: string) => {
+                    try {
+                        for await (const entry of Deno.readDir(path_)) {
+                            const entry_: any = {
+                                kind: entry.isFile ? "file" : "directory",
+                                name: entry.name
+                            };
+
+                            const value = await callbackfn(entry_, array_.length, path_);
+                            if (value !== undefined) {
+                                array_.push(value);
+                            }
+
+                            if (tochildren && entry_.kind == "directory") {
+                                await Map_(path_ + entry.name + "/");
+                            }
+                        }
+                    } catch (error) {
+                        throw error;
+                    }
+                };
+
+                await Map_(path);
+
+                return array_;
+            }
+            // ===================--------------------------------------
+
             const dirHandle = await this.GetDir(path);
             if (!dirHandle) {
                 this._global.Track("FileStorage.Map: 指定的本地路径" + path + "不存在！", 3);
@@ -134,6 +195,13 @@ export class FileStorage {
      * @returns 返回路径句柄。
      */
     public async GetDir(path: string, uncreate?: boolean) {
+        // ===================--------------------------------------
+        if (Deno) {
+            console.error("TODO: FileStorage.GetDir");
+            return null;
+        }
+        // ===================--------------------------------------
+
         let dir = this._dirLut[path];
         if (dir) {
             return dir;
@@ -179,6 +247,13 @@ export class FileStorage {
      */
     public async HasFile(path: string, filename: string) {
         try {
+            // ===================--------------------------------------
+            if (Deno) {
+                console.error("TODO: FileStorage.HasFile");
+                return false;
+            }
+            // ===================--------------------------------------
+
             const dirHandle = await this.GetDir(path, true);
             if (dirHandle) {
                 const fileHandle = await dirHandle.getFileHandle(filename);

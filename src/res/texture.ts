@@ -261,7 +261,11 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
      * @param id 实例ID。
      */
     public AddRef(id: number) {
-        this._instanceList[id]["_refCount"]++;
+        const instance = this._instanceList[id];
+
+        if (instance) {
+            instance["_refCount"]++;
+        }
     }
 
     /**
@@ -271,7 +275,7 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
     public Release(id: number) {
         const instance = this._instanceList[id];
 
-        if (0 == --instance["_refCount"]) {
+        if (instance && 0 == --instance["_refCount"]) {
             this._global.device.FreeTexture2D(instance.internalID);
 
             this._instanceList[id] = { id: this._instanceIdle } as any;

@@ -14,6 +14,171 @@ export class Camera extends Miaoverse.Resource<Camera> {
         this._impl.Set(this._ptr, "id", id);
     }
 
+    /**
+     * 重置相机基本状态。
+     */
+    public Reset(): void {
+        this.target = [0.0, 0.0, 0.0];
+        this.distance = 5.0;
+
+        this.pitch = 45.0;
+        this.yaw = 0.0;
+        this.roll = 0.0;
+        this.fov = 60.0 / 180.0 * Math.PI;
+
+        this.width = this._global.width;
+        this.height = this._global.height;
+        this.nearZ = 0.1;
+        this.farZ = 100.0;
+    }
+
+    /**
+     * 设置相机姿态。
+     * @param target 观察目标坐标（世界空间）。
+     * @param distance 距观察目标距离。
+     * @param pitch 相机俯角。
+     * @param yaw 相机偏航角。
+     */
+    public Set3D(target?: ArrayLike<number>, distance?: number, pitch?: number, yaw?: number) {
+        if (target === undefined) {
+            target = this.target;
+        }
+        else {
+            this.target = target;
+        }
+
+        if (distance === undefined) {
+            distance = this.distance;
+        }
+        else {
+            this.distance = distance;
+            this.nearZ = Math.max(parseFloat((distance * 0.001).toFixed(3)), 0.001);
+        }
+
+        if (pitch === undefined) {
+            pitch = this.pitch;
+        }
+        else {
+            this.pitch = pitch;
+        }
+
+        if (yaw === undefined) {
+            yaw = this.yaw;
+        }
+        else {
+            this.yaw = yaw;
+        }
+    }
+
+    /**
+     * 使相机姿态适应观察内容范围。
+     * @param bounding 观察内容范围。
+     */
+    public Fit(bounding: { center: Miaoverse.Vector3; radius: number; }, pitch?: number, yaw?: number): void {
+        const aspect = this.width / this.height;
+        const size = 1 < aspect ? bounding.radius : bounding.radius / aspect;
+        const distance = size / Math.tan(0.5 * this.fov);
+
+        this.Set3D(bounding.center.values, distance, pitch || 0, yaw || 0);
+    }
+
+    /**
+     * 相机平移控制方法。
+     * @param offsetX 光标横向平移像素数。
+     * @param offsetY 光标纵向平移像素数。
+     * @param width 事件源元素宽度。
+     * @param height 事件源元素高度。
+     */
+    public Move(offsetX: number, offsetY: number, width: number, height: number): void {
+        if (isNaN(offsetX) || isNaN(offsetY)) {
+            return;
+        }
+
+        // 计算当前状态下每像素表示多少米
+        const viewHeight = Math.tan(0.5 * this.fov) * this.distance;
+        const viewResolution = height * 0.5;
+        const dis_per_pixel = viewHeight / viewResolution;
+
+        // 换算当前光标偏移量对应距离偏移量
+        offsetX *= dis_per_pixel;
+        offsetY *= dis_per_pixel;
+
+        const target = this.target;
+        let x = target[0];
+        let z = target[2];
+
+        // 换算移动始终相对相机前向量和右向量
+        const yaw = this.yaw / 180.0 * Math.PI;
+        x -= offsetX * Math.cos(yaw);
+        z += offsetX * Math.sin(yaw);
+        z -= offsetY * Math.cos(yaw);
+        x -= offsetY * Math.sin(yaw);
+
+        // 设置新的观察目标坐标
+        target[0] = x;
+        target[2] = z;
+
+        this.Set3D(target);
+    }
+
+    /**
+     * 相机旋转控制方法。
+     * @param offsetX 光标横向平移像素数。
+     * @param offsetY 光标纵向平移像素数。
+     * @param width 事件源元素宽度。
+     * @param height 事件源元素高度。
+     */
+    public Rotate(offsetX: number, offsetY: number, width: number, height: number): void {
+        if (isNaN(offsetX) || isNaN(offsetY)) {
+            return;
+        }
+
+        let pitch = this.pitch;
+        let yaw = this.yaw;
+
+        yaw += offsetX / width * 180;
+        pitch -= offsetY / height * 90.0;
+
+        if (90.0 < pitch) {
+            pitch = 90.0;
+        }
+
+        if (0.0 > pitch) {
+            pitch = 0.0;
+        }
+
+        this.Set3D(undefined, undefined, pitch, yaw);
+    }
+
+    /**
+     * 相机推拉控制方法。
+     * @param delta 滚轮方向。
+     * @param width 事件源元素宽度。
+     * @param height 事件源元素高度。
+     */
+    public Scale(delta: number, width: number, height: number): void {
+        if (isNaN(delta)) {
+            return;
+        }
+
+        delta = delta / Math.abs(delta);
+
+        const aspect = this.width / this.height;
+        const field = 1.0 < aspect ? 6378137.0 : 6378137.0 / aspect;
+        const distance_max = field / Math.tan(this.fov * 0.5);
+
+        let distance = this.distance - delta * this.distance * 0.1;
+
+        if (distance < 0.1) {
+            distance = 0.1;
+        }
+        else if (distance > distance_max) {
+            distance = distance_max;
+        }
+
+        this.Set3D(undefined, distance);
+    }
+
     /** 相机参数更新时间戳（计算各个变换矩阵的时间戳）。 */
     public get writeTS(): number {
         return this._impl.Get(this._ptr, "writeTS");

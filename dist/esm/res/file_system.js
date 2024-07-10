@@ -6,6 +6,23 @@ export class FileStorage {
     }
     async ReadFile(path, filename, type) {
         try {
+            if (Deno) {
+                const url = path + filename;
+                if (type == "arrayBuffer") {
+                    const data = await Deno.readFile(url);
+                    return data.buffer;
+                }
+                else {
+                    const text = await Deno.readTextFile(url);
+                    if (type == "text") {
+                        return text;
+                    }
+                    else {
+                        return JSON.parse(text);
+                    }
+                }
+                return null;
+            }
             const dirHandle = await this.GetDir(path);
             if (!dirHandle) {
                 this._global.Track("FileStorage.ReadFile: 指定的本地路径" + path + "不存在！", 3);
@@ -35,6 +52,10 @@ export class FileStorage {
     }
     async WriteFile(path, filename, data) {
         try {
+            if (Deno) {
+                console.error("TODO: FileStorage.WriteFile");
+                return;
+            }
             const dirHandle = await this.GetDir(path);
             if (!dirHandle) {
                 this._global.Track("FileStorage.WriteFile: 指定的本地路径" + path + "不存在！", 3);
@@ -59,6 +80,31 @@ export class FileStorage {
     }
     async Map(path, tochildren, callbackfn) {
         try {
+            if (Deno) {
+                const array_ = [];
+                const Map_ = async (path_) => {
+                    try {
+                        for await (const entry of Deno.readDir(path_)) {
+                            const entry_ = {
+                                kind: entry.isFile ? "file" : "directory",
+                                name: entry.name
+                            };
+                            const value = await callbackfn(entry_, array_.length, path_);
+                            if (value !== undefined) {
+                                array_.push(value);
+                            }
+                            if (tochildren && entry_.kind == "directory") {
+                                await Map_(path_ + entry.name + "/");
+                            }
+                        }
+                    }
+                    catch (error) {
+                        throw error;
+                    }
+                };
+                await Map_(path);
+                return array_;
+            }
             const dirHandle = await this.GetDir(path);
             if (!dirHandle) {
                 this._global.Track("FileStorage.Map: 指定的本地路径" + path + "不存在！", 3);
@@ -85,6 +131,10 @@ export class FileStorage {
         return null;
     }
     async GetDir(path, uncreate) {
+        if (Deno) {
+            console.error("TODO: FileStorage.GetDir");
+            return null;
+        }
         let dir = this._dirLut[path];
         if (dir) {
             return dir;
@@ -114,6 +164,10 @@ export class FileStorage {
     }
     async HasFile(path, filename) {
         try {
+            if (Deno) {
+                console.error("TODO: FileStorage.HasFile");
+                return false;
+            }
             const dirHandle = await this.GetDir(path, true);
             if (dirHandle) {
                 const fileHandle = await dirHandle.getFileHandle(filename);

@@ -8,6 +8,49 @@ export declare class Camera extends Miaoverse.Resource<Camera> {
      * @param id 实例ID。
      */
     constructor(impl: Camera_kernel, ptr: Miaoverse.io_ptr, id: number);
+    /**
+     * 重置相机基本状态。
+     */
+    Reset(): void;
+    /**
+     * 设置相机姿态。
+     * @param target 观察目标坐标（世界空间）。
+     * @param distance 距观察目标距离。
+     * @param pitch 相机俯角。
+     * @param yaw 相机偏航角。
+     */
+    Set3D(target?: ArrayLike<number>, distance?: number, pitch?: number, yaw?: number): void;
+    /**
+     * 使相机姿态适应观察内容范围。
+     * @param bounding 观察内容范围。
+     */
+    Fit(bounding: {
+        center: Miaoverse.Vector3;
+        radius: number;
+    }, pitch?: number, yaw?: number): void;
+    /**
+     * 相机平移控制方法。
+     * @param offsetX 光标横向平移像素数。
+     * @param offsetY 光标纵向平移像素数。
+     * @param width 事件源元素宽度。
+     * @param height 事件源元素高度。
+     */
+    Move(offsetX: number, offsetY: number, width: number, height: number): void;
+    /**
+     * 相机旋转控制方法。
+     * @param offsetX 光标横向平移像素数。
+     * @param offsetY 光标纵向平移像素数。
+     * @param width 事件源元素宽度。
+     * @param height 事件源元素高度。
+     */
+    Rotate(offsetX: number, offsetY: number, width: number, height: number): void;
+    /**
+     * 相机推拉控制方法。
+     * @param delta 滚轮方向。
+     * @param width 事件源元素宽度。
+     * @param height 事件源元素高度。
+     */
+    Scale(delta: number, width: number, height: number): void;
     /** 相机参数更新时间戳（计算各个变换矩阵的时间戳）。 */
     get writeTS(): number;
     set writeTS(value: number);
@@ -108,7 +151,13 @@ export declare const Camera_member_index: {
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
-    readonly uuid: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member; /**
+     * 设置相机姿态。
+     * @param target 观察目标坐标（世界空间）。
+     * @param distance 距观察目标距离。
+     * @param pitch 相机俯角。
+     * @param yaw 相机偏航角。
+     */
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;
     readonly last: Miaoverse.Kernel_member;

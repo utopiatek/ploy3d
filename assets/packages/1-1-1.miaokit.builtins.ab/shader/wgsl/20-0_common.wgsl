@@ -208,10 +208,12 @@ fn cofactor(m: mat4x4f) -> mat3x3f {
     return cof;
 }
 
-// 随机稳定噪声函数，输入屏幕坐标（非单位化向量），返回[0, 1]区间的随机数 
+// 随机稳定噪声函数，输入屏幕坐标（非单位化向量），返回[0, 1]区间的随机数
 fn interleavedGradientNoise(w: vec2f) -> f32 {
-    let m = vec3f(0.06711056, 0.00583715, 52.9829189);
-    return fract(m.z * fract(dot(w, m.xy)));
+    return 0.0;
+    //TODO: DENO环境下该方法编译不通过
+    //let m = vec3f(0.06711056, 0.00583715, 52.9829189);
+    //return fract(m.z * fract(dot(w, m.xy)));
 }
 
 // 线性颜色通道值转sRGB颜色通道值

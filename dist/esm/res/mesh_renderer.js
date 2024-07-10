@@ -2,6 +2,13 @@ import * as Miaoverse from "../mod.js";
 export class MeshRenderer extends Miaoverse.Uniform {
     constructor(impl, ptr, id) {
         super(impl, ptr, id);
+        this._view = new (this.tuple.view)(this);
+    }
+    get size() {
+        return this._impl.Get(this._ptr, "bufferBlockSize") - 256;
+    }
+    get offset() {
+        return this._impl.Get(this._ptr, "bufferBlockOffset") + 256;
     }
     get enabled() {
         return this._impl.Get(this._ptr, "enabled") > 0;
@@ -36,6 +43,10 @@ export class MeshRenderer extends Miaoverse.Uniform {
     get g1_morphTargets() {
         return this._impl.Get(this._ptr, "g1_morphTargets");
     }
+    get view() {
+        return this._view;
+    }
+    _view;
 }
 export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {

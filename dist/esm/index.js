@@ -334,6 +334,15 @@ export class PloyApp {
             return PloyApp.SDL2_InitEvent(this);
         }
         return new Promise(async (resolve, reject) => {
+            const events = ["click", "dblclick", "mousewheel", "wheel", "pointerout", "pointerup", "pointerdown", "pointermove", "contextmenu"];
+            for (let type of events) {
+                const listeners = this.event_listener[type] || (this.event_listener[type] = []);
+                this.ui_canvas.addEventListener(type, async (event) => {
+                    for (let listener of listeners) {
+                        await listener(event);
+                    }
+                });
+            }
             resolve();
         });
     }

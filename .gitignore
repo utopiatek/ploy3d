@@ -2,7 +2,7 @@
 .vscode/build
 .git*/
 node_modules
-packages/
+/packages/
 kernel
 lib/canvaskit.js
 lib/canvaskit.wasm

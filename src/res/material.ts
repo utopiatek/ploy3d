@@ -198,6 +198,15 @@ export class FrameUniforms extends Miaoverse.Uniform<Material_kernel>{
         this._view = new (this.tuple.view)(this);
     }
 
+    /**
+     * 根据相机组件数据和体积组件数据更新数据。
+     * @param camera 相机组件实例。
+     * @param volume 体积组件实例。
+     */
+    public UpdateFrameUniforms(camera: Miaoverse.Camera, volume: Miaoverse.Volume) {
+        this._impl["_UpdateFrameUniforms"](this.internalPtr, camera.internalPtr, volume.internalPtr);
+    }
+
     /** 相关状态标志集。 */
     public get enableFlags(): number {
         return this._impl.Get(this._ptr, "enableFlags");
@@ -454,6 +463,14 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
      * @returns 返回G0资源内核实例指针。
      */
     protected _InstanceFrameUniforms: () => Miaoverse.io_ptr;
+
+    /**
+     * 根据相机组件数据和体积组件数据更新G0数据。
+     * @param uniform G0资源内核实例指针。
+     * @param camera 相机组件内核实例指针。
+     * @param volume 体积组件内核实例指针。
+     */
+    protected _UpdateFrameUniforms: (uniform: Miaoverse.io_ptr, camera: Miaoverse.io_ptr, volume: Miaoverse.io_ptr) => void;
 }
 
 /** 材质资源内核实现的数据结构成员列表。 */

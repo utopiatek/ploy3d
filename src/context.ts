@@ -563,8 +563,8 @@ export class Context {
         let code = webgl ? `\nlayout(std140) uniform ${uniformGroup.tname} {\n` : `\nstruct ${uniformGroup.tname} {\n`;
         let offset = 0;
 
-        // G2在起始位置添加2个矩阵存储系统字段
-        if (uniformGroup.group == 2) {
+        // G0、G2在起始位置添加2个矩阵存储系统字段
+        if (uniformGroup.group == 0 || uniformGroup.group == 2) {
             if (webgl) {
                 code += "    mat4 sysMat1;\n";
                 code += "    mat4 sysMat2;\n";
@@ -604,14 +604,14 @@ export class Context {
 
             // =======================--------------------------------
 
-            (PropView.prototype as any)[prop.decl.name] = {
+            Object.defineProperty(PropView.prototype, prop.decl.name, {
                 enumerable: true,
                 configurable: false,
                 set: specSet(prop),
                 get() {
                     return env.arrayGet(prop.decl.format, this.master.blockPtr as never, prop.offset >> 2, prop.size >> 2);
                 }
-            };
+            });
         };
 
         const padding = (sign: string, name: string) => {
@@ -810,8 +810,7 @@ export class Context {
         // 我们保证了统一缓存编排按以下声明顺序进行
 
         const properties: Miaoverse.ShaderAsset["properties"] = {
-            "sysMat1": { note: "系统占用字段1", sign: "mat4x4<f32>" },
-            "sysMat2": { note: "系统占用字段2", sign: "mat4x4<f32>" },
+            // 系统占用字段128字节
 
             // 128===================----------------------------------
 
@@ -1283,6 +1282,14 @@ struct ObjectUniforms {
 
         // 编排后的属性列表
 
+        class PropView {
+            public constructor(master: ConstructorParameters<Miaoverse.PropTuple["view"]>[0]) {
+                this.master = master;
+            }
+
+            public master: ConstructorParameters<Miaoverse.PropTuple["view"]>[0];
+        }
+
         const list: Miaoverse.PropVar[] = [
             {
                 index: 0,
@@ -1398,12 +1405,29 @@ struct ObjectUniforms {
             }
         ];
 
+        const env = this._global.env;
+
+        for (let prop of list) {
+            Object.defineProperty(PropView.prototype, prop.decl.name, {
+                enumerable: true,
+                configurable: false,
+                set(value: number[]) {
+                    const master = this.master as ConstructorParameters<Miaoverse.PropTuple["view"]>[0];
+                    env.arraySet(prop.decl.format, master.blockPtr, prop.offset >> 2, value);
+                    master.updated = true;
+                },
+                get() {
+                    return env.arrayGet(prop.decl.format, this.master.blockPtr as never, prop.offset >> 2, prop.size >> 2);
+                }
+            });
+        }
+
         const propLayout: Miaoverse.PropLayout = {
             group: 1,
             tuple: {
                 vars: list,
                 size: 256,
-                view: null, // 第一次访问时自动创建
+                view: PropView as any,
             },
             vscode: code,
             fscode: code,

@@ -36,7 +36,7 @@ body {
     height: 100%;
     z-index: 999;
     background-color: #0008;
-    display: block;
+    display: none;
 }
 
 .progressbar-bg {

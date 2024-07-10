@@ -10,6 +10,17 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
      */
     public constructor(impl: MeshRenderer_kernel, ptr: Miaoverse.io_ptr, id: number) {
         super(impl, ptr, id);
+        this._view = new (this.tuple.view)(this as any);
+    }
+
+    /** 数据块在缓存中的字节大小（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
+    public get size(): number {
+        return this._impl.Get<number>(this._ptr, "bufferBlockSize") - 256;
+    }
+
+    /** 数据块在缓存中的字节偏移（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
+    public get offset(): number {
+        return this._impl.Get<number>(this._ptr, "bufferBlockOffset") + 256;
     }
 
     /** 是否启用组件。 */
@@ -60,6 +71,14 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
     public get g1_morphTargets(): number {
         return this._impl.Get(this._ptr, "g1_morphTargets");
     }
+
+    /** 属性访问视图。 */
+    public get view() {
+        return this._view;
+    }
+
+    /** 属性访问视图。 */
+    private _view: Record<string, Array<number>>;
 }
 
 /** 网格渲染器组件内核实现。 */
