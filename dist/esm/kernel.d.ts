@@ -63,7 +63,7 @@ export declare class SharedENV {
     /** 编码UUID为字符串。 */
     uuidEnc(uuid: ArrayLike<number>): string;
     /** 写入字节缓存数据（数据大小不一定是四字节对齐，须保证地址不越界4G空间）。 */
-    bufferSet(ptr: io_ptr, byteOffset: number, buffer: ArrayBuffer): void;
+    bufferSet1(ptr: io_ptr, buffer: ArrayBuffer, byteOffset: number): void;
     /** 写入字符串数据（以0结束）。 */
     stringSet(ptr: io_ptr, intOffset: number, value: string, maxLength?: number): void;
     /** 读取字符串数据（遇0结束）。 */
@@ -114,6 +114,10 @@ export declare class SharedENV {
     get buffer(): ArrayBuffer;
     /** 系统内存空间视图。 */
     get bufferView(): ArrayBufferView;
+    /** 字符串解码器。 */
+    get textDecoder(): TextDecoder;
+    /** 字符串编码器。 */
+    get textEncoder(): TextEncoder;
     /** 系统帧时间戳。 */
     get frameTS(): number;
     /** 统一缓存动态偏移地址对齐。 */
@@ -186,6 +190,10 @@ export interface Internal {
     Util_Decompress_lz4: (src: io_ptr, dst: io_ptr, compressedSize: io_uint, dstCapacity: io_uint) => io_uint;
     /** 压缩LZ4数据。 */
     Util_Compress_lz4: (src: io_ptr, dst: io_ptr, srcSize: io_uint, dstCapacity: io_uint) => io_uint;
+    /** 解压缩LZMA数据。 */
+    Util_Decompress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, drcSize: io_uint) => io_uint;
+    /** 压缩LZMA数据。 */
+    Util_Compress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, srcSize: io_uint) => io_uint;
     /** 导出引擎模块对象实现。 */
     Engine_Export: () => number[];
 }

@@ -168,7 +168,10 @@ export class Ploy3D {
                 return this.device.CreateBuffer(type, size, offset, null);
             },
             UploadBuffer: (bufferID, cachePtr, offset, size) => {
-                this.device.WriteBuffer(bufferID, offset, this.env.buffer, (cachePtr << 2) + offset, size);
+                this.device.WriteBuffer(bufferID, offset, this.env.buffer, (cachePtr << 2) + offset, (size + 3) & ~3);
+            },
+            Release: (classid, id) => {
+                return 0;
             },
         });
         if (!this.kernel) {

@@ -112,6 +112,8 @@ export interface ShaderAsset {
         /** 模板测试后写入模板值的位掩码。 */
         stencilWriteMask?: number;
     };
+    /** 自定义顶点缓存布局。 */
+    vertex_buffers?: GPUVertexBufferLayout[];
     /** 着色器实例ID（着色器资产装载后生成）。 */
     instance?: number;
 }

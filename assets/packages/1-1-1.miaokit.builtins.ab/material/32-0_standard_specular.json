@@ -1,5 +1,5 @@
 {
-    "classid": 17,
+    "classid": 32,
     "name": "standard_specular",
     "label": "standard_specular",
     "shader": ":/shader/17-0_standard_specular.json",

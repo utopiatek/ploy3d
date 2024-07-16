@@ -56,6 +56,8 @@ export class Kernel {
                 __ubsan_handle_negate_overflow: (a, b, c) => { console.error("__ubsan_handle_negate_overflow", a, b, c); },
                 __ubsan_handle_load_invalid_value: (a, b, c) => { console.error("__ubsan_handle_load_invalid_value", a, b, c); },
                 __ubsan_handle_builtin_unreachable: (a, b, c) => { console.error("__ubsan_handle_builtin_unreachable", a, b, c); },
+                __ubsan_handle_missing_return: (a, b, c) => { console.error("__ubsan_handle_missing_return", a, b, c); },
+                __ubsan_handle_nonnull_return_v1: (a, b, c) => { console.error("__ubsan_handle_nonnull_return_v1", a, b, c); },
             },
             Math: Math,
             VM: _imports
@@ -247,8 +249,8 @@ export class SharedENV {
         const uid = uuid[2];
         return `${uid}-${time}-${ver}-${type}-${index}`;
     }
-    bufferSet(ptr, byteOffset, buffer) {
-        this._ubview.set(new Uint8Array(buffer), (ptr << 2) + byteOffset);
+    bufferSet1(ptr, buffer, byteOffset) {
+        this._ubview.set(new Uint8Array(buffer, byteOffset), ptr << 2);
     }
     stringSet(ptr, intOffset, value, maxLength = 64) {
         const view = this._ubview;
@@ -344,6 +346,12 @@ export class SharedENV {
     }
     get bufferView() {
         return this._ubview;
+    }
+    get textDecoder() {
+        return this._textDecoder;
+    }
+    get textEncoder() {
+        return this._textEncoder;
     }
     get frameTS() {
         return this.uscalarGet(this._ptr, 0);

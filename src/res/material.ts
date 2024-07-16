@@ -330,7 +330,7 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
             throw "获取着色器资源失败！";
         }
 
-        const ptr = this._InstanceMaterial(shader.uniformSize, this._global.env.ptrZero());
+        const ptr = this._Create(shader.uniformSize, this._global.env.ptrZero());
         const id = this._instanceIdle;
 
         // 设置实例 ===============-----------------------
@@ -393,7 +393,7 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
      * @returns
      */
     public async CreateFrameUniforms(colorRT: number, depthRT: number, gbufferRT: number, spriteAtlas: number) {
-        const ptr = this._InstanceFrameUniforms();
+        const ptr = this._CreateFrameUniforms();
         const id = this._instanceIdle;
 
         // 设置实例 ===============-----------------------
@@ -456,13 +456,13 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
      * @param data 材质资源保存数据。
      * @returns 返回材质资源内核实例指针。
      */
-    protected _InstanceMaterial: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    protected _Create: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 
     /**
      * 实例化G0资源内核实例。
      * @returns 返回G0资源内核实例指针。
      */
-    protected _InstanceFrameUniforms: () => Miaoverse.io_ptr;
+    protected _CreateFrameUniforms: () => Miaoverse.io_ptr;
 
     /**
      * 根据相机组件数据和体积组件数据更新G0数据。

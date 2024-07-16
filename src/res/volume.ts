@@ -1,6 +1,6 @@
 import * as Miaoverse from "../mod.js"
 
-/** 体积组件实例。 */
+/** 体积组件。 */
 export class Volume extends Miaoverse.Resource<Volume> {
     /**
      * 构造函数。
@@ -421,53 +421,99 @@ export class Volume_kernel extends Miaoverse.Base_kernel<Volume, typeof Volume_m
     protected _Create: (object3d: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 }
 
-/** 体积组件内核实现的数据结构成员列表。 */
+/** 体积组件（80 + 512 = 592字节）。 */
 export const Volume_member_index = {
+    /** 资源基类（48字节）。 */
+
     ...Miaoverse.Binary_member_index,
 
+    /** 是否启用组件。 */
     enabled: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
+    /** 组件所属对象。 */
     object: ["ptrGet", "ptrSet", 1, 13] as Miaoverse.Kernel_member,
+    /** 上一个兄弟组件实例（场景中）。 */
     lastSib: ["ptrGet", "ptrSet", 1, 14] as Miaoverse.Kernel_member,
+    /** 下一个兄弟组件实例（场景中）。 */
     nextSib: ["ptrGet", "ptrSet", 1, 15] as Miaoverse.Kernel_member,
 
+    /** 体积参数是否有更新。 */
     updated: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
+    /** 天空球绕X轴旋转角度。 */
     iblPitch: ["fscalarGet", "fscalarSet", 1, 17] as Miaoverse.Kernel_member,
+    /** 天空球绕Y轴旋转角度。 */
     iblYaw: ["fscalarGet", "fscalarSet", 1, 18] as Miaoverse.Kernel_member,
+    /** 天空球绕Z轴旋转角度。 */
     iblRoll: ["fscalarGet", "fscalarSet", 1, 19] as Miaoverse.Kernel_member,
 
+    /** 体积数据对象（512字节）。 */
+
+    /** IBL，球谐系数。 */
     iblSH: ["farrayGet", "farraySet", 36, 20] as Miaoverse.Kernel_member,
 
+    /** 雾颜色。 */
     fogColor: ["farrayGet", "farraySet", 3, 56] as Miaoverse.Kernel_member,
 
+    /** 太阳圆盘参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP。 */
     sunParams: ["farrayGet", "farraySet", 4, 60] as Miaoverse.Kernel_member,
+    /** IBL主光照颜色和强度。 */
     iblColorIntensity: ["farrayGet", "farraySet", 4, 64] as Miaoverse.Kernel_member,
+    /** IBL主光照全局空间方向光方向。 */
     iblDirection: ["farrayGet", "farraySet", 3, 68] as Miaoverse.Kernel_member,
 
+    /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
     lightFarAttenuationParams: ["farrayGet", "farraySet", 2, 112] as Miaoverse.Kernel_member,
 
+    /** IBL，亮度。 */
     iblLuminance: ["fscalarGet", "fscalarSet", 1, 116] as Miaoverse.Kernel_member,
+    /** IBL，粗糙度为1的纹理链级别。 */
     iblRoughnessOneLevel: ["fscalarGet", "fscalarSet", 1, 117] as Miaoverse.Kernel_member,
 
+    /** 屏幕空间反射用的物体厚度，用于相交测试。 */
     ssrThickness: ["fscalarGet", "fscalarSet", 1, 120] as Miaoverse.Kernel_member,
+    /** 屏幕空间反射用的射线的起点偏移。 */
     ssrBias: ["fscalarGet", "fscalarSet", 1, 121] as Miaoverse.Kernel_member,
+    /** 屏幕空间反射用的射线最大追踪距离。 */
     ssrDistance: ["fscalarGet", "fscalarSet", 1, 122] as Miaoverse.Kernel_member,
+    /** 屏幕空间反射用的射线追踪步进像素数。 */
     ssrStride: ["fscalarGet", "fscalarSet", 1, 123] as Miaoverse.Kernel_member,
+    /** 反射贴图采样LOD偏移。 */
     refractionLodOffset: ["fscalarGet", "fscalarSet", 1, 124] as Miaoverse.Kernel_member,
+    /** 噪音系数[0, 1]，当不使用TAA时取0。 */
     temporalNoise: ["fscalarGet", "fscalarSet", 1, 125] as Miaoverse.Kernel_member,
+    /** SSAO，采样参数，0: bilinear, !0: bilateral edge distance。 */
     aoSamplingQualityAndEdgeDistance: ["fscalarGet", "fscalarSet", 1, 126] as Miaoverse.Kernel_member,
+    /** SSAO，0: no AO bent normal, >0.0 AO bent normals。 */
     aoBentNormals: ["fscalarGet", "fscalarSet", 1, 127] as Miaoverse.Kernel_member,
 
+    /**
+     * bit 0-3: cascade count
+     * bit 4: visualize cascades
+     * bit 8-11: cascade has visible shadows
+     */
     cascades: ["uscalarGet", "uscalarSet", 1, 128] as Miaoverse.Kernel_member,
+    /**
+     * bit 0: directional (sun) shadow enabled
+     * bit 1: directional (sun) screen-space contact shadow enabled
+     * bit 8-15: screen-space contact shadows ray casting steps
+     */
     directionalShadows: ["uscalarGet", "uscalarSet", 1, 129] as Miaoverse.Kernel_member,
+    /** 屏幕空间接触阴影距离。 */
     ssContactShadowDistance: ["fscalarGet", "fscalarSet", 1, 130] as Miaoverse.Kernel_member,
+    /** 阴影类型，0: PCF, 1: VSM，2: DPCF, 3: PCSS。 */
     shadowSamplingType: ["uscalarGet", "uscalarSet", 1, 131] as Miaoverse.Kernel_member,
 
+    /** 阴影，法向偏移。 */
     shadowBias: ["fscalarGet", "fscalarSet", 1, 132] as Miaoverse.Kernel_member,
+    /** 阴影，光照空间的光源半径。 */
     shadowBulbRadiusLs: ["fscalarGet", "fscalarSet", 1, 133] as Miaoverse.Kernel_member,
+    /** 阴影，用于DPCF、PCSS，用于艺术用途的比例半影。 */
     shadowPenumbraRatioScale: ["fscalarGet", "fscalarSet", 1, 134] as Miaoverse.Kernel_member,
 
+    /** VSM阴影指数。 */
     vsmExponent: ["fscalarGet", "fscalarSet", 1, 136] as Miaoverse.Kernel_member,
+    /** 用于VSM最小方差计算。 */
     vsmDepthScale: ["fscalarGet", "fscalarSet", 1, 137] as Miaoverse.Kernel_member,
+    /** VSM阴影漏光问题，设定一个最小光照可见度，结果小于该最小光照可见度视为光照不可见。 */
     vsmLightBleedReduction: ["fscalarGet", "fscalarSet", 1, 138] as Miaoverse.Kernel_member,
 
     fogStart: ["fscalarGet", "fscalarSet", 1, 140] as Miaoverse.Kernel_member,

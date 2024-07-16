@@ -1,6 +1,6 @@
 /// <reference types="@webgpu/types" />
 import * as Miaoverse from "../mod.js";
-/** 统一缓存实例。 */
+/** 着色器资源组基类。 */
 export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     /**
      * 构造函数。
@@ -15,9 +15,9 @@ export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
      */
     Bind(passEncoder: GPURenderPassEncoder): void;
     /**
-     * 读取GPU统一缓存占用节点成员。
-     * @param ptr 缓存节点指针。
-     * @returns 返回缓存节点成员数据。
+     * 读取GPU常量缓存占用节点。
+     * @param ptr 缓存占用节点指针。
+     * @returns 返回缓存占用节点成员数据。
      */
     ReadBufferNode(ptr: Miaoverse.io_ptr): {
         buffer: never;
@@ -43,67 +43,83 @@ export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     get layoutID(): number;
     /** 资源绑定组属性元组。 */
     get tuple(): Miaoverse.PropTuple;
-    /** GPU统一缓存实例ID。 */
+    /** GPU常量缓存实例ID。 */
     get bufferID(): number;
-    /** 数据块在缓存中的字节大小（256对齐）。 */
+    /** 属性块在缓存中的字节大小（256对齐）。 */
     get size(): number;
-    /** 数据块在缓存中的字节偏移（256对齐）。 */
+    /** 属性块在缓存中的字节偏移（256对齐）。 */
     get offset(): number;
-    /** 属性缓存块地址指针。 */
+    /** 属性块地址指针。 */
     get blockPtr(): Miaoverse.io_ptr;
-    /** 缓存内存块地址指针。 */
+    /** 缓存地址指针。 */
     get bufferPtr(): Miaoverse.io_ptr;
     /** 缓存字节大小（256的倍数）。 */
     get bufferSize(): number;
-    /** 内核实现。 */
+    /** 资源内核实现。 */
     protected _impl: T & {
         /**
-         * 获取内核对象属性值。
-         * @param self 实例指针。
-         * @param key 内核对象数据成员名称。
+         * 获取资源内核实例属性值。
+         * @param ptr 资源内核实例指针。
+         * @param key 资源内核实现的数据结构成员名称。
          * @returns 返回对应属性值。
          */
-        Get<T>(self: Miaoverse.io_ptr, key: keyof typeof Uniform_member_index): T;
+        Get<T>(ptr: Miaoverse.io_ptr, key: keyof typeof Uniform_member_index): T;
         /**
-         * 设置内核对象属性值。
-         * @param self 实例指针。
-         * @param key 内核对象数据成员名称。
+         * 设置资源内核实例属性值。
+         * @param ptr 资源内核实例指针。
+         * @param key 资源内核实现的数据结构成员名称。
          * @param value 属性值。
          */
-        Set(self: Miaoverse.io_ptr, key: keyof typeof Uniform_member_index, value: any): void;
+        Set(ptr: Miaoverse.io_ptr, key: keyof typeof Uniform_member_index, value: any): void;
     };
-    /** 缓存内存块地址指针。 */
+    /** 缓存地址指针。 */
     protected _bufferPtr: Miaoverse.io_ptr;
     /** 缓存字节大小（256的倍数）。 */
     protected _bufferSize: number;
-    /** 属性缓存块地址指针。 */
+    /** 属性块地址指针。 */
     protected _blockPtr: Miaoverse.io_ptr;
     /** 资源组绑定对象。 */
     protected binding?: GPUBindGroup;
     /** 缓存绑定偏移。 */
     protected dynamicOffsets?: number[];
 }
-/** 统一缓存内核实现的数据结构成员列表。 */
+/** 着色器资源组基类（80字节）。 */
 export declare const Uniform_member_index: {
-    /** BUFFER数据成员（使用BUFFER指针读取） */
+    /** GPU常量缓存实例（16字节，使用BUFFER指针读取）。 */
+    /** 缓存实例ID。 */
     readonly buffer_bufferID: Miaoverse.Kernel_member;
+    /** 缓存字节大小（256的倍数）。 */
     readonly buffer_size: Miaoverse.Kernel_member;
+    /** 缓存内存块地址指针。 */
     readonly buffer_addr: Miaoverse.Kernel_member;
+    /** 下一个缓存实例指针。 */
     readonly buffer_next: Miaoverse.Kernel_member;
-    /** BUFFER_NODE数据成员（使用BUFFER_NODE指针读取） */
+    /** GPU常量缓存占用节点（16字节，我们也可以脱离UNIFORM资源仅请求占用缓存空间，使用BUFFER_NODE指针读取）。 */
+    /** GPU常量缓存实例指针。 */
     readonly bn_buffer: Miaoverse.Kernel_member;
+    /** GPU常量缓存实例ID。 */
     readonly bn_bufferID: Miaoverse.Kernel_member;
+    /** 占用块在缓存空间中的字节偏移（256对齐）。 */
     readonly bn_offset: Miaoverse.Kernel_member;
+    /** 占用块在缓存空间中的字节大小（256对齐）。 */
     readonly bn_size: Miaoverse.Kernel_member;
-    /** UNIFORM数据成员 */
+    /** 着色器资源组基类（80字节）。 */
+    /** GPU常量缓存实例指针。 */
     readonly buffer: Miaoverse.Kernel_member;
+    /** GPU常量缓存实例ID。 */
     readonly bufferID: Miaoverse.Kernel_member;
+    /** 占用块在缓存空间中的字节偏移（256对齐）。 */
     readonly bufferBlockOffset: Miaoverse.Kernel_member;
+    /** 占用块在缓存空间中的字节大小（256对齐）。 */
     readonly bufferBlockSize: Miaoverse.Kernel_member;
+    /** 资源组编号（可选值有0、1、2、3）。 */
     readonly group: Miaoverse.Kernel_member;
+    /** 资源组绑定对象ID。 */
     readonly binding: Miaoverse.Kernel_member;
+    /** 属性块数据释放存在更新。 */
     readonly updated: Miaoverse.Kernel_member;
-    readonly unused3: Miaoverse.Kernel_member;
+    /** 预留空间。 */
+    readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;

@@ -4,20 +4,30 @@ export type Kernel_member = [Kernel_member_getter, Kernel_member_setter, number,
 export type Kernel_member_getter = "uscalarGet" | "fscalarGet" | "uarrayGet" | "farrayGet" | "ptrGet" | "uuidGet" | "stringGet";
 export type Kernel_member_setter = "uscalarSet" | "fscalarSet" | "uarraySet" | "farraySet" | "ptrSet" | "uuidSet" | "stringSet";
 
-/** 二进制数据基类（48字节）。 */
+/** 资源基类（48字节）。 */
 export const Binary_member_index = {
+    /** 资源数据格式标识（MAGIC_INVALID + CLASSID）。 */
     magic: ["uscalarGet", "uscalarSet", 1, 0] as Kernel_member,
+    /** 资源数据格式版本号。 */
     version: ["uscalarGet", "uscalarSet", 1, 1] as Kernel_member,
+    /** 资源数据字节大小。 */
     byteSize: ["uscalarGet", "uscalarSet", 1, 2] as Kernel_member,
+    /** 资源实例引用计数。 */
     refCount: ["uscalarGet", "uscalarSet", 1, 3] as Kernel_member,
 
+    /** 资源实例ID。 */
     id: ["uscalarGet", "uscalarSet", 1, 4] as Kernel_member,
+    /** 资源UUID。 */
     uuid: ["uuidGet", "uuidSet", 3, 5] as Kernel_member,
 
+    /** 资源实例数据更新时间戳（不同资源类型使用含义不同，注意区分）。 */
     writeTS: ["uscalarGet", "uscalarSet", 1, 8] as Kernel_member,
+    /** 资源实例数据使用时间戳（不同资源类型使用含义不同，注意区分）。 */
     readTS: ["uscalarGet", "uscalarSet", 1, 9] as Kernel_member,
 
+    /** 上一个资源实例指针。 */
     last: ["ptrGet", "ptrSet", 1, 10] as Kernel_member,
+    /** 下一个资源实例指针。 */
     next: ["ptrGet", "ptrSet", 1, 11] as Kernel_member,
 } as const;
 
@@ -91,6 +101,6 @@ export class Base_kernel<T, K extends typeof Binary_member_index> {
     protected _instanceCount: number = 0;
     /** 待分配空闲资源实例索引。 */
     protected _instanceIdle: number = 1;
-    /** 待GC资源实例列表。 */
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
     protected _gcList: T[] = [];
 }

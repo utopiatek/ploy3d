@@ -1,5 +1,5 @@
 import * as Miaoverse from "../mod.js";
-/** 体积组件实例。 */
+/** 体积组件。 */
 export declare class Volume extends Miaoverse.Resource<Volume> {
     /**
      * 构造函数。
@@ -159,41 +159,84 @@ export declare class Volume_kernel extends Miaoverse.Base_kernel<Volume, typeof 
      */
     protected _Create: (object3d: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 }
-/** 体积组件内核实现的数据结构成员列表。 */
+/** 体积组件（80 + 512 = 592字节）。 */
 export declare const Volume_member_index: {
+    /** 是否启用组件。 */
     readonly enabled: Miaoverse.Kernel_member;
+    /** 组件所属对象。 */
     readonly object: Miaoverse.Kernel_member;
+    /** 上一个兄弟组件实例（场景中）。 */
     readonly lastSib: Miaoverse.Kernel_member;
+    /** 下一个兄弟组件实例（场景中）。 */
     readonly nextSib: Miaoverse.Kernel_member;
+    /** 体积参数是否有更新。 */
     readonly updated: Miaoverse.Kernel_member;
+    /** 天空球绕X轴旋转角度。 */
     readonly iblPitch: Miaoverse.Kernel_member;
+    /** 天空球绕Y轴旋转角度。 */
     readonly iblYaw: Miaoverse.Kernel_member;
+    /** 天空球绕Z轴旋转角度。 */
     readonly iblRoll: Miaoverse.Kernel_member;
+    /** 体积数据对象（512字节）。 */
+    /** IBL，球谐系数。 */
     readonly iblSH: Miaoverse.Kernel_member;
+    /** 雾颜色。 */
     readonly fogColor: Miaoverse.Kernel_member;
+    /** 太阳圆盘参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP。 */
     readonly sunParams: Miaoverse.Kernel_member;
+    /** IBL主光照颜色和强度。 */
     readonly iblColorIntensity: Miaoverse.Kernel_member;
+    /** IBL主光照全局空间方向光方向。 */
     readonly iblDirection: Miaoverse.Kernel_member;
+    /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
     readonly lightFarAttenuationParams: Miaoverse.Kernel_member;
+    /** IBL，亮度。 */
     readonly iblLuminance: Miaoverse.Kernel_member;
+    /** IBL，粗糙度为1的纹理链级别。 */
     readonly iblRoughnessOneLevel: Miaoverse.Kernel_member;
+    /** 屏幕空间反射用的物体厚度，用于相交测试。 */
     readonly ssrThickness: Miaoverse.Kernel_member;
+    /** 屏幕空间反射用的射线的起点偏移。 */
     readonly ssrBias: Miaoverse.Kernel_member;
+    /** 屏幕空间反射用的射线最大追踪距离。 */
     readonly ssrDistance: Miaoverse.Kernel_member;
+    /** 屏幕空间反射用的射线追踪步进像素数。 */
     readonly ssrStride: Miaoverse.Kernel_member;
+    /** 反射贴图采样LOD偏移。 */
     readonly refractionLodOffset: Miaoverse.Kernel_member;
+    /** 噪音系数[0, 1]，当不使用TAA时取0。 */
     readonly temporalNoise: Miaoverse.Kernel_member;
+    /** SSAO，采样参数，0: bilinear, !0: bilateral edge distance。 */
     readonly aoSamplingQualityAndEdgeDistance: Miaoverse.Kernel_member;
+    /** SSAO，0: no AO bent normal, >0.0 AO bent normals。 */
     readonly aoBentNormals: Miaoverse.Kernel_member;
+    /**
+     * bit 0-3: cascade count
+     * bit 4: visualize cascades
+     * bit 8-11: cascade has visible shadows
+     */
     readonly cascades: Miaoverse.Kernel_member;
+    /**
+     * bit 0: directional (sun) shadow enabled
+     * bit 1: directional (sun) screen-space contact shadow enabled
+     * bit 8-15: screen-space contact shadows ray casting steps
+     */
     readonly directionalShadows: Miaoverse.Kernel_member;
+    /** 屏幕空间接触阴影距离。 */
     readonly ssContactShadowDistance: Miaoverse.Kernel_member;
+    /** 阴影类型，0: PCF, 1: VSM，2: DPCF, 3: PCSS。 */
     readonly shadowSamplingType: Miaoverse.Kernel_member;
+    /** 阴影，法向偏移。 */
     readonly shadowBias: Miaoverse.Kernel_member;
+    /** 阴影，光照空间的光源半径。 */
     readonly shadowBulbRadiusLs: Miaoverse.Kernel_member;
+    /** 阴影，用于DPCF、PCSS，用于艺术用途的比例半影。 */
     readonly shadowPenumbraRatioScale: Miaoverse.Kernel_member;
+    /** VSM阴影指数。 */
     readonly vsmExponent: Miaoverse.Kernel_member;
+    /** 用于VSM最小方差计算。 */
     readonly vsmDepthScale: Miaoverse.Kernel_member;
+    /** VSM阴影漏光问题，设定一个最小光照可见度，结果小于该最小光照可见度视为光照不可见。 */
     readonly vsmLightBleedReduction: Miaoverse.Kernel_member;
     readonly fogStart: Miaoverse.Kernel_member;
     readonly fogMaxOpacity: Miaoverse.Kernel_member;
@@ -206,7 +249,6 @@ export declare const Volume_member_index: {
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
-    /** 体积参数应用时间戳。 */
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
     readonly uuid: Miaoverse.Kernel_member;

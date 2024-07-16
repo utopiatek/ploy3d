@@ -11,6 +11,7 @@
         "shader/wgsl/20-10_standard_ui.material.wgsl",
         "shader/wgsl/20-11_standard_ui.shading.wgsl",
         "shader/17-0_standard_specular.json",
-        "shader/17-1_standard_ui.json"
+        "shader/17-1_standard_ui.json",
+        "shader/17-2_standard_dior.json"
     ]
 }

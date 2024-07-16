@@ -79,6 +79,14 @@ export declare class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh
      */
     Create(asset: Asset_mesh): Miaoverse.Mesh;
     /**
+     * 实例化网格资源。
+     * @param data_ptr 网格数据指针。
+     * @param data_size 网格数据大小。
+     * @param uuid 网格资源UUID。
+     * @returns 返回网格资源实例。
+     */
+    Instance(data_ptr: Miaoverse.io_ptr, data_size: number, uuid?: string): Miaoverse.Mesh;
+    /**
      * 从网格几何数据对象构建网格资源文件数据。
      * @param data 网格几何数据对象。
      * @returns 返回网格资源文件数据大小和数据指针。
@@ -196,13 +204,19 @@ export declare class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh
      * @param data 网格资源文件数据指针。
      * @returns 返回网格资源内核实例指针。
      */
-    protected _InstanceMesh: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    protected _Create: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
     /**
      * 创建网格资源文件数据。
      * @param geo 网格几何数据指针（数据布局结构请查阅MakeGeometry代码）。
      * @returns 返回网格资源文件数据大小和数据指针。
      */
-    protected _CreateMesh: (geo: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+    protected _CreateData: (geo: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+    /**
+     * 解压CTM网格数据。
+     * @param ctmData CTM数据指针。
+     * @returns 返回网格几何数据大小和网格几何数据指针。
+     */
+    protected _DecodeCTM: (ctmData: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
 }
 /** 几何UV数据内核实现。 */
 export declare class UVSet_kernel extends Miaoverse.Base_kernel<any, typeof UVSet_member_index> {
@@ -300,8 +314,6 @@ export declare const Geometry_member_index: {
     readonly polygonGroupsNameLength: Miaoverse.Kernel_member;
     readonly materialGroupsName: Miaoverse.Kernel_member;
     readonly polygonGroupsName: Miaoverse.Kernel_member;
-    readonly unloaded: Miaoverse.Kernel_member;
-    readonly reserved: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;

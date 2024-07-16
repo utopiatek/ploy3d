@@ -814,130 +814,130 @@ export class Context {
 
             // 128===================----------------------------------
 
-            "lfgMat": { note: "变换矩阵：全局->灯光。CONFIG_MAX_SHADOW_CASCADES == 4", sign: "mat4x4<f32>" },
-            "lfgMat1": { note: "变换矩阵：全局->灯光。CONFIG_MAX_SHADOW_CASCADES == 4", sign: "mat4x4<f32>" },
-            "lfgMat2": { note: "变换矩阵：全局->灯光。CONFIG_MAX_SHADOW_CASCADES == 4", sign: "mat4x4<f32>" },
-            "lfgMat3": { note: "变换矩阵：全局->灯光。CONFIG_MAX_SHADOW_CASCADES == 4", sign: "mat4x4<f32>" },
+            "lfgMat": { note: "CASCADES阴影各级光照空间矩阵：全局->灯光。", sign: "mat4x4<f32>" },
+            "lfgMat1": { note: "CASCADES阴影各级光照空间矩阵：全局->灯光。", sign: "mat4x4<f32>" },
+            "lfgMat2": { note: "CASCADES阴影各级光照空间矩阵：全局->灯光。", sign: "mat4x4<f32>" },
+            "lfgMat3": { note: "CASCADES阴影各级光照空间矩阵：全局->灯光。", sign: "mat4x4<f32>" },
 
             // 384===================----------------------------------
 
-            "vfgMat": { note: "变换矩阵：全局->相机", sign: "mat4x4<f32>" },
-            "gfvMat": { note: "变换矩阵：相机->全局", sign: "mat4x4<f32>" },
+            "vfgMat": { note: "变换矩阵：全局->相机。", sign: "mat4x4<f32>" },
+            "gfvMat": { note: "变换矩阵：相机->全局。", sign: "mat4x4<f32>" },
 
-            "cfvMat": { note: "变换矩阵：相机->裁剪", sign: "mat4x4<f32>" },
-            "vfcMat": { note: "变换矩阵：裁剪->相机", sign: "mat4x4<f32>" },
+            "cfvMat": { note: "变换矩阵：相机->裁剪。\n进行透视除法后的NDC空间：XY[-1, 1]，Z[近1, 远0]。\n在WebGL需要转换到Z[近1, 远-1]的裁剪空间，gl_Position.z = dot(gl_Position.zw, vec2(2.0, -1.0));。", sign: "mat4x4<f32>" },
+            "vfcMat": { note: "变换矩阵：裁剪->相机。", sign: "mat4x4<f32>" },
 
-            "cfgMat": { note: "变换矩阵：全局->裁剪", sign: "mat4x4<f32>" },
-            "gfcMat": { note: "变换矩阵：裁剪->全局", sign: "mat4x4<f32>" },
+            "cfgMat": { note: "变换矩阵：全局->裁剪。", sign: "mat4x4<f32>" },
+            "gfcMat": { note: "变换矩阵：裁剪->全局。", sign: "mat4x4<f32>" },
 
-            "gfwMat": { note: "变换矩阵：世界->全局", sign: "mat4x4<f32>" },
-            "wfgMat": { note: "变换矩阵：全局->世界", sign: "mat4x4<f32>" },
+            "gfwMat": { note: "变换矩阵：世界->全局。", sign: "mat4x4<f32>" },
+            "wfgMat": { note: "变换矩阵：全局->世界。", sign: "mat4x4<f32>" },
 
-            "uvfvMat": { note: "当前相机到当前相机平面UV变换矩阵，用于SSR相交测试", sign: "mat4x4<f32>" },
-            "last_uvfvMat": { note: "当前相机到上一相机平面UV变换矩阵，用于SSR颜色采样", sign: "mat4x4<f32>" },
+            "uvfvMat": { note: "变换矩阵：相机->相机平面UV。\n相当于旧版的m_uvfvMat、ssrUvFromViewMatrix，用于SSR相交测试。", sign: "mat4x4<f32>" },
+            "last_uvfvMat": { note: "变换矩阵：相机->上一相机平面UV。\n重投影矩阵：当前相机空间->世界空间->旧相机空间->旧相机裁剪空间->上一相机平面UV空间。\n相当于旧版的reprojectionMat、ssrReprojection，用于SSR颜色采样。", sign: "mat4x4<f32>" },
 
-            "last_cfwMat": { note: "变换矩阵：世界->上一相机裁剪", sign: "mat4x4<f32>" },
-            "cullingMat": { note: "变换矩阵：世界->裁剪（CPU端使用）", sign: "mat4x4<f32>" },
+            "last_cfwMat": { note: "变换矩阵：世界->上一相机裁剪。", sign: "mat4x4<f32>" },
+            "cullingMat": { note: "变换矩阵：相机->裁剪（CPU端使用）。", sign: "mat4x4<f32>" },
 
-            "reserved0": { note: "保留字段", sign: "mat4x4<f32>" },
+            "m_reserved768": { note: "预留空间。", sign: "mat4x4<f32>" },
 
-            "reserved3": { note: "保留字段", sign: "vec4<f32>" },
-            "camera_wPos": { note: "相机，世界空间中的相机位置，W位不使用", sign: "vec4<f32>" },
-            "camera_wDir": { note: "相机，世界空间中的相机观察方向和距观察目标距离", sign: "vec4<f32>" },
-            "camera_params": { note: "x : cameraFar 远平面距离。y : oneOverFarMinusNear 1/(f-n), 始终为正数。z : nearOverFarMinusNear n/(f-n), 始终为正数。w : ev100 EV100参数。", sign: "vec4<f32>" },
+            "m_reserved832": { note: "预留空间。", sign: "vec4<f32>" },
+            "camera_wPos": { note: "相机，相机世界空间坐标。W位不使用。", sign: "vec4<f32>" },
+            "camera_wDir": { note: "相机，相机世界空间观察方向和距观察目标距离。", sign: "vec4<f32>" },
+            "camera_params": { note: "相机，\nx : cameraFar 远平面距离。\ny : oneOverFarMinusNear 1/(f-n), 始终为正数。\nz : nearOverFarMinusNear n/(f-n), 始终为正数。\nw : ev100 EV100参数。", sign: "vec4<f32>" },
 
-            "resolution": { note: "视口，width, height, 1/width, 1/height", sign: "vec4<f32>", value: [1024.0, 1024.0, 0.000977, 0.000977] },
-            "clipControl": { note: "用于将Z范围从[0, 1]转换到[-1, 1]", sign: "vec4<f32>", value: [1.0, 0.0] },
-            "cascadeSplits": { note: "CSM，视锥在相机空间中的划分位置，不包含近平面。不使用的分量值为-INF", sign: "vec4<f32>", value: [-6.3457, 0.0, 0.0, 0.0] },
-            "reserved2": { note: "保留字段", sign: "vec4<f32>" },
+            "resolution": { note: "画布参数：width, height, 1/width, 1/height。", sign: "vec4<f32>", value: [1024.0, 1024.0, 0.000977, 0.000977] },
+            "cascadeSplits": { note: "CSM，视锥在相机空间中的划分位置，不包含近平面。不使用的分量值为-INF。", sign: "vec4<f32>", value: [-6.3457, 0.0, 0.0, 0.0] },
+            "m_reserved928": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved944": { note: "预留空间。", sign: "vec4<f32>" },
 
-            "froxelCount": { note: "视锥体素化细分参数：Dim、CountX、CountY、CountZ", sign: "vec4<u32>" },
-            "froxelCountZ": { note: "视锥体素化细分参数：NearZ、FarZ、LinearZ、Reserved", sign: "vec4<f32>" },
-            "froxelParamsF": { note: "着色器使用的视锥体素化参数1：1、CountX、CountX * CountY、CountX * CountY * CountZ", sign: "vec4<u32>" },
-            "froxelParamsZ": { note: "着色器使用的视锥体素化参数2：用于计算片元所属体素索引", sign: "vec4<f32>" },
+            "froxelCount": { note: "视锥体素化细分参数：Dim、CountX、CountY、CountZ。", sign: "vec4<u32>" },
+            "froxelCountZ": { note: "视锥体素化细分参数：NearZ、FarZ、LinearZ、Reserved。", sign: "vec4<f32>" },
+            "froxelParamsF": { note: "着色器使用的视锥体素化参数1：1、CountX、CountX * CountY、CountX * CountY * CountZ。", sign: "vec4<u32>" },
+            "froxelParamsZ": { note: "着色器使用的视锥体素化参数2：用于计算片元所属体素索引。", sign: "vec4<f32>" },
 
             // 1408===================----------------------------------
 
-            "iblSH": { note: "IBL，球谐系数", sign: "vec4<f32>" },
-            "iblSH1": { note: "IBL，球谐系数", sign: "vec4<f32>" },
-            "iblSH2": { note: "IBL，球谐系数", sign: "vec4<f32>" },
-            "iblSH3": { note: "IBL，球谐系数", sign: "vec4<f32>" },
-            "iblSH4": { note: "IBL，球谐系数", sign: "vec4<f32>" },
-            "iblSH5": { note: "IBL，球谐系数", sign: "vec4<f32>" },
-            "iblSH6": { note: "IBL，球谐系数", sign: "vec4<f32>" },
-            "iblSH7": { note: "IBL，球谐系数", sign: "vec4<f32>" },
-            "iblSH8": { note: "IBL，球谐系数", sign: "vec4<f32>" },
+            "iblSH": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
+            "iblSH1": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
+            "iblSH2": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
+            "iblSH3": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
+            "iblSH4": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
+            "iblSH5": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
+            "iblSH6": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
+            "iblSH7": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
+            "iblSH8": { note: "IBL，球谐系数。", sign: "vec4<f32>" },
 
-            "fogColor": { note: "雾，颜色（W位不使用）", sign: "vec4<f32>" },
+            "fogColor": { note: "雾，颜色（W位不使用）。", sign: "vec4<f32>" },
 
-            "sunParams": { note: " 太阳光参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP", sign: "vec4<f32>", value: [0.999848, 0.017452, -2188.808350, 80.0] },
-            "iblColorIntensity": { note: "太阳光颜色和强度", sign: "vec4<f32>", value: [1.0, 1.0, 1.0, 1.0] },
-            "iblDirection": { note: "太阳光全局空间方向光方向", sign: "vec4<f32>", value: [0.0, 1.0, 0.0, 0.0] },
+            "sunParams": { note: " 太阳圆盘参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP。", sign: "vec4<f32>", value: [0.999848, 0.017452, -2188.808350, 80.0] },
+            "iblColorIntensity": { note: "IBL主光照颜色和强度。", sign: "vec4<f32>", value: [1.0, 1.0, 1.0, 1.0] },
+            "iblDirection": { note: "IBL主光照全局空间方向光方向（W位不使用）。", sign: "vec4<f32>", value: [0.0, 1.0, 0.0, 0.0] },
 
-            "reserved10": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved11": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved12": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved13": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved14": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved15": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved16": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved17": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved18": { note: "保留字段", sign: "vec4<f32>" },
-            "reserved19": { note: "保留字段", sign: "vec4<f32>" },
+            "m_reserved208": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved224": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved240": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved256": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved272": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved288": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved304": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved320": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved336": { note: "预留空间。", sign: "vec4<f32>" },
+            "m_reserved352": { note: "预留空间。", sign: "vec4<f32>" },
 
-            "lightFarAttenuationParams": { note: "太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)", sign: "vec2<f32>", value: [5.0, 0.0005] },
-            "lightReserved": { note: "保留字段", sign: "vec2<f32>", value: [5.0, 0.0005] },
+            "lightFarAttenuationParams": { note: "太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。", sign: "vec2<f32>", value: [5.0, 0.0005] },
+            "m_reserved376": { note: "预留空间。", sign: "vec2<f32>", value: [5.0, 0.0005] },
 
             "iblLuminance": { note: "IBL，亮度", sign: "f32" },
             "iblRoughnessOneLevel": { note: "IBL，粗糙度为1的纹理链级别", sign: "f32" },
-            "vsmReserved1": { note: "IBL，保留字段", sign: "f32" },
-            "vsmReserved2": { note: "IBL，保留字段", sign: "f32" },
+            "m_reserved392": { note: "预留空间。", sign: "f32" },
+            "m_reserved396": { note: "预留空间。", sign: "f32" },
 
-            "ssrThickness": { note: "屏幕空间反射用的物体厚度，用于相交测试", sign: "f32", value: [0.1] },
-            "ssrBias": { note: "屏幕空间反射用的射线的起点偏移", sign: "f32", value: [0.01] },
-            "ssrDistance": { note: "屏幕空间反射用的射线最大追踪距离", sign: "f32", value: [3.0] },
-            "ssrStride": { note: "屏幕空间反射用的射线追踪步进像素数", sign: "f32", value: [2.0] },
-            "refractionLodOffset": { note: "反射贴图采样LOD偏移", sign: "f32", value: [7.625531] },
-            "temporalNoise": { note: "噪音系数[0, 1]，当不使用TAA时取0", sign: "f32" },
-            "aoSamplingQualityAndEdgeDistance": { note: "SSAO，采样参数，0: bilinear, !0: bilateral edge distance", sign: "f32" },
-            "aoBentNormals": { note: "SSAO，0: no AO bent normal, >0.0 AO bent normals", sign: "f32" },
+            "ssrThickness": { note: "屏幕空间反射用的物体厚度，用于相交测试。", sign: "f32", value: [0.1] },
+            "ssrBias": { note: "屏幕空间反射用的射线的起点偏移。", sign: "f32", value: [0.01] },
+            "ssrDistance": { note: "屏幕空间反射用的射线最大追踪距离。", sign: "f32", value: [3.0] },
+            "ssrStride": { note: "屏幕空间反射用的射线追踪步进像素数。", sign: "f32", value: [2.0] },
+            "refractionLodOffset": { note: "反射贴图采样LOD偏移。", sign: "f32", value: [7.625531] },
+            "temporalNoise": { note: "噪音系数[0, 1]，当不使用TAA时取0。", sign: "f32" },
+            "aoSamplingQualityAndEdgeDistance": { note: "SSAO，采样参数，0: bilinear, !0: bilateral edge distance。", sign: "f32" },
+            "aoBentNormals": { note: "SSAO，0: no AO bent normal, >0.0 AO bent normals。", sign: "f32" },
 
             // bit 0-3: cascade count
             // bit 4: visualize cascades
             // bit 8-11: cascade has visible shadows
-            "cascades": { note: "阴影，CSM information", sign: "u32", value: [1 + (1 << 8)] },
+            "cascades": { note: "阴影，CSM information。", sign: "u32", value: [1 + (1 << 8)] },
             // bit 0: directional (sun) shadow enabled
             // bit 1: directional (sun) screen-space contact shadow enabled
             // bit 8-15: screen-space contact shadows ray casting steps
             "directionalShadows": { note: "", sign: "u32", value: [2049] },
-            "ssContactShadowDistance": { note: "屏幕空间接触阴影距离", sign: "f32" },
-            "shadowSamplingType": { note: "阴影，0: PCF, 1: VSM，2: DPCF, 3: PCSS", sign: "u32", value: [1] },
+            "ssContactShadowDistance": { note: "屏幕空间接触阴影距离。", sign: "f32" },
+            "shadowSamplingType": { note: "阴影类型，0: PCF, 1: VSM，2: DPCF, 3: PCSS。", sign: "u32", value: [1] },
 
-            "shadowBias": { note: "阴影，法向偏移", sign: "f32" },
-            "shadowBulbRadiusLs": { note: "阴影，光照空间的光源半径", sign: "f32" },
-            "shadowPenumbraRatioScale": { note: " 阴影，用于DPCF、PCSS，用于艺术用途的比例半影", sign: "f32" },
-            "shadowReserved": { note: "阴影，保留字段", sign: "f32" },
+            "shadowBias": { note: "阴影，法向偏移。", sign: "f32" },
+            "shadowBulbRadiusLs": { note: "阴影，光照空间的光源半径。", sign: "f32" },
+            "shadowPenumbraRatioScale": { note: " 阴影，用于DPCF、PCSS，用于艺术用途的比例半影。", sign: "f32" },
+            "m_reserved460": { note: "预留空间。", sign: "f32" },
 
-            "vsmExponent": { note: "VSM阴影指数", sign: "f32", value: [5.53999996] },
-            "vsmDepthScale": { note: "用于VSM最小方差计算", sign: "f32", value: [0.0277] },
-            "vsmLightBleedReduction": { note: "VSM阴影漏光问题，设定一个最小光照可见度，结果小于该最小光照可见度视为光照不可见", sign: "f32", value: [0.15] },
-            "vsmReserved": { note: "VSM，保留字段", sign: "f32" },
+            "vsmExponent": { note: "VSM阴影指数。", sign: "f32", value: [5.53999996] },
+            "vsmDepthScale": { note: "用于VSM最小方差计算。", sign: "f32", value: [0.0277] },
+            "vsmLightBleedReduction": { note: "VSM阴影漏光问题，设定一个最小光照可见度，结果小于该最小光照可见度视为光照不可见。", sign: "f32", value: [0.15] },
+            "m_reserved476": { note: "预留空间。", sign: "f32" },
 
             "fogStart": { note: "", sign: "f32" },
             "fogMaxOpacity": { note: "", sign: "f32" },
             "fogHeight": { note: "", sign: "f32" },
-            "fogHeightFalloff": { note: "雾，falloff * 1.44269", sign: "f32" },
-            "fogDensity": { note: "雾，(density/falloff)*exp(-falloff*(camera.y - fogHeight))", sign: "f32" },
+            "fogHeightFalloff": { note: "falloff * 1.44269。", sign: "f32" },
+            "fogDensity": { note: "(density/falloff)*exp(-falloff*(camera.y - fogHeight))。", sign: "f32" },
             "fogInscatteringStart": { note: "", sign: "f32" },
             "fogInscatteringSize": { note: "", sign: "f32" },
             "fogColorFromIbl": { note: "", sign: "f32" },
 
             // 1920===================----------------------------------
 
-            "time": { note: "计时器（单位秒）", sign: "f32" },
-            "needsAlphaChannel": { note: "如果当前渲染目标结果需要用于混合，则需要分配不透明分量，保证不透明对象不透明度为1", sign: "f32" },
-            "exposure": { note: "GBUFFER中的自发光颜色和强度都是归一化存储的，使用该参数作为自发光最大曝光度", sign: "f32", value: [10.0] },
-            "lightChannels": { note: "光照，光照通道标志集", sign: "u32", value: [1] },
+            "time": { note: "计时器（单位秒，常用于动态效果）。", sign: "f32" },
+            "needsAlphaChannel": { note: "如果当前渲染目标需要用于混合，则需要分配不透明分量，保证不透明对象不透明度为1。", sign: "f32" },
+            "exposure": { note: "GBUFFER中的自发光颜色和强度都是归一化存储的，使用该参数作为自发光最大曝光度。", sign: "f32", value: [10.0] },
+            "lightChannels": { note: "光照通道标志集。", sign: "u32", value: [1] },
 
             // 1936===================----------------------------------
         };
@@ -1632,6 +1632,12 @@ struct ObjectUniforms {
             vsmain = "vsmain_0";
         }
 
+        if (shaderAsset.vertex_buffers) {
+            vbLayout = shaderAsset.vertex_buffers;
+            vsmain = "vsmain_X";
+            console.error("使用自定义顶点缓存布局！");
+        }
+
         let cullMode: GPUCullMode = "none";
 
         if (desc.cullMode) {
@@ -1785,7 +1791,7 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 
     shading_fs();
 
-    return vec4f(inputs_geometricNormal, 1.0);
+    return vec4f(inputs_uv, 0.0, 1.0);
 }
         `;
 

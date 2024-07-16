@@ -105,8 +105,12 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
             return null;
         }
         const res = this.MakeGeometry(data);
-        const ptr = this._InstanceMesh(res[1]);
+        const instance = this.Instance(res[1], res[0], asset.uuid);
         this._global.internal.System_Delete(res[1]);
+        return instance;
+    }
+    Instance(data_ptr, data_size, uuid) {
+        const ptr = this._Create(data_ptr);
         if (!this._global.env.ptrValid(ptr)) {
             return null;
         }
@@ -115,9 +119,9 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
         const instance = this._instanceList[id] = new Mesh(this, ptr, id);
         this._instanceCount++;
         this._gcList.push(instance);
-        if (asset.uuid) {
-            this.Set(ptr, "uuid", asset.uuid);
-            this._instanceLut[asset.uuid] = instance;
+        if (uuid) {
+            this.Set(ptr, "uuid", uuid);
+            this._instanceLut[uuid] = instance;
         }
         return instance;
     }
@@ -156,7 +160,7 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
         env.farraySet(data_ptr, verticesOffset, data.vertices);
         env.farraySet(data_ptr, normalsOffset, data.normals);
         env.farraySet(data_ptr, uvsOffset, data.uvs);
-        const resource = this._CreateMesh(data_ptr);
+        const resource = this._CreateData(data_ptr);
         this._global.internal.System_Delete(data_ptr);
         return resource;
     }
@@ -644,8 +648,9 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
             groups
         };
     }
-    _InstanceMesh;
-    _CreateMesh;
+    _Create;
+    _CreateData;
+    _DecodeCTM;
 }
 export class UVSet_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
@@ -714,8 +719,6 @@ export const Geometry_member_index = {
     polygonGroupsNameLength: ["uscalarGet", "uscalarSet", 1, 29],
     materialGroupsName: ["ptrGet", "ptrSet", 1, 30],
     polygonGroupsName: ["ptrGet", "ptrSet", 1, 31],
-    unloaded: ["uscalarGet", "uscalarSet", 1, 32],
-    reserved: ["uarrayGet", "uarraySet", 3, 33],
 };
 export const Morph_member_index = {
     ...Miaoverse.Binary_member_index,

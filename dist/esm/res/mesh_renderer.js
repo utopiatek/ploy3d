@@ -53,7 +53,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
         super(_global, MeshRendere_member_index);
     }
     async Create(mesh, skeleton) {
-        const ptr = this._Instance(mesh?.internalPtr || 0, skeleton?.internalPtr || 0);
+        const ptr = this._Create(mesh?.internalPtr || 0, skeleton?.internalPtr || 0);
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new MeshRenderer(this, ptr, id);
@@ -61,7 +61,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
         this._gcList.push(instance);
         return instance;
     }
-    _Instance;
+    _Create;
 }
 export const MeshRendere_member_index = {
     ...Miaoverse.Uniform_member_index,
@@ -86,7 +86,6 @@ export const MeshRendere_member_index = {
     renderFlags: ["uscalarGet", "uscalarSet", 1, 99],
     extents: ["farrayGet", "farraySet", 3, 100],
     instanceCount: ["uscalarGet", "uscalarSet", 1, 103],
-    reserved2: ["uarrayGet", "uarraySet", 4, 104],
     morphSampler: ["uarrayGet", "uarraySet", 4, 108],
     morphTargetsWeight: ["uarrayGet", "uarraySet", 16, 112],
 };

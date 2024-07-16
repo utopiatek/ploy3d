@@ -16,6 +16,7 @@ export class Resources {
         this.Light = new Miaoverse.Light_kernel(_global);
         this.Volume = new Miaoverse.Volume_kernel(_global);
         this.Animator = new Miaoverse.Animator_kernel(_global);
+        this.Dioramas = new Miaoverse.Dioramas_kernel(_global);
         this.Object = new Miaoverse.Object_kernel(_global);
         this.Scene = new Miaoverse.Scene_kernel(_global);
     }
@@ -320,6 +321,7 @@ export class Resources {
     Light;
     Volume;
     Animator;
+    Dioramas;
     Object;
     Scene;
 }
@@ -339,4 +341,5 @@ export class Resource {
     _ptr;
     _id;
 }
+export const MAGIC_INVALID = 0x4D515120;
 //# sourceMappingURL=index.js.map

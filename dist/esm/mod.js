@@ -21,6 +21,7 @@ export * from "./res/camera.js";
 export * from "./res/light.js";
 export * from "./res/volume.js";
 export * from "./res/animator.js";
+export * from "./res/dioramas_3mx.js";
 export * from "./res/object3d.js";
 export * from "./res/scene.js";
 export * from "./ui/index.js";

@@ -98,6 +98,8 @@ export class Kernel {
                 __ubsan_handle_negate_overflow: (a: number, b: number, c: number) => { console.error("__ubsan_handle_negate_overflow", a, b, c); },
                 __ubsan_handle_load_invalid_value: (a: number, b: number, c: number) => { console.error("__ubsan_handle_load_invalid_value", a, b, c); },
                 __ubsan_handle_builtin_unreachable: (a: number, b: number, c: number) => { console.error("__ubsan_handle_builtin_unreachable", a, b, c); },
+                __ubsan_handle_missing_return: (a: number, b: number, c: number) => { console.error("__ubsan_handle_missing_return", a, b, c); },
+                __ubsan_handle_nonnull_return_v1: (a: number, b: number, c: number) => { console.error("__ubsan_handle_nonnull_return_v1", a, b, c); },
             },
             // 导入数学库
             Math: Math,
@@ -357,8 +359,8 @@ export class SharedENV {
     }
 
     /** 写入字节缓存数据（数据大小不一定是四字节对齐，须保证地址不越界4G空间）。 */
-    public bufferSet(ptr: io_ptr, byteOffset: number, buffer: ArrayBuffer): void {
-        this._ubview.set(new Uint8Array(buffer), (ptr << 2) + byteOffset);
+    public bufferSet1(ptr: io_ptr, buffer: ArrayBuffer, byteOffset: number): void {
+        this._ubview.set(new Uint8Array(buffer, byteOffset), ptr << 2);
     }
 
     /** 写入字符串数据（以0结束）。 */
@@ -497,6 +499,15 @@ export class SharedENV {
         return this._ubview;
     }
 
+    /** 字符串解码器。 */
+    public get textDecoder() {
+        return this._textDecoder;
+    }
+    /** 字符串编码器。 */
+    public get textEncoder() {
+        return this._textEncoder;
+    }
+
     /** 系统帧时间戳。 */
     public get frameTS(): number {
         return this.uscalarGet(this._ptr, Env_member.frameTS);
@@ -604,7 +615,10 @@ export interface Internal {
     Util_Decompress_lz4: (src: io_ptr, dst: io_ptr, compressedSize: io_uint, dstCapacity: io_uint) => io_uint;
     /** 压缩LZ4数据。 */
     Util_Compress_lz4: (src: io_ptr, dst: io_ptr, srcSize: io_uint, dstCapacity: io_uint) => io_uint;
-
+    /** 解压缩LZMA数据。 */
+    Util_Decompress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, drcSize: io_uint) => io_uint;
+    /** 压缩LZMA数据。 */
+    Util_Compress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, srcSize: io_uint) => io_uint;
     /** 导出引擎模块对象实现。 */
     Engine_Export: () => number[];
 }

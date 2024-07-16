@@ -1,8 +1,8 @@
 {
     "classid": 32,
-    "name": "standard_ui",
-    "label": "standard_ui",
-    "shader": ":/shader/17-1_standard_ui.json",
+    "name": "standard_dior",
+    "label": "standard_dior",
+    "shader": ":/shader/17-2_standard_dior.json",
     "flags": 0,
     "properties": {
         "vectors": {

@@ -1,6 +1,6 @@
 import * as Miaoverse from "../mod.js"
 
-/** 统一缓存实例。 */
+/** 着色器资源组基类。 */
 export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     /**
      * 构造函数。
@@ -53,9 +53,9 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     }
 
     /**
-     * 读取GPU统一缓存占用节点成员。
-     * @param ptr 缓存节点指针。
-     * @returns 返回缓存节点成员数据。
+     * 读取GPU常量缓存占用节点。
+     * @param ptr 缓存占用节点指针。
+     * @returns 返回缓存占用节点成员数据。
      */
     public ReadBufferNode(ptr: Miaoverse.io_ptr) {
         const buffer = this._impl.Get<Miaoverse.io_ptr>(ptr, "bn_buffer");
@@ -113,27 +113,27 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
         return (this._impl as any)._global.context.GetShader(this.layoutID).tuple;
     }
 
-    /** GPU统一缓存实例ID。 */
+    /** GPU常量缓存实例ID。 */
     public get bufferID(): number {
         return this._impl.Get(this._ptr, "bufferID");
     }
 
-    /** 数据块在缓存中的字节大小（256对齐）。 */
+    /** 属性块在缓存中的字节大小（256对齐）。 */
     public get size(): number {
         return this._impl.Get(this._ptr, "bufferBlockSize");
     }
 
-    /** 数据块在缓存中的字节偏移（256对齐）。 */
+    /** 属性块在缓存中的字节偏移（256对齐）。 */
     public get offset(): number {
         return this._impl.Get(this._ptr, "bufferBlockOffset");
     }
 
-    /** 属性缓存块地址指针。 */
+    /** 属性块地址指针。 */
     public get blockPtr(): Miaoverse.io_ptr {
         return this._blockPtr;
     }
 
-    /** 缓存内存块地址指针。 */
+    /** 缓存地址指针。 */
     public get bufferPtr(): Miaoverse.io_ptr {
         return this._bufferPtr;
     }
@@ -143,29 +143,29 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
         return this._bufferSize;
     }
 
-    /** 内核实现。 */
+    /** 资源内核实现。 */
     protected _impl: T & {
         /**
-         * 获取内核对象属性值。
-         * @param self 实例指针。
-         * @param key 内核对象数据成员名称。
+         * 获取资源内核实例属性值。
+         * @param ptr 资源内核实例指针。
+         * @param key 资源内核实现的数据结构成员名称。
          * @returns 返回对应属性值。
          */
-        Get<T>(self: Miaoverse.io_ptr, key: keyof typeof Uniform_member_index): T;
+        Get<T>(ptr: Miaoverse.io_ptr, key: keyof typeof Uniform_member_index): T;
         /**
-         * 设置内核对象属性值。
-         * @param self 实例指针。
-         * @param key 内核对象数据成员名称。
+         * 设置资源内核实例属性值。
+         * @param ptr 资源内核实例指针。
+         * @param key 资源内核实现的数据结构成员名称。
          * @param value 属性值。
          */
-        Set(self: Miaoverse.io_ptr, key: keyof typeof Uniform_member_index, value: any): void;
+        Set(ptr: Miaoverse.io_ptr, key: keyof typeof Uniform_member_index, value: any): void;
     };
 
-    /** 缓存内存块地址指针。 */
+    /** 缓存地址指针。 */
     protected _bufferPtr: Miaoverse.io_ptr;
     /** 缓存字节大小（256的倍数）。 */
     protected _bufferSize: number;
-    /** 属性缓存块地址指针。 */
+    /** 属性块地址指针。 */
     protected _blockPtr: Miaoverse.io_ptr;
 
     /** 资源组绑定对象。 */
@@ -174,35 +174,51 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     protected dynamicOffsets?: number[];
 }
 
-/** 统一缓存内核实现的数据结构成员列表。 */
+/** 着色器资源组基类（80字节）。 */
 export const Uniform_member_index = {
-    /** BINARY数据成员 */
+    /** 资源基类（48字节）。 */
 
     ...Miaoverse.Binary_member_index,
 
-    /** BUFFER数据成员（使用BUFFER指针读取） */
+    /** GPU常量缓存实例（16字节，使用BUFFER指针读取）。 */
 
+    /** 缓存实例ID。 */
     buffer_bufferID: ["uscalarGet", "uscalarSet", 1, 0] as Miaoverse.Kernel_member,
+    /** 缓存字节大小（256的倍数）。 */
     buffer_size: ["uscalarGet", "uscalarSet", 1, 1] as Miaoverse.Kernel_member,
+    /** 缓存内存块地址指针。 */
     buffer_addr: ["ptrGet", "ptrSet", 1, 2] as Miaoverse.Kernel_member,
+    /** 下一个缓存实例指针。 */
     buffer_next: ["ptrGet", "ptrSet", 1, 3] as Miaoverse.Kernel_member,
 
-    /** BUFFER_NODE数据成员（使用BUFFER_NODE指针读取） */
+    /** GPU常量缓存占用节点（16字节，我们也可以脱离UNIFORM资源仅请求占用缓存空间，使用BUFFER_NODE指针读取）。 */
 
+    /** GPU常量缓存实例指针。 */
     bn_buffer: ["ptrGet", "ptrSet", 1, 0] as Miaoverse.Kernel_member,
+    /** GPU常量缓存实例ID。 */
     bn_bufferID: ["uscalarGet", "uscalarSet", 1, 1] as Miaoverse.Kernel_member,
+    /** 占用块在缓存空间中的字节偏移（256对齐）。 */
     bn_offset: ["uscalarGet", "uscalarSet", 1, 2] as Miaoverse.Kernel_member,
+    /** 占用块在缓存空间中的字节大小（256对齐）。 */
     bn_size: ["uscalarGet", "uscalarSet", 1, 3] as Miaoverse.Kernel_member,
 
-    /** UNIFORM数据成员 */
+    /** 着色器资源组基类（80字节）。 */
 
+    /** GPU常量缓存实例指针。 */
     buffer: ["ptrGet", "ptrSet", 1, 12] as Miaoverse.Kernel_member,
+    /** GPU常量缓存实例ID。 */
     bufferID: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
+    /** 占用块在缓存空间中的字节偏移（256对齐）。 */
     bufferBlockOffset: ["uscalarGet", "uscalarSet", 1, 14] as Miaoverse.Kernel_member,
+    /** 占用块在缓存空间中的字节大小（256对齐）。 */
     bufferBlockSize: ["uscalarGet", "uscalarSet", 1, 15] as Miaoverse.Kernel_member,
 
+    /** 资源组编号（可选值有0、1、2、3）。 */
     group: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
+    /** 资源组绑定对象ID。 */
     binding: ["uscalarGet", "uscalarSet", 1, 17] as Miaoverse.Kernel_member,
+    /** 属性块数据释放存在更新。 */
     updated: ["uscalarGet", "uscalarSet", 1, 18] as Miaoverse.Kernel_member,
-    unused3: ["uscalarGet", "uscalarSet", 1, 19] as Miaoverse.Kernel_member,
+    /** 预留空间。 */
+    m_reserved76: ["uscalarGet", "uscalarSet", 1, 19] as Miaoverse.Kernel_member,
 } as const;

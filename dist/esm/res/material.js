@@ -181,7 +181,7 @@ export class Material_kernel extends Miaoverse.Base_kernel {
         if (!shader) {
             throw "获取着色器资源失败！";
         }
-        const ptr = this._InstanceMaterial(shader.uniformSize, this._global.env.ptrZero());
+        const ptr = this._Create(shader.uniformSize, this._global.env.ptrZero());
         const id = this._instanceIdle;
         this.Set(ptr, "id", id);
         this.Set(ptr, "uuid", asset.uuid);
@@ -214,7 +214,7 @@ export class Material_kernel extends Miaoverse.Base_kernel {
         return instance;
     }
     async CreateFrameUniforms(colorRT, depthRT, gbufferRT, spriteAtlas) {
-        const ptr = this._InstanceFrameUniforms();
+        const ptr = this._CreateFrameUniforms();
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new FrameUniforms(this, ptr, id);
@@ -249,8 +249,8 @@ export class Material_kernel extends Miaoverse.Base_kernel {
             }
         }
     }
-    _InstanceMaterial;
-    _InstanceFrameUniforms;
+    _Create;
+    _CreateFrameUniforms;
     _UpdateFrameUniforms;
 }
 export const Material_member_index = {

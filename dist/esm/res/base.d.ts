@@ -2,17 +2,27 @@ import * as Miaoverse from "../mod.js";
 export type Kernel_member = [Kernel_member_getter, Kernel_member_setter, number, number];
 export type Kernel_member_getter = "uscalarGet" | "fscalarGet" | "uarrayGet" | "farrayGet" | "ptrGet" | "uuidGet" | "stringGet";
 export type Kernel_member_setter = "uscalarSet" | "fscalarSet" | "uarraySet" | "farraySet" | "ptrSet" | "uuidSet" | "stringSet";
-/** 二进制数据基类（48字节）。 */
+/** 资源基类（48字节）。 */
 export declare const Binary_member_index: {
+    /** 资源数据格式标识（MAGIC_INVALID + CLASSID）。 */
     readonly magic: Miaoverse.Kernel_member;
+    /** 资源数据格式版本号。 */
     readonly version: Miaoverse.Kernel_member;
+    /** 资源数据字节大小。 */
     readonly byteSize: Miaoverse.Kernel_member;
+    /** 资源实例引用计数。 */
     readonly refCount: Miaoverse.Kernel_member;
+    /** 资源实例ID。 */
     readonly id: Miaoverse.Kernel_member;
+    /** 资源UUID。 */
     readonly uuid: Miaoverse.Kernel_member;
+    /** 资源实例数据更新时间戳（不同资源类型使用含义不同，注意区分）。 */
     readonly writeTS: Miaoverse.Kernel_member;
+    /** 资源实例数据使用时间戳（不同资源类型使用含义不同，注意区分）。 */
     readonly readTS: Miaoverse.Kernel_member;
+    /** 上一个资源实例指针。 */
     readonly last: Miaoverse.Kernel_member;
+    /** 下一个资源实例指针。 */
     readonly next: Miaoverse.Kernel_member;
 };
 /** 资源内核实现基类。 */
@@ -61,6 +71,6 @@ export declare class Base_kernel<T, K extends typeof Binary_member_index> {
     protected _instanceCount: number;
     /** 待分配空闲资源实例索引。 */
     protected _instanceIdle: number;
-    /** 待GC资源实例列表。 */
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
     protected _gcList: T[];
 }

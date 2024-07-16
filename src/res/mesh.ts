@@ -189,9 +189,23 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
         // ========================-------------------------------
 
         const res = this.MakeGeometry(data);
-        const ptr = this._InstanceMesh(res[1]);
+
+        const instance = this.Instance(res[1], res[0], asset.uuid);
 
         this._global.internal.System_Delete(res[1]);
+
+        return instance;
+    }
+
+    /**
+     * 实例化网格资源。
+     * @param data_ptr 网格数据指针。
+     * @param data_size 网格数据大小。
+     * @param uuid 网格资源UUID。
+     * @returns 返回网格资源实例。
+     */
+    public Instance(data_ptr: Miaoverse.io_ptr, data_size: number, uuid?: string) {
+        const ptr = this._Create(data_ptr);
 
         if (!this._global.env.ptrValid(ptr)) {
             return null;
@@ -211,9 +225,9 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
 
         this._gcList.push(instance);
 
-        if (asset.uuid) {
-            this.Set(ptr, "uuid", asset.uuid);
-            this._instanceLut[asset.uuid] = instance;
+        if (uuid) {
+            this.Set(ptr, "uuid", uuid);
+            this._instanceLut[uuid] = instance;
         }
 
         return instance;
@@ -281,7 +295,7 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
         env.farraySet(data_ptr, normalsOffset, data.normals);
         env.farraySet(data_ptr, uvsOffset, data.uvs);
 
-        const resource = this._CreateMesh(data_ptr);
+        const resource = this._CreateData(data_ptr);
 
         this._global.internal.System_Delete(data_ptr);
 
@@ -1137,14 +1151,21 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
      * @param data 网格资源文件数据指针。
      * @returns 返回网格资源内核实例指针。
      */
-    protected _InstanceMesh: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    protected _Create: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 
     /**
      * 创建网格资源文件数据。
      * @param geo 网格几何数据指针（数据布局结构请查阅MakeGeometry代码）。
      * @returns 返回网格资源文件数据大小和数据指针。
      */
-    protected _CreateMesh: (geo: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+    protected _CreateData: (geo: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+
+    /**
+     * 解压CTM网格数据。
+     * @param ctmData CTM数据指针。
+     * @returns 返回网格几何数据大小和网格几何数据指针。
+     */
+    protected _DecodeCTM: (ctmData: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
 }
 
 /** 几何UV数据内核实现。 */
@@ -1255,9 +1276,6 @@ export const Geometry_member_index = {
 
     materialGroupsName: ["ptrGet", "ptrSet", 1, 30] as Miaoverse.Kernel_member,
     polygonGroupsName: ["ptrGet", "ptrSet", 1, 31] as Miaoverse.Kernel_member,
-
-    unloaded: ["uscalarGet", "uscalarSet", 1, 32] as Miaoverse.Kernel_member,
-    reserved: ["uarrayGet", "uarraySet", 3, 33] as Miaoverse.Kernel_member,
 } as const;
 
 /** 网格变形数据内核实现的数据结构成员列表。 */

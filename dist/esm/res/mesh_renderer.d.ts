@@ -65,7 +65,7 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
      * @param mesh 网格资源内核实例。
      * @param skeleton 骨架定义数据内核实例。
      */
-    protected _Instance: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    protected _Create: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 }
 /** 网格渲染器组件内核实现的数据结构成员列表。 */
 export declare const MeshRendere_member_index: {
@@ -90,7 +90,6 @@ export declare const MeshRendere_member_index: {
     readonly renderFlags: Miaoverse.Kernel_member;
     readonly extents: Miaoverse.Kernel_member;
     readonly instanceCount: Miaoverse.Kernel_member;
-    readonly reserved2: Miaoverse.Kernel_member;
     readonly morphSampler: Miaoverse.Kernel_member;
     readonly morphTargetsWeight: Miaoverse.Kernel_member;
     readonly buffer_bufferID: Miaoverse.Kernel_member;
@@ -108,13 +107,12 @@ export declare const MeshRendere_member_index: {
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
     readonly updated: Miaoverse.Kernel_member;
-    readonly unused3: Miaoverse.Kernel_member;
+    readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
-    /** 是否启用组件。 */
     readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;

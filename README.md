@@ -64,6 +64,20 @@ tsc --declaration true --emitDeclarationOnly true --removeComments false -p ./ts
 ```
 deno run --allow-env --allow-read --allow-write --allow-net --allow-ffi --unstable-ffi --unstable-webgpu --unstable-sloppy-imports ./native.js
 ```
+
+#### 坐标系说明：
+笛卡尔坐标系：使用X轴朝右，Y轴朝上，Z轴朝外的右手坐标系（与WebGL，ThreeJS，Filament相同）；  
+相机观察方向：默认状态下相机朝屏幕里观察对象，所以观察向量为相机空间Z-方向。  
+模型坐标系：与笛卡尔坐标系一样采样右手坐标系（与GLTF相同），左手坐标系模型导入时须转换为右手坐标系；  
+切线空间：与笛卡尔坐标系一样采样右手坐标系（主流选择）；  
+NDC空间（WebGPU）：使用X轴朝右，Y轴朝上，Z轴朝里的左手坐标系。左下角[-1, -1]，右上角[1, 1]，Z值范围[0, 1]。  
+> NDC空间中，Z值近0远1，Z数值大部分精度范围被用在靠近相机近的部分。翻转Z轴后，Z轴朝外（变成右手坐标系，WebGL）；  
+> NDC空间（WebGL）：使用X轴朝右，Y轴朝上，Z轴朝外的右手坐标系。左下角[-1, -1]，右上角[1, 1]，Z值范围[-1, 1]。  
+> 引擎所用相机->裁剪变换矩阵，裁剪空间Z值范围[近1, 远0]，在WebGL着色器中需要将Z值转换为[近1, 远-1]。  
+
+图像空间（WebGPU，视窗画布、帧缓存、视口、纹理采样）Y轴向下，左上角(0, 0)，(0, 0)为纹理内存最低地址；  
+空间下标：世界空间<sub>w</sub>，观察空间<sub>v</sub>，裁剪空间<sub>c</sub>，NDC空间<sub>n</sub>  
+
 #### 参考文档
 * [WebGPU API](https://developer.mozilla.org/zh-CN/docs/Web/API/WebGPU_API)
 * [WebGPU Examples](https://webgpu.github.io/webgpu-samples/)

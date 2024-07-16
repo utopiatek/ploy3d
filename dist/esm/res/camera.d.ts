@@ -151,13 +151,7 @@ export declare const Camera_member_index: {
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
-    readonly uuid: Miaoverse.Kernel_member; /**
-     * 设置相机姿态。
-     * @param target 观察目标坐标（世界空间）。
-     * @param distance 距观察目标距离。
-     * @param pitch 相机俯角。
-     * @param yaw 相机偏航角。
-     */
+    readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;
     readonly last: Miaoverse.Kernel_member;

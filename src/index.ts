@@ -334,7 +334,11 @@ export class Ploy3D {
                     offset,                             // 缓存写入偏移
                     this.env.buffer,                    // 数据源
                     (cachePtr << 2) + offset,           // 数据源偏移
-                    size);
+                    (size + 3) & ~3);
+            },
+            Release: (classid: number, id: number) => {
+                // TODO ...
+                return 0;
             },
         });
 

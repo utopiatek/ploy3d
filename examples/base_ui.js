@@ -40,6 +40,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
         const object3d = await resources.Object.Create(scene);
         const volume = await resources.Volume.Create(object3d);
         const camera = await resources.Camera.Create(object3d);
+        const dior = null;//await resources.Dioramas.Create_3mx("./packages/w3mx/Scene/Production_8.3mx"/*"http://localhost:50663/Production_1.3mx"*/);
 
         camera.width = this.engine.width;
         camera.height = this.engine.height;
@@ -57,6 +58,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
         const gbRT = this.engine.device.CreateTextureRT(2048, 2048, 2, 1, "rgba32uint", true, false);
         const frameUniformsG0 = await resources.Material.CreateFrameUniforms(colorRT, depthRT, gbRT, 0);
         const materialG2 = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
+        const dior_materialG2 = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json");
         const mesh = resources.Mesh.Create({
             uuid: "",
             classid: /*CLASSID.ASSET_MESH*/38,
@@ -86,35 +88,50 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
             frontFace: 0,
             cullMode: 1
         });
+        const dior_pipeline = this.engine.context.CreateRenderPipeline({
+            g0: frameUniformsG0.layoutID,
+            g1: meshRendererG1.layoutID,
+            g2: dior_materialG2.layoutID,
+            g3: 0,
+            flags: 0,
+            topology: 3,
+            frontFace: 0,
+            cullMode: 1
+        });
 
-        //console.log("scene:", scene);
-        //console.log("object3d:", object3d);
-        //console.log("volume:", volume);
-        //console.log("camera:", camera);
-        //console.log("default2D:", resources.Texture.default2D);
-        //console.log("colorRT", colorRT);
-        //console.log("depthRT", depthRT);
-        //console.log("gbRT", gbRT);
-        //console.log("frameUniformsG0:", frameUniformsG0);
-        //console.log("materialG2:", materialG2);
-        //console.log("mesh:", mesh);
-        //console.log("meshRendererG1:", meshRendererG1);
-        //console.log("pipeline:", pipeline);
+        console.log("scene:", scene);
+        console.log("object3d:", object3d);
+        console.log("volume:", volume);
+        console.log("camera:", camera);
+        console.log("dior:", dior);
+        console.log("default2D:", resources.Texture.default2D);
+        console.log("colorRT", colorRT);
+        console.log("depthRT", depthRT);
+        console.log("gbRT", gbRT);
+        console.log("frameUniformsG0:", frameUniformsG0);
+        console.log("materialG2:", materialG2);
+        console.log("dior_materialG2:", dior_materialG2);
+        console.log("mesh:", mesh);
+        console.log("meshRendererG1:", meshRendererG1);
+        console.log("pipeline:", pipeline);
 
         // ================------------------------
 
         this.AddEventListener("wheel", (e) => {
             camera.Scale(e.wheelDelta, this.engine.width, this.engine.height);
+            dior?.Update();
             this.DrawFrame(1);
         });
 
         this.AddEventListener("pointermove", (e) => {
             if ((e.buttons & 1) == 1) {
                 camera.Move(e.movementX, e.movementY, this.engine.width, this.engine.height);
+                dior?.Update();
                 this.DrawFrame(1);
             }
             else if ((e.buttons & 2) == 2) {
                 camera.Rotate(e.movementX, e.movementY, this.engine.width, this.engine.height);
+                dior?.Update();
                 this.DrawFrame(1);
             }
         });
@@ -125,13 +142,13 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
             passEncoder.setViewport(0, 0, this.engine.width, this.engine.height, 0.0, 1.0);
             passEncoder.setPipeline(pipeline);
 
-            this.engine.context.SetVertexBuffers(0, mesh.vertices, passEncoder);
-            this.engine.context.SetIndexBuffer(mesh.ibFormat, mesh.triangles[0], passEncoder);
-
             frameUniformsG0.UpdateFrameUniforms(camera, volume);
             frameUniformsG0.Bind(passEncoder);
             meshRendererG1.Bind(passEncoder);
             materialG2.Bind(passEncoder);
+
+            this.engine.context.SetVertexBuffers(0, mesh.vertices, passEncoder);
+            this.engine.context.SetIndexBuffer(mesh.ibFormat, mesh.triangles[0], passEncoder);
 
             passEncoder.drawIndexed(
                 144,    // indexCount
@@ -141,6 +158,20 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
                 0,      // firstInstance
             );
         };
+
+        if (dior) {
+            this.scene_draw = (passEncoder) => {
+                passEncoder.setViewport(0, 0, this.engine.width, this.engine.height, 0.0, 1.0);
+                passEncoder.setPipeline(dior_pipeline);
+
+                frameUniformsG0.UpdateFrameUniforms(camera, volume);
+                frameUniformsG0.Bind(passEncoder);
+                meshRendererG1.Bind(passEncoder);
+                dior_materialG2.Bind(passEncoder);
+
+                dior.Draw(passEncoder);
+            };
+        }
 
         this.DrawFrame(1);
 

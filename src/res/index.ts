@@ -60,6 +60,7 @@ export class Resources {
         this.Light = new Miaoverse.Light_kernel(_global);
         this.Volume = new Miaoverse.Volume_kernel(_global);
         this.Animator = new Miaoverse.Animator_kernel(_global);
+        this.Dioramas = new Miaoverse.Dioramas_kernel(_global);
         this.Object = new Miaoverse.Object_kernel(_global);
         this.Scene = new Miaoverse.Scene_kernel(_global);
     }
@@ -514,6 +515,8 @@ export class Resources {
     public Volume: Miaoverse.Volume_kernel;
     /** 动画组件内核实现。 */
     public Animator: Miaoverse.Animator_kernel;
+    /** 倾斜摄影组件内核实现。 */
+    public Dioramas: Miaoverse.Dioramas_kernel;
     /** 3D对象内核实现。 */
     public Object: Miaoverse.Object_kernel;
     /** 场景内核实现。 */
@@ -628,12 +631,12 @@ export interface Asset {
     label: string;
 }
 
-/** 类型ID枚举。 */
+/** 类型ID。 */
 export const enum CLASSID {
     /** 无效类型。 */
     INVALID = 0,
 
-    /** GPU统一缓存。 */
+    /** GPU常量缓存。 */
     GPU_UNIFORM_BUFFER,
     /** GPU顶点缓存。 */
     GPU_VERTEX_BUFFER,
@@ -658,86 +661,76 @@ export const enum CLASSID {
     /** GPU贴图采样器。 */
     GPU_SAMPLER,
 
-    /** GPU资源绑定组（一组资源）。 */
+    /** GPU资源组绑定对象（一组资源实例）。 */
     GPU_BIND_GROUP,
     /** GPU管线（包括渲染管线和计算管线）。 */
     GPU_PIPELINE,
 
-    /*/
-    以下资源名称记录在文件名中：
-    ASSET_TEXTURE
-    ASSET_MATERIAL
-    ASSET_SKELETON
-    ASSET_SKIN
-    ASSET_MORPH
-    ASSET_MESH_UVSET
-    ASSET_MESH_GEOMETRY
-    ASSET_MESH
-    ASSET_ANIMATION_DATA
-    /*/
-
-    /** 自定义资源数据。 */
+    /** 自定义资源。 */
     ASSET_CUSTOM = 16,
 
-    /** 着色器资产。 */
+    /** 着色器资源（JSON，描述文件，引用ASSET_SHADER_GRAPH和ASSET_SHADER_CODE）。 */
     ASSET_SHADER,
-    /** 着色器图（可解析为着色器资产）。 */
+    /** 着色器图（JSON，数据文件，可解析为着色器资源）。 */
     ASSET_SHADER_GRAPH,
-    /** 着色器GLSL代码。 */
-    ASSET_CODE_GLSL,
-    /** 着色器WGSL代码。 */
-    ASSET_CODE_WGSL,
+    /** 着色器代码（WGSL，代码文件）。 */
+    ASSET_SHADER_CODE = 20,
 
-    /** 一维贴图资源。 */
+    /** 着色器资源组G0（JSON，描述文件）。 */
+    ASSET_FRAME_UNIFORMS,
+
+    /** 一维贴图资源（JSON，描述文件，引用图像数据文件）。 */
     ASSET_TEXTURE_1D = 24,
-    /** 二维贴图资源（可以是数组）。 */
+    /** 二维贴图资源（JSON，描述文件，引用图像数据文件。可以是贴图数组）。 */
     ASSET_TEXTURE_2D,
-    /** 立方体贴图资源（可以是数组）。 */
+    /** 立方体贴图资源（JSON，描述文件，引用图像数据文件。可以是贴图数组）。 */
     ASSET_TEXTURE_CUBE,
-    /** 三维贴图资源。 */
+    /** 三维贴图资源（JSON，描述文件，引用图像数据文件）。 */
     ASSET_TEXTURE_3D,
-    /** 渲染贴图资源（可以是数组）。 */
+    /** 渲染贴图资源（JSON，描述文件，引用图像数据文件，可以是贴图数组）。 */
     ASSET_TEXTURE_RT,
 
-    /** 材质资源。 */
+    /** 材质资源（JSON，描述文件，引用ASSET_SHADER，包含贴图描述符）。 */
     ASSET_MATERIAL = 32,
-    /** 骨架定义资源。 */
+    /** 骨架定义数据（BIN，数据文件）。 */
     ASSET_SKELETON,
-    /** 蒙皮定义资源。 */
+    /** 蒙皮数据（BIN，数据文件）。 */
     ASSET_SKIN,
-    /** 网格变形资源。 */
+    /** 网格变形数据（BIN，数据文件）。 */
     ASSET_MORPH,
-    /** 几何体UV数据。 */
-    ASSET_MESH_UVSET,
-    /** 基础网格几何体数据。 */
+    /** 几何数据（BIN，数据文件）。 */
     ASSET_MESH_GEOMETRY,
-    /** 网格资源。 */
+    /** 几何UV数据（BIN，数据文件）。 */
+    ASSET_MESH_UVSET,
+    /** 网格数据（BIN，数据文件）。 */
+    ASSET_MESH_DATA,
+    /** 材质资源（JSON，描述文件，引用ASSET_MESH_GEOMETRY、ASSET_MESH_UVSET、ASSET_MESH_DATA、ASSET_SKIN、ASSET_MORPH）。 */
     ASSET_MESH,
-    /** 动画数据。 */
+    /** 动画数据（BIN，数据文件）。 */
     ASSET_ANIMATION_DATA,
 
-    /** 网格渲染器组件。 */
+    /** 网格渲染器组件（JSON，描述文件，引用SE_SKELETON、SE_MESH、SE_MATERIAL）。 */
     ASSET_COMPONENT_MESH_RENDERER = 48,
-    /** 动画组件组件。 */
-    ASSET_COMPONENT_ANIMATOR,
-    /** 相机组件。 */
+    /** 相机组件（JSON，描述文件）。 */
     ASSET_COMPONENT_CAMERA,
-    /** 体积组件。 */
-    ASSET_COMPONENT_VOLUME,
-    /** 光源组件。 */
+    /** 光源组件（JSON，描述文件）。 */
     ASSET_COMPONENT_LIGHT,
-    /** 全景图组件。 */
-    ASSET_PANORAMA,
+    /** 动画组件（JSON，描述文件，引用ASSET_ANIMATION_DATA、ASSET_COMPONENT_MESH_RENDERER）。 */
+    ASSET_COMPONENT_ANIMATOR,
+    /** 体积组件（JSON，描述文件）。 */
+    ASSET_COMPONENT_VOLUME,
+    /** 全景图组件（JSON，描述文件）。 */
+    ASSET_COMPONENT_PANORAMA,
 
-    /** 资源包。 */
-    ASSET_LEVEL_PACKAGE = 64,
-    /** 预制件。 */
-    ASSET_LEVEL_PREFAB,
-    /** 场景节点。 */
-    ASSET_LEVEL_NODE,
-
-    /** 场景（从ASSET_LEVEL_PREFAB实例化）。 */
-    SCENE = 80,
-    /** 3D对象（从ASSET_LEVEL_NODE实例化）。 */
-    OBJECT_3D,
+    /** 资源包（JSON，描述文件）。 */
+    ASSET_PACKAGE = 64,
+    /** 预制件定义数据（JSON，描述文件，3D模组）。 */
+    ASSET_PREFAB,
+    /** 3D场景（BIN，数据文件，类似于ASSET_PREFAB，但以二进制形式保存，不可作为预制件使用）。 */
+    ASSET_SCENE,
+    /** 3D对象（JSON，描述文件）。 */
+    ASSET_OBJECT,
 }
+
+/** 资源数据格式标识基数。 */
+export const MAGIC_INVALID = 0x4D515120;

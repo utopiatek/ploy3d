@@ -107,6 +107,6 @@ export const Uniform_member_index = {
     group: ["uscalarGet", "uscalarSet", 1, 16],
     binding: ["uscalarGet", "uscalarSet", 1, 17],
     updated: ["uscalarGet", "uscalarSet", 1, 18],
-    unused3: ["uscalarGet", "uscalarSet", 1, 19],
+    m_reserved76: ["uscalarGet", "uscalarSet", 1, 19],
 };
 //# sourceMappingURL=uniform.js.map

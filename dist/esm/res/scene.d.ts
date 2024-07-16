@@ -45,6 +45,10 @@ export declare const Scene_member_index: {
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
+    /**
+     * 创建场景实例。
+     * @returns 返回场景实例。
+     */
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
     readonly uuid: Miaoverse.Kernel_member;

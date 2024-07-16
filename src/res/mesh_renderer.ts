@@ -98,7 +98,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
      * @returns 返回网格渲染器组件实例。
      */
     public async Create(mesh: Miaoverse.Mesh, skeleton: any) {
-        const ptr = this._Instance(mesh?.internalPtr || 0, skeleton?.internalPtr as never || 0);
+        const ptr = this._Create(mesh?.internalPtr || 0, skeleton?.internalPtr as never || 0);
         const id = this._instanceIdle;
 
         // 设置实例 ===============-----------------------
@@ -121,7 +121,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
      * @param mesh 网格资源内核实例。
      * @param skeleton 骨架定义数据内核实例。
      */
-    protected _Instance: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    protected _Create: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 }
 
 /** 网格渲染器组件内核实现的数据结构成员列表。 */
@@ -155,8 +155,6 @@ export const MeshRendere_member_index = {
     renderFlags: ["uscalarGet", "uscalarSet", 1, 99] as Miaoverse.Kernel_member,
     extents: ["farrayGet", "farraySet", 3, 100] as Miaoverse.Kernel_member,
     instanceCount: ["uscalarGet", "uscalarSet", 1, 103] as Miaoverse.Kernel_member,
-
-    reserved2: ["uarrayGet", "uarraySet", 4, 104] as Miaoverse.Kernel_member,
 
     morphSampler: ["uarrayGet", "uarraySet", 4, 108] as Miaoverse.Kernel_member,
 

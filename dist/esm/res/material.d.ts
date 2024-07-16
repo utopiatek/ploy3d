@@ -157,12 +157,12 @@ export declare class Material_kernel extends Miaoverse.Base_kernel<Material | Fr
      * @param data 材质资源保存数据。
      * @returns 返回材质资源内核实例指针。
      */
-    protected _InstanceMaterial: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    protected _Create: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
     /**
      * 实例化G0资源内核实例。
      * @returns 返回G0资源内核实例指针。
      */
-    protected _InstanceFrameUniforms: () => Miaoverse.io_ptr;
+    protected _CreateFrameUniforms: () => Miaoverse.io_ptr;
     /**
      * 根据相机组件数据和体积组件数据更新G0数据。
      * @param uniform G0资源内核实例指针。
@@ -184,11 +184,18 @@ export declare const Material_member_index: {
     readonly shaderUUID: Miaoverse.Kernel_member;
     readonly enableFlags: Miaoverse.Kernel_member;
     readonly buffer_bufferID: Miaoverse.Kernel_member;
+    /**
+     * 构造函数。
+     * @param impl 内核实现。
+     * @param ptr 内核实例指针。
+     * @param id 实例ID。
+     */
     readonly buffer_size: Miaoverse.Kernel_member;
     readonly buffer_addr: Miaoverse.Kernel_member;
     readonly buffer_next: Miaoverse.Kernel_member;
     readonly bn_buffer: Miaoverse.Kernel_member;
     readonly bn_bufferID: Miaoverse.Kernel_member;
+    /** 相关状态标志集。 */
     readonly bn_offset: Miaoverse.Kernel_member;
     readonly bn_size: Miaoverse.Kernel_member;
     readonly buffer: Miaoverse.Kernel_member;
@@ -198,7 +205,7 @@ export declare const Material_member_index: {
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
     readonly updated: Miaoverse.Kernel_member;
-    readonly unused3: Miaoverse.Kernel_member;
+    readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;

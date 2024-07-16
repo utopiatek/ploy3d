@@ -79,7 +79,7 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
         const env = this._global.env;
         const device = this._global.device;
         const bufferPtr = internal.System_New(buffer.byteLength);
-        env.bufferSet(bufferPtr, 0, buffer);
+        env.bufferSet1(bufferPtr, buffer, 0);
         const imagePtr = this._global.internal.Util_Transcoder_ktx2(bufferPtr, buffer.byteLength, format_desc.compressed);
         internal.System_Delete(bufferPtr);
         if (env.ptrValid(imagePtr)) {
