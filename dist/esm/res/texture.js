@@ -79,7 +79,7 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
         const env = this._global.env;
         const device = this._global.device;
         const bufferPtr = internal.System_New(buffer.byteLength);
-        env.bufferSet1(bufferPtr, buffer, 0);
+        env.bufferSet1(bufferPtr, buffer, 0, buffer.byteLength);
         const imagePtr = this._global.internal.Util_Transcoder_ktx2(bufferPtr, buffer.byteLength, format_desc.compressed);
         internal.System_Delete(bufferPtr);
         if (env.ptrValid(imagePtr)) {
@@ -148,6 +148,29 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
             this._instanceIdle = id;
         }
     }
+    _WriteTile(tile, bitmap) {
+        const info = this._global.env.uarrayGet(tile, 12, 8);
+        bitmap.layer = info[1];
+        bitmap.level = 0;
+        bitmap.xoffset = info[6] * 64;
+        bitmap.yoffset = info[7] * 64;
+        this._global.device.ResizeAtlas(this.defaultAtlas, bitmap.layer);
+        this._global.device.WriteTexture2D_RAW(this.defaultAtlas, false, bitmap);
+    }
+    _CreateTile;
+    _ReleaseTile;
     default2D;
+    defaultAtlas;
 }
+export const TextureTile_member_index = {
+    ...Miaoverse.Binary_member_index,
+    atlas: ["uscalarGet", "uscalarSet", 1, 12],
+    layer: ["uscalarGet", "uscalarSet", 1, 13],
+    width: ["uscalarGet", "uscalarSet", 1, 14],
+    height: ["uscalarGet", "uscalarSet", 1, 15],
+    cols: ["uscalarGet", "uscalarSet", 1, 16],
+    rows: ["uscalarGet", "uscalarSet", 1, 17],
+    xoffset: ["uscalarGet", "uscalarSet", 1, 18],
+    yoffset: ["uscalarGet", "uscalarSet", 1, 19],
+};
 //# sourceMappingURL=texture.js.map

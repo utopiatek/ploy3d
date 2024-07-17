@@ -70,6 +70,46 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
     }
 
     /**
+     * 设置向量属性并立即提交到GPU（用于小数据直接更新，标量被视为一维向量）。
+     * @param name 属性名称。
+     * @param value 数值数组。
+     */
+    public SubmitVector(name: string, value: number[]): void {
+        // GPUQueue.writeBuffer和GPURenderPassEncoder.drawIndexed产生的命令不在一个队列组中
+        // 所有GPUQueue.writeBuffe在GPUQueue.submit的命令组之前或之后执行
+        // 无法在GPURenderPassEncoder的命令之中穿插GPUQueue命令，即无法在每个drawIndexed之前writeBuffer
+
+        if (this.HasProperty(name)) {
+            if (this.updated) {
+                this.view[name] = value;
+            }
+            else {
+                this.view[name] = value;
+                this.updated = false;
+            }
+
+            let lut = this.tuple.lut;
+            if (!lut) {
+                lut = this.tuple.lut = {};
+
+                for (let var_ of this.tuple.vars) {
+                    lut[var_.decl.name] = var_;
+                }
+            }
+
+            const var_ = lut[name];
+            const data_: ArrayBufferView = this.view[name] as any;
+
+            this._global.device.WriteBuffer(
+                this.bufferID,
+                this.offset + var_.offset,
+                data_.buffer,
+                data_.byteOffset,
+                data_.byteLength);
+        }
+    }
+
+    /**
      * 获取贴图属性。
      * @param name 属性名称。
      * @returns 返回贴图描述符。
@@ -151,6 +191,8 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
      * @returns 返回true则包含指定属性。
      */
     public HasProperty(name: string): boolean {
+        // TODO ...
+        return true;
         return this.view.hasOwnProperty(name);
     }
 

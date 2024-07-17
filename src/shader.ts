@@ -147,6 +147,8 @@ export interface PropTuple {
         /** 属性缓存块地址。 */
         blockPtr: Miaoverse.io_ptr;
     }) => Record<string, Array<number>>;
+    /** 元组中变量查找表。 */
+    lut?: Record<string, PropVar>;
 }
 
 /** 材质属性变量定义。 */

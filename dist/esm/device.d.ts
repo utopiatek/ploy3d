@@ -63,7 +63,14 @@ export declare class Device {
      * @param format 贴图像素格式。
      * @returns 返回贴图实例ID。
      */
-    CreateTexture2D(width: number, height: number, depth: number, levelCount: number, format: GLTextureFormat): number;
+    CreateTexture2D(width: number, height: number, depth: number, levelCount: number, format: GLTextureFormat, usage?: number): number;
+    /**
+     * 扩展纹理数组容量。
+     * @param id 贴图实例ID。
+     * @param layer 确保数组容量包含指定图层。
+     * @returns 返回扩展是否成功。
+     */
+    ResizeAtlas(id: number, layer: number): boolean;
     /**
      * 释放贴图实例。
      * @param id 贴图实例ID。

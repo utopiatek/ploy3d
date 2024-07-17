@@ -31,9 +31,9 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
             }
         }
 
-        this._showList = [];
+        this._drawList = [];
         this._subdivList = [];
-        this._showCount = 0;
+        this._drawCount = 0;
         this._subdivCount = 0;
         this._updateTS = this._global.env.frameTS;
     }
@@ -89,42 +89,36 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                         break;
                     }
                 }
-
-                console.log(this);
             };
-            console.error("---------------------------------");
+
             this._subdiv();
         }
     }
 
     /**
      * 绘制场景。
+     * @param material 绘制材质。
      * @param passEncoder 渲染通道命令编码器。
      */
-    public Draw(passEncoder: GPURenderPassEncoder) {
-        for (let i = 0; i < this._showCount; i++) {
-            const node = this._showList[i];
+    public Draw(material: Miaoverse.Material, passEncoder: GPURenderPassEncoder) {
+        for (let i = 0; i < this._drawCount; i++) {
+            const instance = this._drawList[i];
+            const vbuffer = instance.vbuffer;
+            const dbuffer = this._drawBuffer.buffer;
+            const ibuffer = instance.ibuffer;
 
-            for (let resid of node._resources) {
-                const res = node._master.resources[resid];
-                const instance = res?._instance;
-                const vbuffer = instance?.vbuffer;
-                const ibuffer = instance?.ibuffer;
+            this._global.context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 12 * vbuffer.count, passEncoder);
+            this._global.context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + 12 * vbuffer.count, 8 * vbuffer.count, passEncoder);
+            this._global.context.SetVertexBuffer(2, dbuffer.buffer, dbuffer.offset + 20 * i, 20, passEncoder);
+            this._global.context.SetIndexBuffer(4, ibuffer, passEncoder);
 
-                if (vbuffer && ibuffer) {
-                    this._global.context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 12 * vbuffer.count, passEncoder);
-                    this._global.context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + 12 * vbuffer.count, 8 * vbuffer.count, passEncoder);
-                    this._global.context.SetIndexBuffer(4, ibuffer, passEncoder);
-
-                    passEncoder.drawIndexed(
-                        ibuffer.count,  // indexCount
-                        1,              // instanceCount
-                        0,              // firstIndex
-                        0,              // baseVertex
-                        0,              // firstInstance
-                    );
-                }
-            }
+            passEncoder.drawIndexed(
+                ibuffer.count,  // indexCount
+                1,              // instanceCount
+                0,              // firstIndex
+                0,              // baseVertex
+                0,              // firstInstance
+            );
         }
     }
 
@@ -238,21 +232,38 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         const Resources = this._global.resources;
 
         for (let res of group.resources) {
-            if (false && res.type == "textureBuffer" && (res.format == "jpg" || res.format == "png")) {
+            if (res.type == "textureBuffer" && (res.format == "jpg" || res.format == "png")) {
                 const blob = new Blob([group._ab.slice(group._ab_offset + res._offset, group._ab_offset + res._offset + res.size)]);
                 const option: ImageBitmapOptions = undefined;
                 const bitmap = await createImageBitmap(blob, option);
-                const texture = await Resources.Texture["LoadTexture2D_RAW"](bitmap);
+                const tile = Resources.Texture._CreateTile(bitmap.width, bitmap.height, 0);
 
-                //res._instance = texture;
+                Resources.Texture._WriteTile(tile, bitmap);
 
-                console.log(bitmap, texture);
+                bitmap.close();
+
+                const info = this._global.env.uarrayGet(tile, 12, 8);
+                const layer = info[1];
+                const rect = [
+                    info[6] * 64 / 4096,
+                    info[7] * 64 / 4096,
+                    (info[2] - 1) / 4096,
+                    (info[3] - 1) / 4096
+                ];
+
+                res._instance = {
+                    texture: {
+                        tile,
+                        layer,
+                        rect
+                    }
+                };
             }
 
             if (res.type == "geometryBuffer" && res.format == "ctm") {
                 const ctm_data_ptr = internal.System_New(res.size);
 
-                env.bufferSet1(ctm_data_ptr, group._ab, group._ab_offset + res._offset);
+                env.bufferSet1(ctm_data_ptr, group._ab, group._ab_offset + res._offset, res.size);
 
                 const mesh_data_raw = Resources.Mesh["_DecodeCTM"](ctm_data_ptr);
 
@@ -296,8 +307,6 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                     ibuffer: ibuffer,
                     vbuffer: vbuffer
                 };
-
-                console.log(res._instance);
             }
         }
 
@@ -308,7 +317,7 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      * 刷新场景显示与细分。
      */
     private Flush() {
-        this._showCount = 0;
+        this._drawCount = 0;
         this._subdivCount = 0;
 
         const proc = (node: Node) => {
@@ -323,7 +332,20 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                 }
                 // 可见并显示
                 else {
-                    this._showList[this._showCount++] = node;
+                    // 添加节点的所有网格为绘制实例
+                    for (let resid of node._resources) {
+                        const res = node._master.resources[resid];
+                        const instance = res?._instance;
+                        const vbuffer = instance?.vbuffer;
+                        const ibuffer = instance?.ibuffer;
+
+                        if (vbuffer && ibuffer) {
+                            instance.drawIndex = this._drawCount;
+                            instance.useTexture = node._master.resources[res._texture]?._instance?.texture;
+
+                            this._drawList[this._drawCount++] = instance;
+                        }
+                    }
 
                     // 加入细分任务队列（精度不合适，但尚未细分完成）
                     if (visible == Node_visible.draw_and_subdiv) {
@@ -335,6 +357,48 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         };
 
         this.For_children(this._root, proc);
+
+        // 填充绘制实例数据数组
+
+        if (this._drawCount) {
+            if (!this._drawBuffer || this._drawBuffer.capacity < this._drawCount) {
+                const capacity = ((this._drawCount + 1023) >> 10) << 10;
+                const ptr = this._global.internal.System_New(20 * capacity);
+                const buffer = this._impl.GenBuffer(0, capacity);
+
+                if (this._drawBuffer) {
+                    this._global.internal.System_Delete(this._drawBuffer.ptr);
+                    this._impl.FreeBuffer(this._drawBuffer.buffer);
+                }
+
+                this._drawBuffer = {
+                    capacity,
+                    ptr,
+                    buffer
+                };
+            }
+
+            const env = this._global.env;
+            const ptr = this._drawBuffer.ptr;
+            const buffer = this._drawBuffer.buffer;
+
+            for (let i = 0; i < this._drawCount; i++) {
+                const offset5 = i * 5;
+                const instance = this._drawList[i];
+
+                env.farraySet(ptr, offset5, instance.useTexture?.rect || [0.0, 0.0, 0.0, 0.0]);
+                env.uscalarSet(ptr, offset5 + 4, instance.useTexture?.layer || 0);
+            }
+
+            this._global.device.WriteBuffer(
+                buffer.buffer,          // 缓存实例ID
+                buffer.offset,          // 缓存写入偏移
+                env.buffer,             // 数据源
+                ptr << 2,               // 数据源偏移
+                20 * this._drawCount);  // 数据字节大小
+        }
+
+        console.error("----------------", this._drawCount, this._drawBuffer);
     }
 
     /**
@@ -420,18 +484,27 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
 
     /** 根分组列表。 */
     private _root: Group[];
-    /** 绘制节点数组。 */
-    private _showList: Node[];
+    /** 绘制实例数组。 */
+    private _drawList: Resource["_instance"][];
     /** 细分节点数组。 */
     private _subdivList: Node[];
-    /** 绘制节点数量。 */
-    private _showCount: number;
+    /** 绘制实例数量。 */
+    private _drawCount: number;
     /** 细分节点数量。 */
     private _subdivCount: number;
     /** 场景更新时间戳。 */
     private _updateTS: number;
     /** 场景细分任务。 */
     private _subdiv: () => Promise<void>;
+    /** 绘制实例缓存。 */
+    private _drawBuffer: {
+        /** 绘制实例容量（1024的倍数）。 */
+        capacity: number;
+        /** 内存地址指针。 */
+        ptr: Miaoverse.io_ptr;
+        /** 实例缓存节点。 */
+        buffer: ReturnType<Dioramas_kernel["GenBuffer"]>;
+    };
 }
 
 /** 倾斜摄影组件内核实现。 */
@@ -671,6 +744,19 @@ interface Resource {
         vbuffer?: ReturnType<Dioramas_kernel["GenBuffer"]>;
         /** 索引缓存节点。 */
         ibuffer?: ReturnType<Dioramas_kernel["GenBuffer"]>;
+        /** 贴图图块实例。 */
+        texture?: {
+            /** 贴图图块内部实例指针。 */
+            tile: Miaoverse.io_ptr;
+            /** 图块所在图集图层。 */
+            layer: number;
+            /** 图块所在图层区域(uoffset, voffset, uscale, vscale)。 */
+            rect: number[];
+        };
+        /** 绘制实例索引。 */
+        drawIndex?: number;
+        /** 绘制实例使用的贴图图块实例。 */
+        useTexture?: Resource["_instance"]["texture"];
     };
 }
 

@@ -63,7 +63,7 @@ export declare class SharedENV {
     /** 编码UUID为字符串。 */
     uuidEnc(uuid: ArrayLike<number>): string;
     /** 写入字节缓存数据（数据大小不一定是四字节对齐，须保证地址不越界4G空间）。 */
-    bufferSet1(ptr: io_ptr, buffer: ArrayBuffer, byteOffset: number): void;
+    bufferSet1(ptr: io_ptr, buffer: ArrayBuffer, byteOffset: number, byteLength: number): void;
     /** 写入字符串数据（以0结束）。 */
     stringSet(ptr: io_ptr, intOffset: number, value: string, maxLength?: number): void;
     /** 读取字符串数据（遇0结束）。 */

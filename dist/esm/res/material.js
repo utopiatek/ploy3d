@@ -26,6 +26,27 @@ export class Material extends Miaoverse.Uniform {
             this.view[name] = value;
         }
     }
+    SubmitVector(name, value) {
+        if (this.HasProperty(name)) {
+            if (this.updated) {
+                this.view[name] = value;
+            }
+            else {
+                this.view[name] = value;
+                this.updated = false;
+            }
+            let lut = this.tuple.lut;
+            if (!lut) {
+                lut = this.tuple.lut = {};
+                for (let var_ of this.tuple.vars) {
+                    lut[var_.decl.name] = var_;
+                }
+            }
+            const var_ = lut[name];
+            const data_ = this.view[name];
+            this._global.device.WriteBuffer(this.bufferID, this.offset + var_.offset, data_.buffer, data_.byteOffset, data_.byteLength);
+        }
+    }
     GetTexture(name) {
         if (!this.HasProperty(name + "_uuid")) {
             return null;
@@ -78,6 +99,7 @@ export class Material extends Miaoverse.Uniform {
         this.view[name + "_sampler"] = sampler;
     }
     HasProperty(name) {
+        return true;
         return this.view.hasOwnProperty(name);
     }
     get layoutID() {

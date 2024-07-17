@@ -21,9 +21,10 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     Update(): void;
     /**
      * 绘制场景。
+     * @param material 绘制材质。
      * @param passEncoder 渲染通道命令编码器。
      */
-    Draw(passEncoder: GPURenderPassEncoder): void;
+    Draw(material: Miaoverse.Material, passEncoder: GPURenderPassEncoder): void;
     /**
      * 加载场景分组（3MXB文件）。
      * @param url 文件路径。
@@ -60,18 +61,20 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     private _3mx;
     /** 根分组列表。 */
     private _root;
-    /** 绘制节点数组。 */
-    private _showList;
+    /** 绘制实例数组。 */
+    private _drawList;
     /** 细分节点数组。 */
     private _subdivList;
-    /** 绘制节点数量。 */
-    private _showCount;
+    /** 绘制实例数量。 */
+    private _drawCount;
     /** 细分节点数量。 */
     private _subdivCount;
     /** 场景更新时间戳。 */
     private _updateTS;
     /** 场景细分任务。 */
     private _subdiv;
+    /** 绘制实例缓存。 */
+    private _drawBuffer;
 }
 /** 倾斜摄影组件内核实现。 */
 export declare class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {

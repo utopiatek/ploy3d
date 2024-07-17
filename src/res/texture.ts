@@ -152,7 +152,7 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
         const device = this._global.device;
 
         const bufferPtr = internal.System_New(buffer.byteLength);
-        env.bufferSet1(bufferPtr, buffer, 0);
+        env.bufferSet1(bufferPtr, buffer, 0, buffer.byteLength);
         const imagePtr = this._global.internal.Util_Transcoder_ktx2(bufferPtr, buffer.byteLength, format_desc.compressed);
         internal.System_Delete(bufferPtr);
 
@@ -285,8 +285,43 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
         }
     }
 
+    /**
+     * 写图块数据。
+     * @param tile 图集图块实例指针。
+     * @param bitmap 位图数据。
+     */
+    public _WriteTile(tile: Miaoverse.io_ptr, bitmap: Miaoverse.GLTextureSource) {
+        const info = this._global.env.uarrayGet(tile, 12, 8);
+
+        bitmap.layer = info[1];
+        bitmap.level = 0;
+        bitmap.xoffset = info[6] * 64;
+        bitmap.yoffset = info[7] * 64;
+
+        this._global.device.ResizeAtlas(this.defaultAtlas, bitmap.layer);
+        this._global.device.WriteTexture2D_RAW(this.defaultAtlas, false, bitmap);
+    }
+
+    /**
+     * 创建图块实例（分配图集中的存储区块）。
+     * @param width 贴图像素宽度。
+     * @param height 贴图像素高度。
+     * @param format 贴图像素格式（当前固定为0）。
+     * @returns 返回图块描述符指针，注意GPU资源并未分配，需要使用贴图数据进行初始化。
+     */
+    public _CreateTile: (width: number, height: number, format: number) => Miaoverse.io_ptr;
+
+    /**
+     * 释放图块实例。
+     * @param tile 图块实例指针。
+     * @returns 返回当前图块实例引用计数。
+     */
+    public _ReleaseTile: (tile: Miaoverse.io_ptr) => Miaoverse.io_uint;
+
     /** 内置默认2D贴图资源实例。 */
     public default2D: Texture;
+    /** 默认贴图图集内部实例ID（"rgba8unorm"格式）。 */
+    public defaultAtlas: number;
 }
 
 /** 贴图资源描述符。 */
@@ -340,3 +375,18 @@ export const enum Image_ktx_member {
     /** 贴图MIP层级信息数组地址。 */
     ptrLevelInfos
 }
+
+/** 贴图图块内核实现的数据结构成员列表。 */
+export const TextureTile_member_index = {
+    ...Miaoverse.Binary_member_index,
+
+    atlas: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
+    layer: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
+    width: ["uscalarGet", "uscalarSet", 1, 14] as Miaoverse.Kernel_member,
+    height: ["uscalarGet", "uscalarSet", 1, 15] as Miaoverse.Kernel_member,
+
+    cols: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
+    rows: ["uscalarGet", "uscalarSet", 1, 17] as Miaoverse.Kernel_member,
+    xoffset: ["uscalarGet", "uscalarSet", 1, 18] as Miaoverse.Kernel_member,
+    yoffset: ["uscalarGet", "uscalarSet", 1, 19] as Miaoverse.Kernel_member,
+} as const;

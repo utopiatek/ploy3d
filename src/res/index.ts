@@ -164,6 +164,7 @@ export class Resources {
                 height: 128
             }
         });
+        this.Texture.defaultAtlas = this._global.device.CreateTexture2D(4096, 4096, 2, 1, "rgba8unorm", GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT);
 
         // ========================-------------------------------
 

@@ -40,7 +40,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
         const object3d = await resources.Object.Create(scene);
         const volume = await resources.Volume.Create(object3d);
         const camera = await resources.Camera.Create(object3d);
-        const dior = null;//await resources.Dioramas.Create_3mx("./packages/w3mx/Scene/Production_8.3mx"/*"http://localhost:50663/Production_1.3mx"*/);
+        const dior = null;//await resources.Dioramas.Create_3mx("./packages/w3mx/Scene/Production_8.3mx"/*"http://localhost:50315/Production_1.3mx"*/);
 
         camera.width = this.engine.width;
         camera.height = this.engine.height;
@@ -169,7 +169,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
                 meshRendererG1.Bind(passEncoder);
                 dior_materialG2.Bind(passEncoder);
 
-                dior.Draw(passEncoder);
+                dior.Draw(dior_materialG2, passEncoder);
             };
         }
 

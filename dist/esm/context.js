@@ -708,6 +708,7 @@ layout(std140) uniform LightList {
 uniform highp sampler2D colorRT;
 uniform highp sampler2D depthRT;
 uniform highp usampler2DArray gbRT;
+uniform highp sampler2DArray atlas2D;
             `;
             propLayout.fscode += froxel_buffer_code;
         }
@@ -765,6 +766,7 @@ struct LightList {
 @group(0) @binding(4) var colorRT : texture_2d<f32>;
 @group(0) @binding(5) var depthRT : texture_2d<f32>;
 @group(0) @binding(6) var gbRT : texture_2d_array<u32>;
+@group(0) @binding(7) var atlas2D : texture_2d_array<f32>;
 
 @group(0) @binding(8) var spnnn1: sampler;
 @group(0) @binding(9) var splln1: sampler;
@@ -821,6 +823,14 @@ struct LightList {
                     visibility: GPUShaderStage.FRAGMENT,
                     texture: {
                         sampleType: "uint",
+                        viewDimension: "2d-array"
+                    }
+                },
+                {
+                    binding: 7,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    texture: {
+                        sampleType: "float",
                         viewDimension: "2d-array"
                     }
                 },
@@ -1403,7 +1413,7 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 
     shading_fs();
 
-    return vec4f(inputs_uv, 0.0, 1.0);
+    return vec4f(inputs_geometricNormal, 1.0);
 }
         `;
         const vsg0 = g0?.vscode || "";
@@ -1509,6 +1519,10 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
             entries.push({
                 binding: 6,
                 resource: gbufferRT.view
+            });
+            entries.push({
+                binding: 7,
+                resource: uniform["atlas2D"]
             });
             for (let i = 0; i < 6; i++) {
                 entries.push({

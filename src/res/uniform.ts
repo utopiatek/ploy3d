@@ -38,6 +38,15 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
             this.writeTS = this._global.env.frameTS;
         }
 
+        // 如果默认图集大小重新分配，需要重新创建G0绑定组
+        if (this.group == 0) {
+            const atlas2D = this._global.device.GetTexture2D(this._global.resources.Texture.defaultAtlas);
+            if (this.atlas2D != atlas2D.view) {
+                this.atlas2D = atlas2D.view;
+                this.bindingID = 0;
+            }
+        }
+
         // 绑定资源组到着色器管线
         if (this.bindingID == 0) {
             this.bindingID = 1;
@@ -170,6 +179,8 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
 
     /** 资源组绑定对象。 */
     protected binding?: GPUBindGroup;
+    /** 默认图集视图（G0使用）。 */
+    protected atlas2D?: GPUTextureView;
     /** 缓存绑定偏移。 */
     protected dynamicOffsets?: number[];
 }

@@ -32,6 +32,12 @@ export declare class Material extends Miaoverse.Uniform<Material_kernel> {
      */
     SetVector(name: string, value: number[]): void;
     /**
+     * 设置向量属性并立即提交到GPU（用于小数据直接更新，标量被视为一维向量）。
+     * @param name 属性名称。
+     * @param value 数值数组。
+     */
+    SubmitVector(name: string, value: number[]): void;
+    /**
      * 获取贴图属性。
      * @param name 属性名称。
      * @returns 返回贴图描述符。
@@ -184,18 +190,11 @@ export declare const Material_member_index: {
     readonly shaderUUID: Miaoverse.Kernel_member;
     readonly enableFlags: Miaoverse.Kernel_member;
     readonly buffer_bufferID: Miaoverse.Kernel_member;
-    /**
-     * 构造函数。
-     * @param impl 内核实现。
-     * @param ptr 内核实例指针。
-     * @param id 实例ID。
-     */
     readonly buffer_size: Miaoverse.Kernel_member;
     readonly buffer_addr: Miaoverse.Kernel_member;
     readonly buffer_next: Miaoverse.Kernel_member;
     readonly bn_buffer: Miaoverse.Kernel_member;
     readonly bn_bufferID: Miaoverse.Kernel_member;
-    /** 相关状态标志集。 */
     readonly bn_offset: Miaoverse.Kernel_member;
     readonly bn_size: Miaoverse.Kernel_member;
     readonly buffer: Miaoverse.Kernel_member;

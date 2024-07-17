@@ -653,7 +653,7 @@ export class Device {
      * @param format 贴图像素格式。
      * @returns 返回贴图实例ID。
      */
-    public CreateTexture2D(width: number, height: number, depth: number, levelCount: number, format: GLTextureFormat) {
+    public CreateTexture2D(width: number, height: number, depth: number, levelCount: number, format: GLTextureFormat, usage?: number) {
         const formatDesc = this._textureFormatDescLut[format];
         if (!formatDesc) {
             this._global.Track("Device.CreateTexture2D: 不支持的贴图格式format=" + format + "！", 3);
@@ -669,7 +669,7 @@ export class Device {
             sampleCount: 1,
             dimension: "2d",
             format: formatDesc.compressed ? formatDesc.internalformat as any : format,
-            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | usage
         });
 
         if (!texture) {
@@ -728,6 +728,83 @@ export class Device {
         this._textures2D.usedSize += entry.layerSize * entry.depth;
 
         return id;
+    }
+
+    /**
+     * 扩展纹理数组容量。
+     * @param id 贴图实例ID。
+     * @param layer 确保数组容量包含指定图层。
+     * @returns 返回扩展是否成功。
+     */
+    public ResizeAtlas(id: number, layer: number) {
+        const atlas = this._textures2D.list[id];
+        if (!atlas || atlas.id != id) {
+            this._global.Track("Device.ResizeAtlas: 贴图实例ID=" + id + "无效！", 3);
+            return false;
+        }
+
+        // 参数指定的是层索引非层数
+        let depth = layer + 1;
+
+        if (atlas.depth < depth) {
+            // 初始分配2层，每次增加2层
+            depth = (depth + 1) & ~1;
+
+            const texture = this._device.createTexture({
+                label: "atlas:" + id,
+                size: [4096, 4096, depth],
+                mipLevelCount: 1,
+                sampleCount: 1,
+                dimension: "2d",
+                format: "rgba8unorm",
+                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT
+            });
+
+            if (!texture) {
+                this._global.Track("Device.ResizeAtlas: GPU贴图创建失败！", 3);
+                return false;
+            }
+
+            const view = texture.createView({
+                dimension: "2d-array",
+                baseArrayLayer: 0,
+                arrayLayerCount: depth,
+                baseMipLevel: 0,
+                mipLevelCount: 1
+            });
+
+            // 我们需要立刻完成拷贝操作，因为后续要写入新的贴图数据，并且可能再次扩展，所以我们不使用队列来拷贝
+            if (atlas.texture) {
+                // 注意：压缩格式图集无法通过FBO进行拷贝！
+
+                const cmdEncoder = this.device.createCommandEncoder();
+
+                cmdEncoder.copyTextureToTexture(
+                    { texture: atlas.texture, mipLevel: 0, origin: [0, 0, 0] },
+                    { texture: texture, mipLevel: 0, origin: [0, 0, 0] },
+                    [atlas.width, atlas.height, atlas.depth]);
+
+                const cmdBuffer = cmdEncoder.finish();
+
+                this.device.queue.submit([cmdBuffer]);
+
+                this._textures2D.usedSize += atlas.layerSize * (depth - atlas.depth);
+
+                {
+                    const freeTexture = atlas.texture;
+
+                    this._destroyList.push(() => {
+                        freeTexture.destroy();
+                    });
+                }
+
+                atlas.depth = depth;
+                atlas.texture = texture;
+                atlas.view = view;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -29,9 +29,15 @@ export class Kernel {
                 memory: memory,
                 memory_grow: memory_grow,
                 xprintf: (sys_, bufsize, format_, argv_) => {
+                    if (!this._global.env) {
+                        return 0;
+                    }
                     return this._global.env.Printf(sys_, bufsize, format_, argv_);
                 },
                 xprintf_va_list: (sys_, bufsize, format_, argv_) => {
+                    if (!this._global.env) {
+                        return 0;
+                    }
                     return this._global.env.Printf(sys_, bufsize, format_, argv_);
                 },
                 fmodf: (x, y) => { return x % y; },
@@ -249,8 +255,8 @@ export class SharedENV {
         const uid = uuid[2];
         return `${uid}-${time}-${ver}-${type}-${index}`;
     }
-    bufferSet1(ptr, buffer, byteOffset) {
-        this._ubview.set(new Uint8Array(buffer, byteOffset), ptr << 2);
+    bufferSet1(ptr, buffer, byteOffset, byteLength) {
+        this._ubview.set(new Uint8Array(buffer, byteOffset, byteLength), ptr << 2);
     }
     stringSet(ptr, intOffset, value, maxLength = 64) {
         const view = this._ubview;

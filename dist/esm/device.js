@@ -462,7 +462,7 @@ export class Device {
         }
         this._device.queue.writeBuffer(buffer.buffer, bufferOffset, data, dataOffset, size);
     }
-    CreateTexture2D(width, height, depth, levelCount, format) {
+    CreateTexture2D(width, height, depth, levelCount, format, usage) {
         const formatDesc = this._textureFormatDescLut[format];
         if (!formatDesc) {
             this._global.Track("Device.CreateTexture2D: 不支持的贴图格式format=" + format + "！", 3);
@@ -476,7 +476,7 @@ export class Device {
             sampleCount: 1,
             dimension: "2d",
             format: formatDesc.compressed ? formatDesc.internalformat : format,
-            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | usage
         });
         if (!texture) {
             this._global.Track("Device.CreateTexture2D: GPU贴图创建失败！", 3);
@@ -526,6 +526,54 @@ export class Device {
         this._textures2D.usedCount += 1;
         this._textures2D.usedSize += entry.layerSize * entry.depth;
         return id;
+    }
+    ResizeAtlas(id, layer) {
+        const atlas = this._textures2D.list[id];
+        if (!atlas || atlas.id != id) {
+            this._global.Track("Device.ResizeAtlas: 贴图实例ID=" + id + "无效！", 3);
+            return false;
+        }
+        let depth = layer + 1;
+        if (atlas.depth < depth) {
+            depth = (depth + 1) & ~1;
+            const texture = this._device.createTexture({
+                label: "atlas:" + id,
+                size: [4096, 4096, depth],
+                mipLevelCount: 1,
+                sampleCount: 1,
+                dimension: "2d",
+                format: "rgba8unorm",
+                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT
+            });
+            if (!texture) {
+                this._global.Track("Device.ResizeAtlas: GPU贴图创建失败！", 3);
+                return false;
+            }
+            const view = texture.createView({
+                dimension: "2d-array",
+                baseArrayLayer: 0,
+                arrayLayerCount: depth,
+                baseMipLevel: 0,
+                mipLevelCount: 1
+            });
+            if (atlas.texture) {
+                const cmdEncoder = this.device.createCommandEncoder();
+                cmdEncoder.copyTextureToTexture({ texture: atlas.texture, mipLevel: 0, origin: [0, 0, 0] }, { texture: texture, mipLevel: 0, origin: [0, 0, 0] }, [atlas.width, atlas.height, atlas.depth]);
+                const cmdBuffer = cmdEncoder.finish();
+                this.device.queue.submit([cmdBuffer]);
+                this._textures2D.usedSize += atlas.layerSize * (depth - atlas.depth);
+                {
+                    const freeTexture = atlas.texture;
+                    this._destroyList.push(() => {
+                        freeTexture.destroy();
+                    });
+                }
+                atlas.depth = depth;
+                atlas.texture = texture;
+                atlas.view = view;
+            }
+        }
+        return true;
     }
     FreeTexture2D(id) {
         const texture = this._textures2D.list[id];

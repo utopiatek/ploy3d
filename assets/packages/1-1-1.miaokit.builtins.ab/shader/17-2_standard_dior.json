@@ -65,6 +65,22 @@
                         "format": "float32x2"
                     }
                 ]
+            },
+            {
+                "arrayStride": 20,
+                "stepMode": "instance",
+                "attributes": [
+                    {
+                        "shaderLocation": 2,
+                        "offset": 0,
+                        "format": "float32x4"
+                    },
+                    {
+                        "shaderLocation": 3,
+                        "offset": 16,
+                        "format": "uint32"
+                    }
+                ]
             }
         ]
     }

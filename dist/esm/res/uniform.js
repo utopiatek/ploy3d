@@ -15,6 +15,13 @@ export class Uniform extends Miaoverse.Resource {
             this.updated = false;
             this.writeTS = this._global.env.frameTS;
         }
+        if (this.group == 0) {
+            const atlas2D = this._global.device.GetTexture2D(this._global.resources.Texture.defaultAtlas);
+            if (this.atlas2D != atlas2D.view) {
+                this.atlas2D = atlas2D.view;
+                this.bindingID = 0;
+            }
+        }
         if (this.bindingID == 0) {
             this.bindingID = 1;
             this.binding = this._global.context.CreateBindGroup(this);
@@ -88,6 +95,7 @@ export class Uniform extends Miaoverse.Resource {
     _bufferSize;
     _blockPtr;
     binding;
+    atlas2D;
     dynamicOffsets;
 }
 export const Uniform_member_index = {

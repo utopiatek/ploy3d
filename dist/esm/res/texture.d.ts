@@ -105,8 +105,30 @@ export declare class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> 
      * @param id 实例ID。
      */
     Release(id: number): void;
+    /**
+     * 写图块数据。
+     * @param tile 图集图块实例指针。
+     * @param bitmap 位图数据。
+     */
+    _WriteTile(tile: Miaoverse.io_ptr, bitmap: Miaoverse.GLTextureSource): void;
+    /**
+     * 创建图块实例（分配图集中的存储区块）。
+     * @param width 贴图像素宽度。
+     * @param height 贴图像素高度。
+     * @param format 贴图像素格式（当前固定为0）。
+     * @returns 返回图块描述符指针，注意GPU资源并未分配，需要使用贴图数据进行初始化。
+     */
+    _CreateTile: (width: number, height: number, format: number) => Miaoverse.io_ptr;
+    /**
+     * 释放图块实例。
+     * @param tile 图块实例指针。
+     * @returns 返回当前图块实例引用计数。
+     */
+    _ReleaseTile: (tile: Miaoverse.io_ptr) => Miaoverse.io_uint;
     /** 内置默认2D贴图资源实例。 */
     default2D: Texture;
+    /** 默认贴图图集内部实例ID（"rgba8unorm"格式）。 */
+    defaultAtlas: number;
 }
 /** 贴图资源描述符。 */
 export interface Asset_texture extends Miaoverse.Asset {
@@ -157,3 +179,24 @@ export declare const enum Image_ktx_member {
     /** 贴图MIP层级信息数组地址。 */
     ptrLevelInfos = 9
 }
+/** 贴图图块内核实现的数据结构成员列表。 */
+export declare const TextureTile_member_index: {
+    readonly atlas: Miaoverse.Kernel_member;
+    readonly layer: Miaoverse.Kernel_member;
+    readonly width: Miaoverse.Kernel_member;
+    readonly height: Miaoverse.Kernel_member;
+    readonly cols: Miaoverse.Kernel_member;
+    readonly rows: Miaoverse.Kernel_member;
+    readonly xoffset: Miaoverse.Kernel_member;
+    readonly yoffset: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};

@@ -14,9 +14,9 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                 this._root.push(group);
             }
         }
-        this._showList = [];
+        this._drawList = [];
         this._subdivList = [];
-        this._showCount = 0;
+        this._drawCount = 0;
         this._subdivCount = 0;
         this._updateTS = this._global.env.frameTS;
     }
@@ -54,27 +54,21 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                         break;
                     }
                 }
-                console.log(this);
             };
-            console.error("---------------------------------");
             this._subdiv();
         }
     }
-    Draw(passEncoder) {
-        for (let i = 0; i < this._showCount; i++) {
-            const node = this._showList[i];
-            for (let resid of node._resources) {
-                const res = node._master.resources[resid];
-                const instance = res?._instance;
-                const vbuffer = instance?.vbuffer;
-                const ibuffer = instance?.ibuffer;
-                if (vbuffer && ibuffer) {
-                    this._global.context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 12 * vbuffer.count, passEncoder);
-                    this._global.context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + 12 * vbuffer.count, 8 * vbuffer.count, passEncoder);
-                    this._global.context.SetIndexBuffer(4, ibuffer, passEncoder);
-                    passEncoder.drawIndexed(ibuffer.count, 1, 0, 0, 0);
-                }
-            }
+    Draw(material, passEncoder) {
+        for (let i = 0; i < this._drawCount; i++) {
+            const instance = this._drawList[i];
+            const vbuffer = instance.vbuffer;
+            const dbuffer = this._drawBuffer.buffer;
+            const ibuffer = instance.ibuffer;
+            this._global.context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 12 * vbuffer.count, passEncoder);
+            this._global.context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + 12 * vbuffer.count, 8 * vbuffer.count, passEncoder);
+            this._global.context.SetVertexBuffer(2, dbuffer.buffer, dbuffer.offset + 20 * i, 20, passEncoder);
+            this._global.context.SetIndexBuffer(4, ibuffer, passEncoder);
+            passEncoder.drawIndexed(ibuffer.count, 1, 0, 0, 0);
         }
     }
     async Load_3mxb(url, parent, index) {
@@ -153,16 +147,32 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         const internal = this._global.internal;
         const Resources = this._global.resources;
         for (let res of group.resources) {
-            if (false && res.type == "textureBuffer" && (res.format == "jpg" || res.format == "png")) {
+            if (res.type == "textureBuffer" && (res.format == "jpg" || res.format == "png")) {
                 const blob = new Blob([group._ab.slice(group._ab_offset + res._offset, group._ab_offset + res._offset + res.size)]);
                 const option = undefined;
                 const bitmap = await createImageBitmap(blob, option);
-                const texture = await Resources.Texture["LoadTexture2D_RAW"](bitmap);
-                console.log(bitmap, texture);
+                const tile = Resources.Texture._CreateTile(bitmap.width, bitmap.height, 0);
+                Resources.Texture._WriteTile(tile, bitmap);
+                bitmap.close();
+                const info = this._global.env.uarrayGet(tile, 12, 8);
+                const layer = info[1];
+                const rect = [
+                    info[6] * 64 / 4096,
+                    info[7] * 64 / 4096,
+                    (info[2] - 1) / 4096,
+                    (info[3] - 1) / 4096
+                ];
+                res._instance = {
+                    texture: {
+                        tile,
+                        layer,
+                        rect
+                    }
+                };
             }
             if (res.type == "geometryBuffer" && res.format == "ctm") {
                 const ctm_data_ptr = internal.System_New(res.size);
-                env.bufferSet1(ctm_data_ptr, group._ab, group._ab_offset + res._offset);
+                env.bufferSet1(ctm_data_ptr, group._ab, group._ab_offset + res._offset, res.size);
                 const mesh_data_raw = Resources.Mesh["_DecodeCTM"](ctm_data_ptr);
                 const icount = env.uscalarGet(mesh_data_raw[1], 1);
                 const vcount = env.uscalarGet(mesh_data_raw[1], 2);
@@ -180,13 +190,12 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                     ibuffer: ibuffer,
                     vbuffer: vbuffer
                 };
-                console.log(res._instance);
             }
         }
         group._res_loaded = 2;
     }
     Flush() {
-        this._showCount = 0;
+        this._drawCount = 0;
         this._subdivCount = 0;
         const proc = (node) => {
             const visible = this.Check(node);
@@ -196,7 +205,17 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                     this.For_children(node._children, proc);
                 }
                 else {
-                    this._showList[this._showCount++] = node;
+                    for (let resid of node._resources) {
+                        const res = node._master.resources[resid];
+                        const instance = res?._instance;
+                        const vbuffer = instance?.vbuffer;
+                        const ibuffer = instance?.ibuffer;
+                        if (vbuffer && ibuffer) {
+                            instance.drawIndex = this._drawCount;
+                            instance.useTexture = node._master.resources[res._texture]?._instance?.texture;
+                            this._drawList[this._drawCount++] = instance;
+                        }
+                    }
                     if (visible == 2) {
                         this._subdivList[this._subdivCount++] = node;
                     }
@@ -204,6 +223,33 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             }
         };
         this.For_children(this._root, proc);
+        if (this._drawCount) {
+            if (!this._drawBuffer || this._drawBuffer.capacity < this._drawCount) {
+                const capacity = ((this._drawCount + 1023) >> 10) << 10;
+                const ptr = this._global.internal.System_New(20 * capacity);
+                const buffer = this._impl.GenBuffer(0, capacity);
+                if (this._drawBuffer) {
+                    this._global.internal.System_Delete(this._drawBuffer.ptr);
+                    this._impl.FreeBuffer(this._drawBuffer.buffer);
+                }
+                this._drawBuffer = {
+                    capacity,
+                    ptr,
+                    buffer
+                };
+            }
+            const env = this._global.env;
+            const ptr = this._drawBuffer.ptr;
+            const buffer = this._drawBuffer.buffer;
+            for (let i = 0; i < this._drawCount; i++) {
+                const offset5 = i * 5;
+                const instance = this._drawList[i];
+                env.farraySet(ptr, offset5, instance.useTexture?.rect || [0.0, 0.0, 0.0, 0.0]);
+                env.uscalarSet(ptr, offset5 + 4, instance.useTexture?.layer || 0);
+            }
+            this._global.device.WriteBuffer(buffer.buffer, buffer.offset, env.buffer, ptr << 2, 20 * this._drawCount);
+        }
+        console.error("----------------", this._drawCount, this._drawBuffer);
     }
     Check(node) {
         if (node._level > 2) {
@@ -232,12 +278,13 @@ export class Dioramas_3mx extends Miaoverse.Resource {
     _impl;
     _3mx;
     _root;
-    _showList;
+    _drawList;
     _subdivList;
-    _showCount;
+    _drawCount;
     _subdivCount;
     _updateTS;
     _subdiv;
+    _drawBuffer;
 }
 export class Dioramas_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {

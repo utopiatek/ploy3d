@@ -64,10 +64,18 @@ export class Kernel {
                 memory_grow: memory_grow,
                 // 格式化输出到流文件
                 xprintf: (sys_: io_uint, bufsize: io_uint, format_: io_uint, argv_: io_uint) => {
+                    if (!this._global.env) {
+                        return 0;
+                    }
+
                     return this._global.env.Printf(sys_, bufsize, format_, argv_);
                 },
                 // 格式化输出到流文件
                 xprintf_va_list: (sys_: io_uint, bufsize: io_uint, format_: io_uint, argv_: io_uint) => {
+                    if (!this._global.env) {
+                        return 0;
+                    }
+
                     return this._global.env.Printf(sys_, bufsize, format_, argv_);
                 },
                 // 取模方法
@@ -359,8 +367,8 @@ export class SharedENV {
     }
 
     /** 写入字节缓存数据（数据大小不一定是四字节对齐，须保证地址不越界4G空间）。 */
-    public bufferSet1(ptr: io_ptr, buffer: ArrayBuffer, byteOffset: number): void {
-        this._ubview.set(new Uint8Array(buffer, byteOffset), ptr << 2);
+    public bufferSet1(ptr: io_ptr, buffer: ArrayBuffer, byteOffset: number, byteLength: number): void {
+        this._ubview.set(new Uint8Array(buffer, byteOffset, byteLength), ptr << 2);
     }
 
     /** 写入字符串数据（以0结束）。 */

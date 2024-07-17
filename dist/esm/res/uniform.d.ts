@@ -80,6 +80,8 @@ export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
     protected _blockPtr: Miaoverse.io_ptr;
     /** 资源组绑定对象。 */
     protected binding?: GPUBindGroup;
+    /** 默认图集视图（G0使用）。 */
+    protected atlas2D?: GPUTextureView;
     /** 缓存绑定偏移。 */
     protected dynamicOffsets?: number[];
 }

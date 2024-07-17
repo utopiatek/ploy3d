@@ -50,6 +50,8 @@ struct InputVS_X {
 
     @location(0) position: vec3f,
     @location(1) uv: vec2f,
+    @location(2) tile_rect: vec4f,
+    @location(3) tile_layer: u32,
 };
 
 // 初始化顶点属性
@@ -60,7 +62,10 @@ fn init_vertex_X(vertex: InputVS_X) {
     init_instance();
 
     mesh_position = vertex.position;
-    mesh_uv = vertex.uv;
+
+    mesh_uv = fract(vertex.uv);
+    mesh_uv.y = 1.0 - mesh_uv.y;
+	mesh_uv = vertex.tile_rect.xy + vertex.tile_rect.zw * mesh_uv;
 }
 
 @vertex fn vsmain_X(vertex: InputVS_X) ->OutputVS {
