@@ -802,6 +802,8 @@ export class Device {
                 atlas.texture = texture;
                 atlas.view = view;
             }
+
+            console.info("ResizeAtlas: ", atlas.depth);
         }
 
         return true;
@@ -1275,6 +1277,38 @@ export class Device {
      */
     public GetTextureRT(id: number) {
         return this._texturesRT.list[id];
+    }
+
+    /**
+     * 获取渲染贴图附件。
+     * @param id 贴图实例ID。
+     * @param layer 图层。
+     * @param level LOD级别。
+     * @returns 返回渲染贴图视图。
+     */
+    public GetRenderTextureAttachment(id: number, layer: number, level: number) {
+        const texture = this._texturesRT.list[id];
+        if (!texture) {
+            return null;
+        }
+
+        let levels = texture.attachments[layer];
+        if (!levels) {
+            levels = texture.attachments[layer] = [];
+        }
+
+        let view = levels[level];
+        if (!view) {
+            view = levels[level] = texture.texture.createView({
+                baseArrayLayer: layer,
+                arrayLayerCount: 1,
+                baseMipLevel: level,
+                mipLevelCount: 1,
+                dimension: "2d",
+            });
+        }
+
+        return view;
     }
 
     /**

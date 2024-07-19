@@ -52,7 +52,7 @@ export class Camera extends Miaoverse.Resource<Camera> {
         }
         else {
             this.distance = distance;
-            this.nearZ = Math.max(parseFloat((distance * 0.001).toFixed(3)), 0.001);
+            // TODO: this.nearZ = Math.max(parseFloat((distance * 0.001).toFixed(3)), 0.001);
         }
 
         if (pitch === undefined) {
@@ -387,6 +387,13 @@ export class Camera_kernel extends Miaoverse.Base_kernel<Camera, typeof Camera_m
      * @returns 返回相机组件内核实例指针。
      */
     protected _Create: (object3d: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+
+    /**
+     * 确认相机空间包围球在视锥中的显示大小。
+     * @param checker 检测器参数对象。
+     * @returns 返回包围球显示大小（直径像素大小，0表示不可见）。
+     */
+    protected _Frustum_Check: (checker: Miaoverse.io_ptr) => Miaoverse.io_uint;
 }
 
 /** 相机组件内核实现的数据结构成员列表。 */

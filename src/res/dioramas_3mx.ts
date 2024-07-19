@@ -1,6 +1,4 @@
-import { files, forEach } from "jszip";
 import * as Miaoverse from "../mod.js"
-import { blob } from "stream/consumers";
 
 /** 倾斜摄影组件（3MX）。 */
 export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
@@ -36,14 +34,18 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         this._drawCount = 0;
         this._subdivCount = 0;
         this._updateTS = this._global.env.frameTS;
+        this._intervalGC = 1000;
     }
 
     /**
      * 更新绘制场景。
-     * @returns
+     * @param object3d 3D对象实例（用于获得模型空间到世界空间变换矩阵）。
+     * @param frameUniforms 着色器资源组G0实例（用户获得世界空间到全局空间变换矩阵）。
+     * @param camera 相机组件实例（用于获取全局空间到相机空间变换矩阵）。
      */
-    public Update() {
-        const updateTS = this._global.env.frameTS;
+    public Update(object3d: Miaoverse.Object3D, frameUniforms: Miaoverse.FrameUniforms, camera: Miaoverse.Camera) {
+        const env = this._global.env;
+        const updateTS = env.frameTS;
         const elapsed = updateTS - this._updateTS;
 
         // 250毫秒刷新一次
@@ -53,45 +55,91 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
 
         this._updateTS = updateTS;
 
-        this.Flush();
+        env.AllocaCall(128, (checker) => {
+            env.uscalarSet(checker, 0, 0);
+            env.ptrSet(checker, 1, object3d.internalPtr);
+            env.ptrSet(checker, 2, frameUniforms.internalPtr);
+            env.ptrSet(checker, 3, camera.internalPtr);
 
-        console.error("=== ", this._updateTS, this._subdivCount);
+            const frustumCheck = (bbMin: number[], bbMax: number[]) => {
+                env.fscalarSet(checker, 4, bbMin[0]);
+                env.fscalarSet(checker, 5, bbMin[2]);
+                env.fscalarSet(checker, 6, -bbMin[1]);
+
+                env.fscalarSet(checker, 7, bbMax[0]);
+                env.fscalarSet(checker, 8, bbMax[2]);
+                env.fscalarSet(checker, 9, -bbMax[1]);
+
+                return this._global.resources.Camera["_Frustum_Check"](checker);
+            };
+
+            this.Flush(frustumCheck);
+        });
+
+        this.GC();
+
         if (this._subdivCount > 0) {
-            this._subdiv = async () => {
+            (async () => {
                 // 应优先细分低精度节点，提升显示速度
-                const list = this._subdivList.slice(0, this._subdivCount).sort((a, b) => a._level - b._level);
+                const list = this._subdivList.slice(0, this._subdivCount).sort((a, b) => b._level - a._level);
                 // 更新时间戳不一致时跳出处理
                 const ts = this._updateTS;
 
-                for (let node of list) {
-                    if (node._process != Process_state.unexecuted) {
-                        continue;
-                    }
-
-                    node._process = Process_state.executing;
-
+                const proc = async (node: Node) => {
                     try {
-                        for (let i = 0; i < node.children.length; i++) {
-                            const child_file = node.children[i];
-                            const child_group = await this.Load_3mxb(node._master._path + child_file, node, i);
+                        if (node._process != Process_state.unexecuted) {
+                            if (node._released && !node._reloading) {
+                                node._reloading = true;
 
-                            node._children[i] = child_group;
+                                for (let group of node._children) {
+                                    await this.Load_resource(group);
+                                }
+
+                                node._released = false;
+                                node._reloading = false;
+                            }
                         }
+                        else {
+                            node._process = Process_state.executing;
 
-                        node._process = Process_state.completed;
+                            for (let i = 0; i < node.children.length; i++) {
+                                const child_file = node.children[i];
+                                const child_group = await this.Load_3mxb(node._master._path + child_file, node, i);
+
+                                node._children[i] = child_group;
+                            }
+
+                            node._process = Process_state.completed;
+                        }
                     }
                     catch (e) {
-                        console.error(e);
                         node._process = Process_state.error;
+                        console.error(e);
                     }
+                };
+
+                for (let i = 0; i < list.length; i += 8) {
+                    const promises: Promise<void>[] = [];
+
+                    for (let j = 0; j < 8; j++) {
+                        if ((i + j) < list.length) {
+                            const node = list[i + j];
+
+                            promises.push(new Promise((resolve, reject) => {
+                                proc(node).then(resolve).catch(reject);
+                            }));
+                        }
+                    }
+
+                    await Promise.all(promises);
+
+                    this._global.app.DrawFrame(180);
 
                     if (ts != this._updateTS) {
                         break;
                     }
                 }
-            };
-
-            this._subdiv();
+            })();
         }
     }
 
@@ -220,8 +268,9 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         group._res_loaded = Process_state.executing;
 
         if (!group._ab) {
-            const ab = await this._global.Fetch<ArrayBuffer>(group._path + group._file, null, "arrayBuffer");
-            if (!ab) {
+            group._ab = await this._global.Fetch<ArrayBuffer>(group._path + group._file, null, "arrayBuffer");
+            //console.error("reload");
+            if (!group._ab) {
                 group._res_loaded = Process_state.error;
                 return;
             }
@@ -233,9 +282,49 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
 
         for (let res of group.resources) {
             if (res.type == "textureBuffer" && (res.format == "jpg" || res.format == "png")) {
-                const blob = new Blob([group._ab.slice(group._ab_offset + res._offset, group._ab_offset + res._offset + res.size)]);
-                const option: ImageBitmapOptions = undefined;
+                const data_ab = group._ab.slice(group._ab_offset + res._offset, group._ab_offset + res._offset + res.size);
+                const data_view = new DataView(data_ab);
+
+                let width = 0;
+                let height = 0;
+
+                if ((data_view.getUint16(0, true) & 0xFFFF) == 0xD8FF) {
+                    let read_offset = 2;
+
+                    while (true) {
+                        let marker = data_view.getUint16(read_offset, true); read_offset += 2;
+                        if (marker == 0xC0FF || marker == 0xC2FF) { // SOF0 or SOF2
+                            height = data_view.getUint16(read_offset + 3, false);
+                            width = data_view.getUint16(read_offset + 5, false);
+                            break;
+                        }
+                        else if ((marker & 0xFF) != 0xFF) {
+                            console.error("jpg parse error!");
+                            break;
+                        }
+                        else {
+                            const size = data_view.getUint16(read_offset, false);
+                            read_offset += size;
+                        }
+                    }
+                }
+                else if (data_view.getUint32(0, true) == 0x474E5089 && data_view.getUint32(4, true) == 0x0A1A0A0D) {
+                    //宽度：16 到 19 字节
+                    //高度：20 到 23 字节
+                    console.error("png parse error!");
+                }
+
+                let option: ImageBitmapOptions = undefined;
+                if (Math.max(width, height) >= 2048) {
+                    option = {
+                        resizeHeight: height * 0.5,
+                        resizeWidth: width * 0.5
+                    };
+                }
+
+                const blob = new Blob([data_ab]);
                 const bitmap = await createImageBitmap(blob, option);
+
                 const tile = Resources.Texture._CreateTile(bitmap.width, bitmap.height, 0);
 
                 Resources.Texture._WriteTile(tile, bitmap);
@@ -270,35 +359,40 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                 const icount = env.uscalarGet(mesh_data_raw[1], 1);
                 const vcount = env.uscalarGet(mesh_data_raw[1], 2);
 
+                if (!icount || !vcount) {
+                    console.error(res.size, icount, vcount);
+                    continue;
+                }
+
                 const ibuffer = this._impl.GenBuffer(1, icount);
                 const vbuffer = this._impl.GenBuffer(0, vcount);
 
                 let data_ptr = (mesh_data_raw[1] + 8 + 4);
 
                 this._global.device.WriteBuffer(
-                    ibuffer.buffer,     // 缓存实例ID
-                    ibuffer.offset,     // 缓存写入偏移
-                    env.buffer,         // 数据源
-                    data_ptr << 2,      // 数据源偏移
-                    ibuffer.size);      // 数据字节大小
+                    ibuffer.buffer,                         // 缓存实例ID
+                    ibuffer.offset,                         // 缓存写入偏移
+                    env.buffer,                             // 数据源
+                    data_ptr << 2,                          // 数据源偏移
+                    ibuffer.size);                          // 数据字节大小
 
                 data_ptr += ibuffer.count;
 
                 this._global.device.WriteBuffer(
-                    vbuffer.buffer,     // 缓存实例ID
-                    vbuffer.offset,     // 缓存写入偏移
-                    env.buffer,         // 数据源
-                    data_ptr << 2,      // 数据源偏移
-                    12 * vbuffer.count);// 数据字节大小
+                    vbuffer.buffer,                         // 缓存实例ID
+                    vbuffer.offset,                         // 缓存写入偏移
+                    env.buffer,                             // 数据源
+                    data_ptr << 2,                          // 数据源偏移
+                    12 * vbuffer.count);                    // 数据字节大小
 
                 data_ptr += vbuffer.count * 6;
 
                 this._global.device.WriteBuffer(
-                    vbuffer.buffer,     // 缓存实例ID
+                    vbuffer.buffer,                         // 缓存实例ID
                     vbuffer.offset + 12 * vbuffer.count,    // 缓存写入偏移
-                    env.buffer,         // 数据源
-                    data_ptr << 2,      // 数据源偏移
-                    8 * vbuffer.count); // 数据字节大小
+                    env.buffer,                             // 数据源
+                    data_ptr << 2,                          // 数据源偏移
+                    8 * vbuffer.count);                     // 数据字节大小
 
                 internal.System_Delete(ctm_data_ptr);
                 internal.System_Delete(mesh_data_raw[1]);
@@ -311,17 +405,19 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         }
 
         group._res_loaded = Process_state.completed;
+        group._ab = null;
     }
 
     /**
      * 刷新场景显示与细分。
+     * @param frustumCheck 确认相机空间包围球在视锥中的显示大小。
      */
-    private Flush() {
+    private Flush(frustumCheck: (bbMin: number[], bbMax: number[]) => number) {
         this._drawCount = 0;
         this._subdivCount = 0;
 
         const proc = (node: Node) => {
-            const visible = this.Check(node);
+            const visible = this.Check(node, frustumCheck);
 
             if (visible > Node_visible.hide) {
                 node._activeTS = this._global.env.frameTS;
@@ -344,6 +440,9 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                             instance.useTexture = node._master.resources[res._texture]?._instance?.texture;
 
                             this._drawList[this._drawCount++] = instance;
+                        }
+                        else {
+                            console.error("节点状态异常！");
                         }
                     }
 
@@ -397,37 +496,43 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                 ptr << 2,               // 数据源偏移
                 20 * this._drawCount);  // 数据字节大小
         }
-
-        console.error("----------------", this._drawCount, this._drawBuffer);
     }
 
     /**
      * 确认节点绘制状态。
      * @param node 场景节点。
+     * @param frustumCheck 确认相机空间包围球在视锥中的显示大小。
      * @returns 返回节点绘制状态。
      */
-    private Check(node: Node): Node_visible {
-        // 暂时隐藏L2以上节点
-        if (node._level > 2) {
+    private Check(node: Node, frustumCheck: (bbMin: number[], bbMax: number[]) => number): Node_visible {
+        // 节点绘制像素大小
+        const drawSize = frustumCheck(node.bbMin, node.bbMax);
+
+        // 节点不可见
+        if (drawSize < 1) {
+            //console.log("hide: ", drawSize, node.maxScreenDiameter);
+
             return Node_visible.hide;
         }
 
-        // 暂时以L2节点为最高精度显示
-        if (node._level == 2) {
+        // 节点显示精度足够，绘制节点
+        if (drawSize < (node.maxScreenDiameter * 1.0)) {
             return Node_visible.draw;
         }
 
-        // 显示，开始加载下一级
-        if (node._process == Process_state.unexecuted) {
-            return Node_visible.draw_and_subdiv;
-        }
-
-        // 隐藏，显示下一级
-        if (node._process == Process_state.completed) {
+        // 节点精度不够，隐藏节点，绘制下级节点
+        if (node._process == Process_state.completed && !node._released) {
             return Node_visible.draw_children;
         }
 
-        // 显示，正在加载下一级或者已失败
+        //console.log("next: ", node._process, drawSize, node.maxScreenDiameter);
+
+        // 节点精度不够，但下级节点未加载，绘制节点，开始加载下级节点
+        if (node._process == Process_state.unexecuted || node._released) {
+            return Node_visible.draw_and_subdiv;
+        }
+
+        // 正在加载下级节点或者加载已失败或已释放，绘制当前节点
         return Node_visible.draw;
     }
 
@@ -438,10 +543,77 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      */
     private For_children(groups: Group[], fn: (node: Node) => void) {
         for (let group of groups) {
-            if (group) {
+            // 已释放节点不遍历其子级
+            if (group && !(group._parent?._released)) {
                 for (let node of group.nodes) {
                     fn(node);
                 }
+            }
+        }
+    }
+
+    /**
+     * 进行动态资源回收。
+     */
+    private GC() {
+        const frameTS = this._global.env.frameTS;
+
+        const gc_proc = (node: Node) => {
+            // 仅释放资源，保留已构建的场景树型结构
+            if ((frameTS - node._activeTS) > this._intervalGC) {
+                this.GC_free(node);
+            }
+            // 确认该节点子级的回收
+            else {
+                this.For_children(node._children, gc_proc);
+            }
+        };
+
+        this.For_children(this._root, gc_proc);
+    }
+
+    /**
+     * 释放节点所有子级资源。
+     * @param node 场景节点。
+     */
+    private GC_free(node: Node) {
+        // Node._released
+        // Group._res_loaded
+        // Group._ab
+        // Resource._instance
+
+        // 后根遍历释放
+        this.For_children(node._children, (child) => {
+            this.GC_free(child);
+        });
+
+        node._released = true;
+
+        // 仅释放资源，保留已构建的场景树型结构
+        for (let child_group of node._children) {
+            child_group._res_loaded = Process_state.unexecuted;
+            child_group._ab = null;
+
+            for (let res of child_group.resources) {
+                if (res._instance) {
+                    if (res._instance.vbuffer) {
+                        this._impl.FreeBuffer(res._instance.vbuffer);
+                        res._instance.vbuffer = null;
+                    }
+
+                    if (res._instance.ibuffer) {
+                        this._impl.FreeBuffer(res._instance.ibuffer);
+                        res._instance.ibuffer = null;
+                    }
+
+                    if (res._instance.texture && res._instance.texture.tile) {
+                        this._global.resources.Texture._ReleaseTile(res._instance.texture.tile);
+                        res._instance.texture.tile = 0 as never;
+                        res._instance.texture = null;
+                    }
+                }
+
+                res._instance = null;
             }
         }
     }
@@ -494,8 +666,8 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     private _subdivCount: number;
     /** 场景更新时间戳。 */
     private _updateTS: number;
-    /** 场景细分任务。 */
-    private _subdiv: () => Promise<void>;
+    /** 节点被隐藏时间超过该阈值时将被释放（毫秒）。 */
+    private _intervalGC: number;
     /** 绘制实例缓存。 */
     private _drawBuffer: {
         /** 绘制实例容量（1024的倍数）。 */
@@ -711,8 +883,12 @@ interface Node {
     _visible: Node_visible;
     /** 节点细分处理状态。 */
     _process: Process_state;
-    /** 节点激活时间戳。 */
+    /** 节点激活帧时间戳。 */
     _activeTS: number;
+    /** 已释放节点资源（在动态资源回收时，我们保留已装载场景结构，释放子分组资源）。 */
+    _released?: boolean;
+    /** 正在重新加载资源。 */
+    _reloading?: boolean;
 }
 
 /** 场景资源。 */

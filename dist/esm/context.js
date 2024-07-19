@@ -1206,7 +1206,12 @@ struct ObjectUniforms {
         const framePass = {
             colorRT: [{
                     format: "bgra8unorm"
-                }]
+                }],
+            depthRT: {
+                format: "depth32float",
+                depthWriteEnabled: true,
+                depthCompare: "greater"
+            }
         };
         const blendMode = desc.flags >> 28;
         const constants = {

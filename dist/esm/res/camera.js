@@ -29,7 +29,6 @@ export class Camera extends Miaoverse.Resource {
         }
         else {
             this.distance = distance;
-            this.nearZ = Math.max(parseFloat((distance * 0.001).toFixed(3)), 0.001);
         }
         if (pitch === undefined) {
             pitch = this.pitch;
@@ -250,6 +249,7 @@ export class Camera_kernel extends Miaoverse.Base_kernel {
         return instance;
     }
     _Create;
+    _Frustum_Check;
 }
 export const Camera_member_index = {
     ...Miaoverse.Binary_member_index,

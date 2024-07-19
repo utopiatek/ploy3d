@@ -20,6 +20,11 @@ struct OutputVS {
     @location(4) viewTangent: vec4f,
     // 顶点纹理坐标，仅包含一套的情况下是VEC2类型
     @location(5) uv: vec2f,
+
+    // 用户定义属性1
+    @interpolate(flat) @location(6) custom1: vec4<i32>,
+    // 用户定义属性2
+    @location(7) custom2: vec4<f32>,
 };
 
 // 片元输入结构
@@ -39,6 +44,11 @@ struct InputFS {
     @location(4) viewTangent: vec4f,
     // 顶点纹理坐标，仅包含一套的情况下是VEC2类型
     @location(5) uv: vec2f,
+    
+    // 用户定义属性1
+    @interpolate(flat) @location(6) custom1: vec4<i32>,
+    // 用户定义属性2
+    @location(7) custom2: vec4<f32>,
 };
 
 var<private> gl_FrontFacing: bool = false;
@@ -49,6 +59,8 @@ var<private> inputs_uv: vec2f = vec2f(0.0);
 var<private> inputs_geometricNormal: vec3f = vec3f(0.0, 0.0, 1.0);
 var<private> inputs_geometricTangent: vec3f = vec3f(1.0, 0.0, 0.0);
 var<private> inputs_vftMat: mat3x3f = mat3x3f(1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, 1.0);
+var<private> inputs_custom1: vec4<i32> = vec4<i32>(0);
+var<private> inputs_custom2: vec4<f32> = vec4<f32>(0.0);
 
 fn varyings_init(frag: InputFS) {
     gl_FrontFacing = frag.gl_FrontFacing;
@@ -71,4 +83,7 @@ fn varyings_init(frag: InputFS) {
 
     inputs_geometricNormal = normalize(inputs_vftMat[2]);
     inputs_geometricTangent = normalize(inputs_vftMat[0]);
+
+    inputs_custom1 = frag.custom1;
+    inputs_custom2 = frag.custom2;
 }

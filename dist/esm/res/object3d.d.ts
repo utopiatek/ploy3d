@@ -115,6 +115,14 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      */
     protected _Flush: (object3d: Miaoverse.io_ptr, ctrl: number) => number;
     /**
+     * 计算模型空间到指定相机空间变换矩阵。
+     * @param object3d 3D对象实例指针（用于获得模型空间到世界空间变换矩阵）。
+     * @param frameUniforms 着色器资源组G0指针（用户获得世界空间到全局空间变换矩阵）。
+     * @param camera 相机组件指针（用于获取全局空间到相机空间变换矩阵）。
+     * @returns 返回模型到相机空间变换矩阵数据。
+     */
+    protected _vfmMat: (object3d: Miaoverse.io_ptr, frameUniforms: Miaoverse.io_ptr, camera: Miaoverse.io_ptr) => number;
+    /**
      * 设置世界空间坐标。
      * @param object3d 3D对象内核实例指针。
      */

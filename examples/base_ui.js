@@ -40,7 +40,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
         const object3d = await resources.Object.Create(scene);
         const volume = await resources.Volume.Create(object3d);
         const camera = await resources.Camera.Create(object3d);
-        const dior = null;//await resources.Dioramas.Create_3mx("./packages/w3mx/Scene/Production_8.3mx"/*"http://localhost:50315/Production_1.3mx"*/);
+        const dior = null;//await resources.Dioramas.Create_3mx(/*"./packages/w3mx/Scene/Production_8.3mx"*/"http://localhost:50495/Production_1.3mx");
 
         camera.width = this.engine.width;
         camera.height = this.engine.height;
@@ -55,6 +55,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
 
         const colorRT = this.engine.device.CreateTextureRT(2048, 2048, 1, 6, "rgba16float", true, false);
         const depthRT = this.engine.device.CreateTextureRT(2048, 2048, 1, 6, "depth32float", true, false);
+        const depthRT2 = this.depth_rt = this.engine.device.CreateTextureRT(this.engine.width, this.engine.height, 1, 1, "depth32float", true, false);
         const gbRT = this.engine.device.CreateTextureRT(2048, 2048, 2, 1, "rgba32uint", true, false);
         const frameUniformsG0 = await resources.Material.CreateFrameUniforms(colorRT, depthRT, gbRT, 0);
         const materialG2 = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
@@ -119,19 +120,19 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
 
         this.AddEventListener("wheel", (e) => {
             camera.Scale(e.wheelDelta, this.engine.width, this.engine.height);
-            dior?.Update();
+            //dior?.Update(object3d, frameUniformsG0, camera);
             this.DrawFrame(1);
         });
 
         this.AddEventListener("pointermove", (e) => {
             if ((e.buttons & 1) == 1) {
                 camera.Move(e.movementX, e.movementY, this.engine.width, this.engine.height);
-                dior?.Update();
+                //dior?.Update(object3d, frameUniformsG0, camera);
                 this.DrawFrame(1);
             }
             else if ((e.buttons & 2) == 2) {
                 camera.Rotate(e.movementX, e.movementY, this.engine.width, this.engine.height);
-                dior?.Update();
+                //dior?.Update(object3d, frameUniformsG0, camera);
                 this.DrawFrame(1);
             }
         });
@@ -169,6 +170,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
                 meshRendererG1.Bind(passEncoder);
                 dior_materialG2.Bind(passEncoder);
 
+                dior.Update(object3d, frameUniformsG0, camera);
                 dior.Draw(dior_materialG2, passEncoder);
             };
         }
@@ -212,16 +214,23 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
         const commandEncoder = this.engine.device.CreateCommandEncoder();
 
         const textureView = this.engine.device["_swapchain"].getCurrentTexture().createView();
+        const depthView = this.engine.device.GetRenderTextureAttachment(this.depth_rt, 0, 0);
 
         const renderPassDescriptor = {
             colorAttachments: [
                 {
                     view: textureView,
-                    clearValue: [1, 1, 0, 1],
+                    clearValue: [0.5, 0.5, 0.5, 1],
                     loadOp: 'clear',
                     storeOp: 'store',
                 },
             ],
+            depthStencilAttachment: {
+                view: depthView,
+                depthClearValue: 0.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            },
         };
 
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -244,6 +253,7 @@ export class PloyApp_base_ui extends ploycloud.PloyApp {
     ui_design;
     /** @type {boolean} UI正在绘制。 */
     ui_drawing;
+    depth_rt;
     /** 场景绘制。 */
     scene_draw;
 }

@@ -1,4 +1,8 @@
 
+// 贴图图块所在图集图层
+var<private> mesh_tile_layer: i32 = 0;
+// 贴图图块在图集图层中的区域
+var<private> mesh_tile_rect: vec4f = vec4f(0.0);
 
 // 顶点材质方法（在顶点着色器入口函数中先调用init_vertex_0，后调用material_vs）
 fn material_vs() ->OutputVS {
@@ -18,7 +22,11 @@ fn material_vs() ->OutputVS {
     // 这样可以防止副法线超过fp16的范围，我们在插值后的片元着色器中重新归一化
     output.viewNormal = mulMat3x3Float3(instance_vfwMat, worldNormal);
     output.viewTangent = vec4f(mulMat3x3Float3(instance_vfwMat, worldTangent), mesh_tangent.w);
+
     output.uv = mesh_uv;
+
+    output.custom1 = vec4<i32>(mesh_tile_layer, 0, 0, 0);
+    output.custom2 = mesh_tile_rect;
 
     // 在此可以添加一些用户代码来修改或提供相机空间顶点属性 ...
 
@@ -51,7 +59,7 @@ struct InputVS_X {
     @location(0) position: vec3f,
     @location(1) uv: vec2f,
     @location(2) tile_rect: vec4f,
-    @location(3) tile_layer: u32,
+    @location(3) tile_layer: i32,
 };
 
 // 初始化顶点属性
@@ -62,10 +70,10 @@ fn init_vertex_X(vertex: InputVS_X) {
     init_instance();
 
     mesh_position = vertex.position;
-
-    mesh_uv = fract(vertex.uv);
-    mesh_uv.y = 1.0 - mesh_uv.y;
-	mesh_uv = vertex.tile_rect.xy + vertex.tile_rect.zw * mesh_uv;
+    mesh_position.z = -mesh_position.z;
+    mesh_uv = vertex.uv;
+    mesh_tile_layer = vertex.tile_layer;
+    mesh_tile_rect = vertex.tile_rect;
 }
 
 @vertex fn vsmain_X(vertex: InputVS_X) ->OutputVS {

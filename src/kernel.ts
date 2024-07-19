@@ -221,7 +221,7 @@ export class SharedENV {
                 const ch2 = view[end];
                 switch (ch2) {
                     case 100: // %d
-                        str = str.replace("%d", "" + this._uview[argn++]);
+                        str = str.replace("%d", "" + this._iview[argn++]);
                         break;
                     case 117: // %u
                         str = str.replace("%u", "" + this._uview[argn++]);

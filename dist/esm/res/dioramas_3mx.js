@@ -19,43 +19,81 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this._drawCount = 0;
         this._subdivCount = 0;
         this._updateTS = this._global.env.frameTS;
+        this._intervalGC = 1000;
     }
-    Update() {
-        const updateTS = this._global.env.frameTS;
+    Update(object3d, frameUniforms, camera) {
+        const env = this._global.env;
+        const updateTS = env.frameTS;
         const elapsed = updateTS - this._updateTS;
         if (elapsed < 250) {
             return;
         }
         this._updateTS = updateTS;
-        this.Flush();
-        console.error("=== ", this._updateTS, this._subdivCount);
+        env.AllocaCall(128, (checker) => {
+            env.uscalarSet(checker, 0, 0);
+            env.ptrSet(checker, 1, object3d.internalPtr);
+            env.ptrSet(checker, 2, frameUniforms.internalPtr);
+            env.ptrSet(checker, 3, camera.internalPtr);
+            const frustumCheck = (bbMin, bbMax) => {
+                env.fscalarSet(checker, 4, bbMin[0]);
+                env.fscalarSet(checker, 5, bbMin[2]);
+                env.fscalarSet(checker, 6, -bbMin[1]);
+                env.fscalarSet(checker, 7, bbMax[0]);
+                env.fscalarSet(checker, 8, bbMax[2]);
+                env.fscalarSet(checker, 9, -bbMax[1]);
+                return this._global.resources.Camera["_Frustum_Check"](checker);
+            };
+            this.Flush(frustumCheck);
+        });
+        this.GC();
         if (this._subdivCount > 0) {
-            this._subdiv = async () => {
-                const list = this._subdivList.slice(0, this._subdivCount).sort((a, b) => a._level - b._level);
+            (async () => {
+                const list = this._subdivList.slice(0, this._subdivCount).sort((a, b) => b._level - a._level);
                 const ts = this._updateTS;
-                for (let node of list) {
-                    if (node._process != 0) {
-                        continue;
-                    }
-                    node._process = 1;
+                const proc = async (node) => {
                     try {
-                        for (let i = 0; i < node.children.length; i++) {
-                            const child_file = node.children[i];
-                            const child_group = await this.Load_3mxb(node._master._path + child_file, node, i);
-                            node._children[i] = child_group;
+                        if (node._process != 0) {
+                            if (node._released && !node._reloading) {
+                                node._reloading = true;
+                                for (let group of node._children) {
+                                    await this.Load_resource(group);
+                                }
+                                node._released = false;
+                                node._reloading = false;
+                            }
                         }
-                        node._process = 2;
+                        else {
+                            node._process = 1;
+                            for (let i = 0; i < node.children.length; i++) {
+                                const child_file = node.children[i];
+                                const child_group = await this.Load_3mxb(node._master._path + child_file, node, i);
+                                node._children[i] = child_group;
+                            }
+                            node._process = 2;
+                        }
                     }
                     catch (e) {
-                        console.error(e);
                         node._process = 3;
+                        console.error(e);
                     }
+                };
+                for (let i = 0; i < list.length; i += 8) {
+                    const promises = [];
+                    for (let j = 0; j < 8; j++) {
+                        if ((i + j) < list.length) {
+                            const node = list[i + j];
+                            promises.push(new Promise((resolve, reject) => {
+                                proc(node).then(resolve).catch(reject);
+                            }));
+                        }
+                    }
+                    await Promise.all(promises);
+                    this._global.app.DrawFrame(180);
                     if (ts != this._updateTS) {
                         break;
                     }
                 }
-            };
-            this._subdiv();
+            })();
         }
     }
     Draw(material, passEncoder) {
@@ -137,8 +175,8 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         }
         group._res_loaded = 1;
         if (!group._ab) {
-            const ab = await this._global.Fetch(group._path + group._file, null, "arrayBuffer");
-            if (!ab) {
+            group._ab = await this._global.Fetch(group._path + group._file, null, "arrayBuffer");
+            if (!group._ab) {
                 group._res_loaded = 3;
                 return;
             }
@@ -148,8 +186,41 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         const Resources = this._global.resources;
         for (let res of group.resources) {
             if (res.type == "textureBuffer" && (res.format == "jpg" || res.format == "png")) {
-                const blob = new Blob([group._ab.slice(group._ab_offset + res._offset, group._ab_offset + res._offset + res.size)]);
-                const option = undefined;
+                const data_ab = group._ab.slice(group._ab_offset + res._offset, group._ab_offset + res._offset + res.size);
+                const data_view = new DataView(data_ab);
+                let width = 0;
+                let height = 0;
+                if ((data_view.getUint16(0, true) & 0xFFFF) == 0xD8FF) {
+                    let read_offset = 2;
+                    while (true) {
+                        let marker = data_view.getUint16(read_offset, true);
+                        read_offset += 2;
+                        if (marker == 0xC0FF || marker == 0xC2FF) {
+                            height = data_view.getUint16(read_offset + 3, false);
+                            width = data_view.getUint16(read_offset + 5, false);
+                            break;
+                        }
+                        else if ((marker & 0xFF) != 0xFF) {
+                            console.error("jpg parse error!");
+                            break;
+                        }
+                        else {
+                            const size = data_view.getUint16(read_offset, false);
+                            read_offset += size;
+                        }
+                    }
+                }
+                else if (data_view.getUint32(0, true) == 0x474E5089 && data_view.getUint32(4, true) == 0x0A1A0A0D) {
+                    console.error("png parse error!");
+                }
+                let option = undefined;
+                if (Math.max(width, height) >= 2048) {
+                    option = {
+                        resizeHeight: height * 0.5,
+                        resizeWidth: width * 0.5
+                    };
+                }
+                const blob = new Blob([data_ab]);
                 const bitmap = await createImageBitmap(blob, option);
                 const tile = Resources.Texture._CreateTile(bitmap.width, bitmap.height, 0);
                 Resources.Texture._WriteTile(tile, bitmap);
@@ -176,6 +247,10 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                 const mesh_data_raw = Resources.Mesh["_DecodeCTM"](ctm_data_ptr);
                 const icount = env.uscalarGet(mesh_data_raw[1], 1);
                 const vcount = env.uscalarGet(mesh_data_raw[1], 2);
+                if (!icount || !vcount) {
+                    console.error(res.size, icount, vcount);
+                    continue;
+                }
                 const ibuffer = this._impl.GenBuffer(1, icount);
                 const vbuffer = this._impl.GenBuffer(0, vcount);
                 let data_ptr = (mesh_data_raw[1] + 8 + 4);
@@ -193,12 +268,13 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             }
         }
         group._res_loaded = 2;
+        group._ab = null;
     }
-    Flush() {
+    Flush(frustumCheck) {
         this._drawCount = 0;
         this._subdivCount = 0;
         const proc = (node) => {
-            const visible = this.Check(node);
+            const visible = this.Check(node, frustumCheck);
             if (visible > 0) {
                 node._activeTS = this._global.env.frameTS;
                 if (visible == 3) {
@@ -214,6 +290,9 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                             instance.drawIndex = this._drawCount;
                             instance.useTexture = node._master.resources[res._texture]?._instance?.texture;
                             this._drawList[this._drawCount++] = instance;
+                        }
+                        else {
+                            console.error("节点状态异常！");
                         }
                     }
                     if (visible == 2) {
@@ -249,29 +328,69 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             }
             this._global.device.WriteBuffer(buffer.buffer, buffer.offset, env.buffer, ptr << 2, 20 * this._drawCount);
         }
-        console.error("----------------", this._drawCount, this._drawBuffer);
     }
-    Check(node) {
-        if (node._level > 2) {
+    Check(node, frustumCheck) {
+        const drawSize = frustumCheck(node.bbMin, node.bbMax);
+        if (drawSize < 1) {
             return 0;
         }
-        if (node._level == 2) {
+        if (drawSize < (node.maxScreenDiameter * 1.0)) {
             return 1;
         }
-        if (node._process == 0) {
-            return 2;
-        }
-        if (node._process == 2) {
+        if (node._process == 2 && !node._released) {
             return 3;
+        }
+        if (node._process == 0 || node._released) {
+            return 2;
         }
         return 1;
     }
     For_children(groups, fn) {
         for (let group of groups) {
-            if (group) {
+            if (group && !(group._parent?._released)) {
                 for (let node of group.nodes) {
                     fn(node);
                 }
+            }
+        }
+    }
+    GC() {
+        const frameTS = this._global.env.frameTS;
+        const gc_proc = (node) => {
+            if ((frameTS - node._activeTS) > this._intervalGC) {
+                this.GC_free(node);
+            }
+            else {
+                this.For_children(node._children, gc_proc);
+            }
+        };
+        this.For_children(this._root, gc_proc);
+    }
+    GC_free(node) {
+        this.For_children(node._children, (child) => {
+            this.GC_free(child);
+        });
+        node._released = true;
+        for (let child_group of node._children) {
+            child_group._res_loaded = 0;
+            child_group._ab = null;
+            for (let res of child_group.resources) {
+                if (res._instance) {
+                    if (res._instance.vbuffer) {
+                        this._impl.FreeBuffer(res._instance.vbuffer);
+                        res._instance.vbuffer = null;
+                    }
+                    if (res._instance.ibuffer) {
+                        this._impl.FreeBuffer(res._instance.ibuffer);
+                        res._instance.ibuffer = null;
+                    }
+                    if (res._instance.texture && res._instance.texture.tile) {
+                        this._global.resources.Texture._ReleaseTile(res._instance.texture.tile);
+                        res._instance.texture.tile = 0;
+                        res._instance.texture = null;
+                    }
+                }
+                res._instance = null;
             }
         }
     }
@@ -283,7 +402,7 @@ export class Dioramas_3mx extends Miaoverse.Resource {
     _drawCount;
     _subdivCount;
     _updateTS;
-    _subdiv;
+    _intervalGC;
     _drawBuffer;
 }
 export class Dioramas_kernel extends Miaoverse.Base_kernel {

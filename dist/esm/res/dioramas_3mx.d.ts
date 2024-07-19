@@ -16,9 +16,11 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     Init(url: string): Promise<void>;
     /**
      * 更新绘制场景。
-     * @returns
+     * @param object3d 3D对象实例（用于获得模型空间到世界空间变换矩阵）。
+     * @param frameUniforms 着色器资源组G0实例（用户获得世界空间到全局空间变换矩阵）。
+     * @param camera 相机组件实例（用于获取全局空间到相机空间变换矩阵）。
      */
-    Update(): void;
+    Update(object3d: Miaoverse.Object3D, frameUniforms: Miaoverse.FrameUniforms, camera: Miaoverse.Camera): void;
     /**
      * 绘制场景。
      * @param material 绘制材质。
@@ -41,11 +43,13 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     private Load_resource;
     /**
      * 刷新场景显示与细分。
+     * @param frustumCheck 确认相机空间包围球在视锥中的显示大小。
      */
     private Flush;
     /**
      * 确认节点绘制状态。
      * @param node 场景节点。
+     * @param frustumCheck 确认相机空间包围球在视锥中的显示大小。
      * @returns 返回节点绘制状态。
      */
     private Check;
@@ -55,6 +59,15 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      * @param fn 处理方法。
      */
     private For_children;
+    /**
+     * 进行动态资源回收。
+     */
+    private GC;
+    /**
+     * 释放节点所有子级资源。
+     * @param node 场景节点。
+     */
+    private GC_free;
     /** 内核实现。 */
     private _impl;
     /** 3MX文件结构。 */
@@ -71,8 +84,8 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     private _subdivCount;
     /** 场景更新时间戳。 */
     private _updateTS;
-    /** 场景细分任务。 */
-    private _subdiv;
+    /** 节点被隐藏时间超过该阈值时将被释放（毫秒）。 */
+    private _intervalGC;
     /** 绘制实例缓存。 */
     private _drawBuffer;
 }

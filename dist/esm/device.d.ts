@@ -219,6 +219,14 @@ export declare class Device {
         attachments: GPUTextureView[][];
     };
     /**
+     * 获取渲染贴图附件。
+     * @param id 贴图实例ID。
+     * @param layer 图层。
+     * @param level LOD级别。
+     * @returns 返回渲染贴图视图。
+     */
+    GetRenderTextureAttachment(id: number, layer: number, level: number): GPUTextureView;
+    /**
      * 获取贴图采样器实例。
      * @param id 贴图采样器实例ID。
      * @returns 返回贴图采样器实例。

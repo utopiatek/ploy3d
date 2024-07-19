@@ -1547,7 +1547,12 @@ struct ObjectUniforms {
         const framePass: GLFramePass = {
             colorRT: [{
                 format: "bgra8unorm"
-            }]
+            }],
+            depthRT: {
+                format: "depth32float",
+                depthWriteEnabled: true,
+                depthCompare: "greater"
+            }
         };
 
         // ==========================---------------------------------------------

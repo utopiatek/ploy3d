@@ -572,6 +572,7 @@ export class Device {
                 atlas.texture = texture;
                 atlas.view = view;
             }
+            console.info("ResizeAtlas: ", atlas.depth);
         }
         return true;
     }
@@ -871,6 +872,27 @@ export class Device {
     }
     GetTextureRT(id) {
         return this._texturesRT.list[id];
+    }
+    GetRenderTextureAttachment(id, layer, level) {
+        const texture = this._texturesRT.list[id];
+        if (!texture) {
+            return null;
+        }
+        let levels = texture.attachments[layer];
+        if (!levels) {
+            levels = texture.attachments[layer] = [];
+        }
+        let view = levels[level];
+        if (!view) {
+            view = levels[level] = texture.texture.createView({
+                baseArrayLayer: layer,
+                arrayLayerCount: 1,
+                baseMipLevel: level,
+                mipLevelCount: 1,
+                dimension: "2d",
+            });
+        }
+        return view;
     }
     GetSampler(id) {
         return this._samplers.list[id];

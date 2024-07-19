@@ -78,7 +78,7 @@
                     {
                         "shaderLocation": 3,
                         "offset": 16,
-                        "format": "uint32"
+                        "format": "sint32"
                     }
                 ]
             }

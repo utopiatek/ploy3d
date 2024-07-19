@@ -194,6 +194,7 @@ export class Object_kernel extends Miaoverse.Base_kernel {
     _Instance;
     _Destroy;
     _Flush;
+    _vfmMat;
     _SetPosition;
     _SetRotation;
     _SetParent;
