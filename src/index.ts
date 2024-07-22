@@ -471,6 +471,8 @@ export class Ploy3D {
     public renderer: Miaoverse.Renderer;
     /** 资源管理器。 */
     public resources: Miaoverse.Resources;
+    /** GIS系统。 */
+    public gis: Miaoverse.Gis;
     /** CalynUI系统。 */
     public ui: Miaoverse.CalynUI;
 
