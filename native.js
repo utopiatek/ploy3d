@@ -6,8 +6,8 @@ import { DOMParser } from "https://esm.sh/linkedom";
 import * as echarts from "echarts";
 /** 导入PLOY3D引擎。 */
 import * as ploycloud from "./dist/esm/mod"
-/** 导入应用实现[base_ui]。 */
-import * as app_base_ui from "./examples/base_ui"
+/** 导入应用实现[test]。 */
+import * as app_test from "./examples/test"
 
 /** 将DOMParser设置到全局空间，提供给ECharts模块使用。 */
 globalThis.DOMParser = DOMParser;
@@ -398,7 +398,7 @@ async function Main(fs_root) {
         echarts: echarts,
         rootFS: fs_root,
         appLut: {
-            "base_ui": app_base_ui.PloyApp_base_ui
+            "test": app_test.PloyApp_test
         }
     }));
 
@@ -414,7 +414,7 @@ async function Main(fs_root) {
     setInterval(function () { nextCall(); }, 10);
 
     // 启动应用
-    await ploycloud.Start(engine, "base_ui", "PLOY3D引擎", 1280, 720);
+    await ploycloud.Start(engine, "test", "PLOY3D引擎", 1280, 720);
 }
 
 Main(null).then(() => {

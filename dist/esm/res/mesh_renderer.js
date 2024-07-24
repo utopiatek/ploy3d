@@ -62,6 +62,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
         return instance;
     }
     _Create;
+    defaultG1;
 }
 export const MeshRendere_member_index = {
     ...Miaoverse.Uniform_member_index,

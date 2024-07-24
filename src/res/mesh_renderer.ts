@@ -122,6 +122,9 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
      * @param skeleton 骨架定义数据内核实例。
      */
     protected _Create: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+
+    /** 内置默认网格渲染器组件实例。 */
+    public defaultG1: MeshRenderer;
 }
 
 /** 网格渲染器组件内核实现的数据结构成员列表。 */

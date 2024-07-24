@@ -1,0 +1,43 @@
+{
+    "classid": 17,
+    "name": "standard_postprocess",
+    "label": "standard_postprocess",
+    "asset": {
+        "name": "",
+        "type": "postprocess",
+        "settings": {},
+        "properties": {
+            "baseColor": {
+                "note": "基础色。",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/wgsl/20-0_common.wgsl",
+                    ":/shader/wgsl/20-1_common.vertex.wgsl",
+                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/wgsl/20-15_standard_postprocess.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/wgsl/20-0_common.wgsl",
+                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/wgsl/20-16_standard_postprocess.material.wgsl"
+            },
+            "shading": {
+                "includes": [],
+                "main": ":/shader/wgsl/20-17_standard_postprocess.shading.wgsl"
+            }
+        }
+    }
+}

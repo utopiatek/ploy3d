@@ -1,5 +1,7 @@
 
 fn material_fs() {
+    material_baseColor = inputs_geometricNormal;
+
     // ...
 
     computeMaskedAlpha(1.0, 0.0);

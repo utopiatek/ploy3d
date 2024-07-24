@@ -1,7 +1,7 @@
 /** 导入PLOY3D引擎。 */
 import * as ploycloud from "./dist/esm/mod.js"
-/** 导入应用实现[base_ui]。 */
-import * as app_base_ui from "./examples/base_ui.js"
+/** 导入应用实现[test]。 */
+import * as app_test from "./examples/test.js"
 
 /** 需要存在Deno定义。 */
 globalThis.Deno = undefined;
@@ -52,11 +52,11 @@ async function Main(fs_root) {
         },
         rootFS: fs_root,
         appLut: {
-            "base_ui": app_base_ui.PloyApp_base_ui
+            "test": app_test.PloyApp_test
         }
     });
 
-    return ploycloud.Start(engine, "base_ui", "PLOY3D引擎", 1280, 720);
+    return ploycloud.Start(engine, "test", "PLOY3D引擎", 1280, 720);
 }
 
 Main(null).then(() => {

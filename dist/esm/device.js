@@ -857,13 +857,6 @@ export class Device {
         this._samplers.usedCount -= 1;
         this._samplers.lut[flags] = undefined;
     }
-    CreateCommandEncoder() {
-        return this._device.createCommandEncoder();
-    }
-    Submit(commandBuffers, onDone) {
-        this._device.queue.submit(commandBuffers);
-        this._device.queue.onSubmittedWorkDone().then(onDone).catch(onDone);
-    }
     GetBuffer(id) {
         return this._buffers.list[id];
     }

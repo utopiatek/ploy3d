@@ -1181,6 +1181,12 @@ struct ObjectUniforms {
         return 2;
     }
     CreateRenderPipeline(desc) {
+        const key = `${desc.framePass.index}-${desc.g0}-${desc.g1}-${desc.g2}-${desc.g3}-${desc.topology}-${desc.frontFace}-${desc.cullMode}-` + desc.flags;
+        let pipeline = this._pipelines.lut[key];
+        if (pipeline) {
+            return pipeline;
+        }
+        console.log("create pipeline");
         const g0 = this._shaders.list[desc.g0];
         const g1 = this._shaders.list[desc.g1];
         const g2 = this._shaders.list[desc.g2];
@@ -1203,16 +1209,6 @@ struct ObjectUniforms {
         }
         const pipelineLayout = this._global.device.device.createPipelineLayout(pipelineLDesc);
         const shaderAsset = g2.asset;
-        const framePass = {
-            colorRT: [{
-                    format: "bgra8unorm"
-                }],
-            depthRT: {
-                format: "depth32float",
-                depthWriteEnabled: true,
-                depthCompare: "greater"
-            }
-        };
         const blendMode = desc.flags >> 28;
         const constants = {
             "SHADING_AS_UNLIT": (desc.flags & 16777216) ? 1 : 0,
@@ -1288,7 +1284,7 @@ struct ObjectUniforms {
         }
         let cullMode = "none";
         if (desc.cullMode) {
-            if (framePass.invertCull) {
+            if (desc.framePass.invertCull) {
                 cullMode = desc.cullMode == 1 ? "front" : "back";
             }
             else {
@@ -1296,7 +1292,7 @@ struct ObjectUniforms {
             }
         }
         const targets = [];
-        if (framePass.colorRT) {
+        if (desc.framePass.colorAttachments) {
             let blend = undefined;
             switch (blendMode) {
                 case 2:
@@ -1333,7 +1329,7 @@ struct ObjectUniforms {
                 default:
                     break;
             }
-            for (let target of framePass.colorRT) {
+            for (let target of desc.framePass.colorAttachments) {
                 targets.push({
                     format: target.format,
                     writeMask: target.writeMask,
@@ -1350,25 +1346,25 @@ struct ObjectUniforms {
                 entryPoint: vsmain,
                 constants: constants
             },
-            fragment: !framePass.colorRT ? undefined : {
+            fragment: !desc.framePass.colorAttachments ? undefined : {
                 targets: targets,
                 module: shaderModule[1],
                 entryPoint: fsmain,
                 constants: constants
             },
-            depthStencil: !framePass.depthRT ? undefined : {
-                ...framePass.depthRT,
+            depthStencil: !desc.framePass.depthStencilAttachment ? undefined : {
+                ...desc.framePass.depthStencilAttachment,
                 ...shaderAsset.depth_stencil
             },
             primitive: {
                 topology: this._topologyLut[desc.topology],
                 frontFace: desc.frontFace ? "cw" : "ccw",
                 cullMode: cullMode,
-                unclippedDepth: framePass.unclippedDepth
+                unclippedDepth: desc.framePass.unclippedDepth
             },
-            multisample: framePass.multisample
+            multisample: desc.framePass.multisample
         };
-        const pipeline = this._global.device.device.createRenderPipeline(pipelineDesc);
+        this._pipelines.lut[key] = pipeline = this._global.device.device.createRenderPipeline(pipelineDesc);
         return pipeline;
     }
     CompileShaderModule(shader, g0, g1, g3) {
@@ -1418,7 +1414,7 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 
     shading_fs();
 
-    return vec4f(inputs_geometricNormal, 1.0);
+    return fragColor0;
 }
         `;
         const vsg0 = g0?.vscode || "";
@@ -1605,6 +1601,9 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
         freeId: 5,
         usedCount: 0,
         list: [null],
+    };
+    _pipelines = {
+        lut: {},
     };
 }
 //# sourceMappingURL=context.js.map

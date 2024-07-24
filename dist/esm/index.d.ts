@@ -184,8 +184,12 @@ export declare class Ploy3D {
     context: Miaoverse.Context;
     /** 渲染器。 */
     renderer: Miaoverse.Renderer;
+    /** 渲染管线装配器。 */
+    assembly: Miaoverse.Assembly;
     /** 资源管理器。 */
     resources: Miaoverse.Resources;
+    /** GIS系统。 */
+    gis: Miaoverse.Gis;
     /** CalynUI系统。 */
     ui: Miaoverse.CalynUI;
     /** 引擎配置。 */
@@ -323,27 +327,27 @@ export declare class PloyApp {
     /** 事件监听器。 */
     event_listener: Record<string, ((event: any) => Promise<void>)[]>;
     /** 当前2D待循环帧数。 */
-    private _loop2d;
+    protected _loop2d: number;
     /** 当前3D待循环帧数。 */
-    private _loop3d;
+    protected _loop3d: number;
     /** 如果场景状态有更新，我们将绘制3D帧。 */
-    private _draw3d;
+    protected _draw3d: boolean;
     /** 当前帧循环计数（每60次收集一次运行状态）。 */
-    private _steps;
+    protected _steps: number;
     /** 最新请求得到的渲染队列，每次渲染前都需要请求渲染队列。 */
-    private _drawQueue;
+    protected _drawQueue: Miaoverse.DrawQueue;
     /** 当前循环陷入睡眠。 */
-    private _sleep;
+    protected _sleep: boolean;
     /** 当前循环句柄。 */
-    private _loopFunc;
+    protected _loopFunc: () => void;
     /** 等待退出方法（在渲染结束后调用）。 */
-    private _waitClose;
+    protected _waitClose: () => void;
     /** 最新统计出的帧数。 */
-    private _fps;
+    protected _fps: number;
     /** FPS统计开始时间戳。 */
-    private _fpsTime;
+    protected _fpsTime: number;
     /** 当前运行状态。 */
-    private _status;
+    protected _status: any;
     /** SDL2窗口初始化。*/
     static SDL2_InitWindow: (app: PloyApp, title: string, width: number, height: number, progress: Ploy3D["Progress"]) => Promise<boolean>;
     /** SDL2事件绑定。*/

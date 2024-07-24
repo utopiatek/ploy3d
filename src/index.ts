@@ -366,6 +366,11 @@ export class Ploy3D {
             throw "资源管理器初始化失败！"
         }
 
+        this.assembly = await (new Miaoverse.Assembly(this)).Init();
+        if (!this.assembly) {
+            throw "渲染管线装配器接口初始化失败！"
+        }
+
         this.ui = await (new Miaoverse.CalynUI(this)).Init();
         if (!this.ui) {
             throw "UI系统初始化失败！"
@@ -469,6 +474,8 @@ export class Ploy3D {
     public context: Miaoverse.Context;
     /** 渲染器。 */
     public renderer: Miaoverse.Renderer;
+    /** 渲染管线装配器。 */
+    public assembly: Miaoverse.Assembly;
     /** 资源管理器。 */
     public resources: Miaoverse.Resources;
     /** GIS系统。 */
@@ -826,6 +833,7 @@ export class PloyApp {
                 this.Draw3D();
 
                 this._draw3d = false;
+                this._drawQueue.End();
                 this._drawQueue = null;
             }
         }
@@ -887,28 +895,28 @@ export class PloyApp {
     public event_listener = {} as Record<string, ((event: any) => Promise<void>)[]>;
 
     /** 当前2D待循环帧数。 */
-    private _loop2d: number = 0;
+    protected _loop2d: number = 0;
     /** 当前3D待循环帧数。 */
-    private _loop3d: number = 0;
+    protected _loop3d: number = 0;
     /** 如果场景状态有更新，我们将绘制3D帧。 */
-    private _draw3d: boolean = false;
+    protected _draw3d: boolean = false;
     /** 当前帧循环计数（每60次收集一次运行状态）。 */
-    private _steps: number = 0;
+    protected _steps: number = 0;
     /** 最新请求得到的渲染队列，每次渲染前都需要请求渲染队列。 */
-    private _drawQueue: Miaoverse.DrawQueue = null;
+    protected _drawQueue: Miaoverse.DrawQueue = null;
     /** 当前循环陷入睡眠。 */
-    private _sleep: boolean = false;
+    protected _sleep: boolean = false;
     /** 当前循环句柄。 */
-    private _loopFunc: () => void = null;
+    protected _loopFunc: () => void = null;
     /** 等待退出方法（在渲染结束后调用）。 */
-    private _waitClose: () => void = null;
+    protected _waitClose: () => void = null;
 
     /** 最新统计出的帧数。 */
-    private _fps: number = 0;
+    protected _fps: number = 0;
     /** FPS统计开始时间戳。 */
-    private _fpsTime: number = 0;
+    protected _fpsTime: number = 0;
     /** 当前运行状态。 */
-    private _status: any = null;
+    protected _status: any = null;
 
     /** SDL2窗口初始化。*/
     public static SDL2_InitWindow: (app: PloyApp, title: string, width: number, height: number, progress: Ploy3D["Progress"]) => Promise<boolean>;

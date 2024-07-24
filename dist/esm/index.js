@@ -193,6 +193,10 @@ export class Ploy3D {
         if (!this.resources) {
             throw "资源管理器初始化失败！";
         }
+        this.assembly = await (new Miaoverse.Assembly(this)).Init();
+        if (!this.assembly) {
+            throw "渲染管线装配器接口初始化失败！";
+        }
         this.ui = await (new Miaoverse.CalynUI(this)).Init();
         if (!this.ui) {
             throw "UI系统初始化失败！";
@@ -238,7 +242,9 @@ export class Ploy3D {
     device;
     context;
     renderer;
+    assembly;
     resources;
+    gis;
     ui;
     config = {
         surface: null,
@@ -429,6 +435,7 @@ export class PloyApp {
                 this._loop3d--;
                 this.Draw3D();
                 this._draw3d = false;
+                this._drawQueue.End();
                 this._drawQueue = null;
             }
         }

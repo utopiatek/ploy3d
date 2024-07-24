@@ -1235,24 +1235,6 @@ export class Device {
     }
 
     /**
-     * 创建帧命令编码器。
-     * @returns 返回帧命令编码器。
-     */
-    public CreateCommandEncoder() {
-        return this._device.createCommandEncoder();
-    }
-
-    /**
-     * 提交帧命令缓存。
-     * @param commandBuffers 命令缓存列表。
-     * @param onDone 提交完成回调。
-     */
-    public Submit(commandBuffers: GPUCommandBuffer[], onDone: (err?: any) => void) {
-        this._device.queue.submit(commandBuffers);
-        this._device.queue.onSubmittedWorkDone().then(onDone).catch(onDone);
-    }
-
-    /**
      * 获取缓存实例。
      * @param id 缓存实例ID。
      * @returns 返回缓存实例。

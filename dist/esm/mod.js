@@ -7,6 +7,7 @@ export * from "./kernel.js";
 export * from "./device.js";
 export * from "./context.js";
 export * from "./renderer.js";
+export * from "./assembly.js";
 export * from "./index.js";
 export * from "./res/index.js";
 export * from "./res/file_system.js";
@@ -24,5 +25,6 @@ export * from "./res/animator.js";
 export * from "./res/dioramas_3mx.js";
 export * from "./res/object3d.js";
 export * from "./res/scene.js";
+export * from "./res/gis.js";
 export * from "./ui/index.js";
 //# sourceMappingURL=mod.js.map

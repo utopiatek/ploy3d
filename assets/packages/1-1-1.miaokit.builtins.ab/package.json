@@ -10,8 +10,12 @@
         "shader/wgsl/20-9_standard_ui.vertex.wgsl",
         "shader/wgsl/20-10_standard_ui.material.wgsl",
         "shader/wgsl/20-11_standard_ui.shading.wgsl",
+        "shader/wgsl/20-15_standard_postprocess.vertex.wgsl",
+        "shader/wgsl/20-16_standard_postprocess.material.wgsl",
+        "shader/wgsl/20-17_standard_postprocess.shading.wgsl",
         "shader/17-0_standard_specular.json",
         "shader/17-1_standard_ui.json",
-        "shader/17-2_standard_dior.json"
+        "shader/17-2_standard_dior.json",
+        "shader/17-3_standard_postprocess.json"
     ]
 }

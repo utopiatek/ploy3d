@@ -97,6 +97,7 @@ export class Resources {
             }
         });
         this.Texture.defaultAtlas = this._global.device.CreateTexture2D(4096, 4096, 2, 1, "rgba8unorm", GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT);
+        this.MeshRenderer.defaultG1 = await this.MeshRenderer.Create(null, null);
         return this;
     }
     async Load_file(type, uri, not_cache, cur_pkg) {

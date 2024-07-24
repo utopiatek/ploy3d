@@ -168,6 +168,10 @@ export class Resources {
 
         // ========================-------------------------------
 
+        this.MeshRenderer.defaultG1 = await this.MeshRenderer.Create(null, null);
+
+        // ========================-------------------------------
+
         return this;
     }
 

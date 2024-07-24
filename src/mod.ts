@@ -17,6 +17,7 @@ export * from "./kernel.js"
 export * from "./device.js"
 export * from "./context.js"
 export * from "./renderer.js"
+export * from "./assembly.js"
 export * from "./index.js"
 
 export * from "./res/index.js"
