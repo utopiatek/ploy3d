@@ -33,14 +33,14 @@ export class PloyApp_test extends ploycloud.PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
-        //this.dior = await resources.Dioramas.Create_3mx("./packages/w3mx/Scene/Production_8.3mx"/*"http://localhost:50495/Production_1.3mx"*/);
+        //this.dior = await resources.Dioramas.Create_3mx(/*"./packages/w3mx/Scene/Production_8.3mx"*/"http://localhost:55477/Production_1.3mx");
 
         this.mat_cube = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
         this.mat_dior = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json");
 
         this.mesh_cube = resources.Mesh.Create({
             uuid: "",
-            classid: /*CLASSID.ASSET_MESH*/38,
+            classid: /*CLASSID.ASSET_MESH*/39,
             name: "cube mesh",
             label: "cube mesh",
 
@@ -75,6 +75,9 @@ export class PloyApp_test extends ploycloud.PloyApp {
             }
         });
 
+        // 触发一帧绘制，这样本机程序才会启动循环监听事件
+        this.DrawFrame(1);
+
         console.log(this);
     }
 
@@ -83,7 +86,10 @@ export class PloyApp_test extends ploycloud.PloyApp {
      * @param flags 更新标志集（1-更新2D场景，2-更新3D场景）。
      */
     Update(flags) {
-        // ...
+        const target = this.engine.gis.Update(this.camera);
+        if (target) {
+            this.camera.target = target;
+        }
     }
 
     /**
@@ -160,7 +166,15 @@ export class PloyApp_test extends ploycloud.PloyApp {
                 cullMode: 1
             });
 
+            if (queue.framePass.label == "opaque") {
+                this.dior.Update(this.object3d, queue.activeG0, this.camera);
+            }
+
             this.dior.Draw(this.mat_dior, queue.passEncoder);
+        }
+
+        if (this.engine.gis) {
+            this.engine.gis.Draw(queue);
         }
     }
 

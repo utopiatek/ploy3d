@@ -629,7 +629,7 @@ export class Assembly {
                             },
                             view: null,
                             clearValue: [0, 0, 0, 0],
-                            loadOp: "load",
+                            loadOp: "clear",
                             storeOp: "store"
                         }
                     ],

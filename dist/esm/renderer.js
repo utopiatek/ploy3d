@@ -90,7 +90,10 @@ export class DrawQueue {
         this.cmdEncoder = device.createCommandEncoder();
         for (let v = 0; v < (framePass.variantCount || 1); v++) {
             framePass.PreExecute(v, this);
-            this.passEncoder = this.cmdEncoder.beginRenderPass(framePass);
+            this.passEncoder = this.cmdEncoder.beginRenderPass({
+                colorAttachments: framePass.colorAttachments,
+                depthStencilAttachment: framePass.depthStencilAttachment,
+            });
             this.computeEncoder = null;
             framePass.Execute(v, this);
             this.passEncoder.end();

@@ -173,7 +173,13 @@ export class DrawQueue {
         for (let v = 0; v < (framePass.variantCount || 1); v++) {
             framePass.PreExecute(v, this);
 
-            this.passEncoder = this.cmdEncoder.beginRenderPass(framePass);
+            // 为了便于调试，不应设置复杂对象为参数
+            // this.passEncoder = this.cmdEncoder.beginRenderPass(framePass);
+            this.passEncoder = this.cmdEncoder.beginRenderPass({
+                colorAttachments: framePass.colorAttachments,
+                depthStencilAttachment: framePass.depthStencilAttachment,
+            });
+
             this.computeEncoder = null;
 
             framePass.Execute(v, this);

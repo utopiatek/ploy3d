@@ -3,7 +3,7 @@ import * as sdl2 from "https://deno.land/x/sdl2@0.9.0/mod.ts";
 /** DOM/XML解析器，我们主要使用DOMParser来解析SVG文件。 */
 import { DOMParser } from "https://esm.sh/linkedom";
 /** 导入ECharts库。 */
-import * as echarts from "echarts";
+//import * as echarts from "echarts";
 /** 导入PLOY3D引擎。 */
 import * as ploycloud from "./dist/esm/mod"
 /** 导入应用实现[test]。 */
@@ -160,6 +160,7 @@ async function Main(fs_root) {
                 1024: "pointermove",
                 1025: "pointerdown",
                 1026: "pointerup",
+                1027: "wheel"
             };
 
             let start = temp_e;
@@ -187,6 +188,7 @@ async function Main(fs_root) {
                     y: e.y,
                     movementX: e.xrel,
                     movementY: e.yrel,
+                    wheelDelta: e.y / Math.abs(e.y),
                 };
 
                 if (e.type == 1025) { // pointerdown
@@ -296,6 +298,16 @@ async function Main(fs_root) {
                         y: view.getInt32(24),
                     };
                 }
+                else if (type == eventEnum.MouseWheel) {
+                    return {
+                        type: view.getUint32(),
+                        timestamp: view.getUint32(4),
+                        windowID: view.getUint32(8),
+                        which: view.getUint32(12),
+                        x: view.getInt32(16),
+                        y: view.getInt32(20),
+                    };
+                }
 
                 return null;
             }
@@ -328,11 +340,9 @@ async function Main(fs_root) {
                     if (e.type == eventEnum.Quit) {
                         app._waitClose = Quit;
                     }
-                    else if (e.type > 1023 && e.type < 1027) {
+                    else if (e.type > 1023 && e.type < 1028) {
                         TransmitMouseEvent(e);
                     }
-
-                    // ["mousewheel", "wheel"];
                 });
             }
 
@@ -395,7 +405,7 @@ async function Main(fs_root) {
     /** @type {ploycloud.Ploy3D} 引擎实例。 */
     const engine = new ploycloud.Ploy3D(env_configure({
         sdl2: sdl2,
-        echarts: echarts,
+        //echarts: echarts,
         rootFS: fs_root,
         appLut: {
             "test": app_test.PloyApp_test

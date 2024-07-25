@@ -17,23 +17,34 @@ export declare class Gis {
     /**
      * 根据相机姿态刷新地图。
      * @param camera 相机组件实例。
-     * @param target 相机观察目标。
-     * @param distance 相机距观察目标距离。
-     * @param pitch 相机俯角。
-     * @param yaw 相机偏航角。
      */
-    Set3D(camera: Miaoverse.Camera, target: number[], distance: number, pitch: number, yaw: number): void;
+    Update(camera: Miaoverse.Camera): Float32Array;
     /**
      * 设置当前GIS状态。
-     * @param x 网格中心坐标X（世界空间）。
-     * @param z 网格中心坐标Z（世界空间）。
-     * @param lng 当前中心经度（WGS84）。
-     * @param lat 当前中心纬度（WGS84）。
-     * @param level 当前中心显示级别。
-     * @param pitch 当前观察俯仰角。
-     * @param yaw 当前观察偏航角。
+     * @param x 世界空间相机观察点坐标X（网格中心坐标）。
+     * @param z 世界空间相机观察点坐标Z（网格中心坐标）。
+     * @param lng 相机观察点经度（WGS84）。
+     * @param lat 相机观察点纬度（WGS84）。
+     * @param level 相机观察点瓦片级别。
+     * @param pitch 观察俯仰角。
+     * @param yaw 观察偏航角。
      */
     Flush(x: number, z: number, lng: number, lat: number, level: number, pitch: number, yaw: number): void;
+    /**
+     * 刷新材质属性。
+     * @param values 材质属性值。
+     */
+    FlushMaterial(values: {
+        centerMC?: number[];
+        size?: number[];
+        focusMC?: number[];
+        focusPos?: number[];
+    }): void;
+    /**
+     * 绘制场景。
+     * @param passEncoder 渲染通道命令编码器。
+     */
+    Draw(queue: Miaoverse.DrawQueue): void;
     /**
      * 计算太阳方位角和高度角。
      * 方位角：单位度，正北为0，顺时针增加，[0, 360]；
@@ -175,8 +186,6 @@ export declare class Gis {
     private _global;
     /** GIS金字塔结构。 */
     private _pyramid;
-    /** GIS对象。 */
-    private _object3D;
     /** GIS网格。 */
     private _mesh;
     /** GIS各层级材质数组。 */

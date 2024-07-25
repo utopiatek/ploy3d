@@ -190,6 +190,7 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                 const data_view = new DataView(data_ab);
                 let width = 0;
                 let height = 0;
+                let type = 'image/jpeg';
                 if ((data_view.getUint16(0, true) & 0xFFFF) == 0xD8FF) {
                     let read_offset = 2;
                     while (true) {
@@ -211,6 +212,7 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                     }
                 }
                 else if (data_view.getUint32(0, true) == 0x474E5089 && data_view.getUint32(4, true) == 0x0A1A0A0D) {
+                    type = 'image/png';
                     console.error("png parse error!");
                 }
                 let option = undefined;
@@ -220,7 +222,7 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                         resizeWidth: width * 0.5
                     };
                 }
-                const blob = new Blob([data_ab]);
+                const blob = new Blob([data_ab], { type: type });
                 const bitmap = await createImageBitmap(blob, option);
                 const tile = Resources.Texture._CreateTile(bitmap.width, bitmap.height, 0);
                 Resources.Texture._WriteTile(tile, bitmap);

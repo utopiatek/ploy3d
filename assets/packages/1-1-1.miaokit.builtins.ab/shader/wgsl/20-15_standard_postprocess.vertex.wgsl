@@ -1,5 +1,5 @@
 
-const positions : array<vec4f, 3> = array<vec4f, 3>(
+var<private> positions : array<vec4f, 3> = array<vec4f, 3>(
     vec4f(-1.0, -1.0, 1.0, 1.0),
     vec4f( 3.0, -1.0, 1.0, 1.0),
     vec4f(-1.0,  3.0, 1.0, 1.0),

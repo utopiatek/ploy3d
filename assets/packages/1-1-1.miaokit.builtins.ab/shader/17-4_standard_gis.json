@@ -1,0 +1,64 @@
+{
+    "classid": 17,
+    "name": "standard_gis",
+    "label": "standard_gis",
+    "asset": {
+        "name": "",
+        "type": "shading",
+        "settings": {},
+        "properties": {
+            "centerMC": {
+                "note": "网格原点墨卡托坐标。",
+                "sign": "vec2<f32>",
+                "value": [
+                    12270000,
+                    2910000
+                ]
+            },
+            "size": {
+                "note": "网格缩放。",
+                "sign": "f32",
+                "value": [
+                    16384000
+                ]
+            },
+            "focusMC": {
+                "note": "相机观察点墨卡托坐标。",
+                "sign": "vec2<f32>",
+                "value": [
+                    12270000,
+                    2910000
+                ]
+            },
+            "focusPos": {
+                "note": "相机观察点世界坐标。",
+                "sign": "vec2<f32>",
+                "value": [
+                    0,
+                    0
+                ]
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/wgsl/20-0_common.wgsl",
+                    ":/shader/wgsl/20-1_common.vertex.wgsl",
+                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/wgsl/20-18_standard_gis.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/wgsl/20-0_common.wgsl",
+                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/wgsl/20-19_standard_gis.material.wgsl"
+            },
+            "shading": {
+                "includes": [],
+                "main": ":/shader/wgsl/20-20_standard_gis.shading.wgsl"
+            }
+        }
+    }
+}

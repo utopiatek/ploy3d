@@ -3,19 +3,53 @@ export class Gis {
         this._global = _global;
         this._originMC = [12270000, 2910000];
         this._originLL = this.MC2LL(this._originMC);
-        this._global.env.Tick(this.enable_terrain ? 2 : 1, [
+        this._global.env.Tick(1, [
             this["_originLL"][0], this["_originLL"][1],
             this["_originMC"][0], this["_originMC"][1]
         ]);
     }
     async Init() {
+        const resources = this._global.resources;
         this._pyramid = new Gis_pyramid(this, 8, 4);
+        this._mesh = resources.Mesh.Create({
+            uuid: "",
+            classid: 39,
+            name: "lod plane",
+            label: "lod plane",
+            creater: {
+                type: "lod_plane",
+                lod_plane: {
+                    levels: this._pyramid.levelCount,
+                    segments: 64
+                }
+            }
+        });
+        this._materials = [];
+        for (let i = 0; i < this._pyramid.levelCount; i++) {
+            const material = await resources.Material.Create({
+                uuid: "",
+                classid: 32,
+                name: "gis:" + i,
+                label: "gis:" + i,
+                shader: "1-1-1.miaokit.builtins:/shader/17-4_standard_gis.json",
+                flags: 1 | 16777216,
+                properties: {
+                    textures: {},
+                    vectors: {}
+                }
+            });
+            const slot = this._pyramid.levelCount - i - 1;
+            this._materials[slot] = {
+                slot: slot,
+                group: i,
+                material: material
+            };
+        }
         return this;
     }
     Destroy() {
         this._global = undefined;
         this._pyramid = undefined;
-        this._object3D = undefined;
         this._mesh = undefined;
         this._materials = undefined;
         this._lng = undefined;
@@ -37,12 +71,19 @@ export class Gis {
         this._waiting = undefined;
         this._servers = undefined;
     }
-    Set3D(camera, target, distance, pitch, yaw) {
+    Update(camera) {
+        const target = camera.target;
+        const distance = camera.distance;
+        const pitch = camera.pitch;
+        const yaw = camera.yaw;
+        const height = camera.height;
+        const fov = camera.fov;
         const originMC = this._originMC;
         const originLL = this._originLL;
         const scaleMC = 1.0 / Math.cos(originLL[1] / 180.0 * Math.PI);
         let offsetX = target[0] * scaleMC;
         let offsetZ = -target[2] * scaleMC;
+        let resetOrigin = false;
         if (Math.abs(offsetX) > 20000 || Math.abs(offsetZ) > 20000) {
             if (Math.abs(offsetX) > 20000) {
                 const carry = Math.floor(offsetX * 0.0001) * 10000;
@@ -61,21 +102,25 @@ export class Gis {
             ]);
             target[0] = offsetX / scaleMC;
             target[2] = -offsetZ / scaleMC;
-            camera.target = target;
+            resetOrigin = true;
         }
         const targetMC = [originMC[0] + offsetX, originMC[1] + offsetZ];
         const targetLL = this.MC2LL(targetMC);
-        const distancePix = Math.round(camera.height * 0.5 / Math.tan(0.5 * camera.fov));
+        const distancePix = Math.round(height * 0.5 / Math.tan(0.5 * fov));
         const dpi = distance / (distancePix);
         const pow = 40075016.685578488 / (256 * dpi);
         const level = Math.log2(pow);
+        this.FlushMaterial({
+            focusMC: targetMC,
+            focusPos: [target[0], target[2]]
+        });
         this.Flush(target[0], target[2], targetLL[0], targetLL[1], level, pitch, yaw);
+        return resetOrigin ? target : null;
     }
     Flush(x, z, lng, lat, level, pitch, yaw) {
         if (this._lock) {
             return;
         }
-        const centerMC = this.LL2MC([lng, lat]);
         const timestamp = Date.now();
         if (this._flushing) {
             if (Math.ceil((timestamp - this._timestamp) / 1000) < 5) {
@@ -94,6 +139,7 @@ export class Gis {
         }
         const layerTiling = this._pyramid.layerTiling;
         const layerTilingHalf = layerTiling * 0.5;
+        const centerMC = this.LL2MC([lng, lat]);
         const tileY = Math.floor(level);
         const tileS = this.perimeter / Math.pow(2, tileY);
         const meshS = (tileS * (layerTiling - 1)) / (1 * 64 * 4);
@@ -132,6 +178,11 @@ export class Gis {
         this._timestamp = timestamp;
         this._flushing = true;
         this._waiting = null;
+        console.log("-----------------");
+        this.FlushMaterial({
+            centerMC: centerMC,
+            size: [16384 * this._meshS]
+        });
         this._pyramid.Flush(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
             if (timestamp != this._timestamp) {
                 console.warn("该GIS刷新响应已经超时！", Math.ceil((Date.now() - timestamp) / 1000));
@@ -150,6 +201,35 @@ export class Gis {
                 this.Flush(x, z, lng, lat, level, pitch, yaw);
             }
         });
+    }
+    FlushMaterial(values) {
+        for (let key in values) {
+            const value = values[key];
+            for (let mat of this.materials) {
+                mat.material.view[key] = value;
+            }
+        }
+    }
+    Draw(queue) {
+        const resources = this._global.resources;
+        const context = this._global.context;
+        const g1 = resources.MeshRenderer.defaultG1;
+        const triangles = this._mesh.triangles;
+        const ibFormat = this._mesh.ibFormat;
+        const pipelineCfg = {
+            flags: 1,
+            topology: 1,
+            frontFace: 0,
+            cullMode: 1
+        };
+        queue.BindMeshRenderer(g1);
+        context.SetVertexBuffers(0, this._mesh.vertices, queue.passEncoder);
+        for (let mat of this._materials) {
+            queue.BindMaterial(mat.material);
+            queue.BindRenderPipeline(pipelineCfg);
+            context.SetIndexBuffer(ibFormat, triangles[mat.group], queue.passEncoder);
+            queue.passEncoder.drawIndexed(triangles[mat.group].size / ibFormat, 1, 0, 0, 0);
+        }
     }
     CalSunlight(params) {
         if (params.lng == undefined) {
@@ -340,7 +420,6 @@ export class Gis {
     }
     _global;
     _pyramid;
-    _object3D;
     _mesh;
     _materials;
     _lng;
@@ -648,6 +727,8 @@ export class Gis_pyramid {
         }
     }
     Flush(level, lb_col, lb_row, lb_bias_x, lb_bias_z, callback) {
+        callback();
+        return;
         this._gis["_global"].env.Tick(this.terrain ? 2 : 1, [
             this._gis["_originLL"][0], this._gis["_originLL"][1],
             this._gis["_originMC"][0], this._gis["_originMC"][1]

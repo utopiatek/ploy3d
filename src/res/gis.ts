@@ -14,7 +14,7 @@ export class Gis {
 
         // 将当前世界空间原点经纬度和MC坐标同步到内核
         this._global.env.Tick(
-            this.enable_terrain ? 2 : 1,
+            1,
             [
                 this["_originLL"][0], this["_originLL"][1],
                 this["_originMC"][0], this["_originMC"][1]
@@ -26,38 +26,52 @@ export class Gis {
      *初始化GIS系统。
      */
     public async Init() {
+        const resources = this._global.resources;
+
         this._pyramid = new Gis_pyramid(this, 8, 4);
-        // TODO
-        /*
+
+        // 最内层子网格7，大小64 * 4 = 256
+        this._mesh = resources.Mesh.Create({
+            uuid: "",
+            classid: Miaoverse.CLASSID.ASSET_MESH,
+            name: "lod plane",
+            label: "lod plane",
+
+            creater: {
+                type: "lod_plane",
+                lod_plane: {
+                    levels: this._pyramid.levelCount,
+                    segments: 64
+                }
+            }
+        });
+
         this._materials = [];
 
         for (let i = 0; i < this._pyramid.levelCount; i++) {
-            const material = await Global.resources.CreateMaterial("gis", 0);
+            const material = await resources.Material.Create({
+                uuid: "",
+                classid: Miaoverse.CLASSID.ASSET_MATERIAL,
+                name: "gis:" + i,
+                label: "gis:" + i,
 
-            this._materials[i] = {
-                slot: this._pyramid.levelCount - i - 1,
+                shader: "1-1-1.miaokit.builtins:/shader/17-4_standard_gis.json",
+                flags: Miaoverse.RENDER_FLAGS.ATTRIBUTES0 | Miaoverse.RENDER_FLAGS.SHADING_AS_UNLIT,
+                properties: {
+                    textures: {},
+                    vectors: {}
+                }
+            });
+            // 从LOD网格内层往外层绘制，可减少开销
+            const slot = this._pyramid.levelCount - i - 1;
+
+            this._materials[slot] = {
+                slot: slot,
                 group: i,
                 material: material
             };
         }
 
-        this._object3D = await Global.resources.CreateObject("Gis");
-        this._object3D.staticWorld = true;
-
-        this._mesh = await Global.resources.CreateMesh({
-            type: "lod_plane",
-            lod_plane: {
-                levels: this._pyramid.levelCount,
-                segments: 64
-            }
-        });
-
-        const meshRenderer = await Global.resources.CreateMeshRenderer({
-            master: this._object3D,
-            mesh: this._mesh,
-            materials: this._materials
-        });
-        */
         return this;
     }
 
@@ -70,7 +84,6 @@ export class Gis {
         this._global = undefined;
 
         this._pyramid = undefined;
-        this._object3D = undefined;
         this._mesh = undefined;
         this._materials = undefined;
 
@@ -99,12 +112,15 @@ export class Gis {
     /**
      * 根据相机姿态刷新地图。
      * @param camera 相机组件实例。
-     * @param target 相机观察目标。
-     * @param distance 相机距观察目标距离。
-     * @param pitch 相机俯角。
-     * @param yaw 相机偏航角。
      */
-    public Set3D(camera: Miaoverse.Camera, target: number[], distance: number, pitch: number, yaw: number) {
+    public Update(camera: Miaoverse.Camera) {
+        const target = camera.target;
+        const distance = camera.distance;
+        const pitch = camera.pitch;
+        const yaw = camera.yaw;
+        const height = camera.height;
+        const fov = camera.fov;
+
         // 当前世界空间原点经纬度和墨卡托坐标
         const originMC = this._originMC;
         const originLL = this._originLL;
@@ -115,8 +131,9 @@ export class Gis {
 
         let offsetX = target[0] * scaleMC;
         let offsetZ = -target[2] * scaleMC;
+        let resetOrigin = false;
 
-        // 如果偏移量大于10000MC，则重新设置世界空间原点经纬度和墨卡托坐标
+        // 如果偏移量大于20000MC，则重新设置世界空间原点经纬度和墨卡托坐标
         if (Math.abs(offsetX) > 20000 || Math.abs(offsetZ) > 20000) {
             if (Math.abs(offsetX) > 20000) {
                 const carry = Math.floor(offsetX * 0.0001) * 10000;
@@ -147,7 +164,7 @@ export class Gis {
             target[0] = offsetX / scaleMC;
             target[2] = -offsetZ / scaleMC;
 
-            camera.target = target;
+            resetOrigin = true;
         }
 
         // 当前相机观察点墨卡托坐标和经纬度
@@ -155,7 +172,7 @@ export class Gis {
         const targetLL = this.MC2LL(targetMC);
 
         // 在35度垂直视角下，屏幕像素高度对应的屏幕像素距离
-        const distancePix = Math.round(camera.height * 0.5 / Math.tan(0.5 * camera.fov));
+        const distancePix = Math.round(height * 0.5 / Math.tan(0.5 * fov));
         // 中心图层分辨率（米/像素）
         const dpi = distance / (distancePix);
         // 中心图层级别
@@ -163,31 +180,50 @@ export class Gis {
         // 计算最高精度显示级别
         const level = Math.log2(pow);
 
+        this.FlushMaterial({
+            focusMC: targetMC,
+            focusPos: [target[0], target[2]]
+        });
+
         // 刷新地图
         this.Flush(target[0], target[2], targetLL[0], targetLL[1], level, pitch, yaw);
+
+        return resetOrigin ? target : null;
     }
 
     /**
      * 设置当前GIS状态。
-     * @param x 网格中心坐标X（世界空间）。
-     * @param z 网格中心坐标Z（世界空间）。
-     * @param lng 当前中心经度（WGS84）。
-     * @param lat 当前中心纬度（WGS84）。
-     * @param level 当前中心显示级别。
-     * @param pitch 当前观察俯仰角。
-     * @param yaw 当前观察偏航角。
+     * @param x 世界空间相机观察点坐标X（网格中心坐标）。
+     * @param z 世界空间相机观察点坐标Z（网格中心坐标）。
+     * @param lng 相机观察点经度（WGS84）。
+     * @param lat 相机观察点纬度（WGS84）。
+     * @param level 相机观察点瓦片级别。
+     * @param pitch 观察俯仰角。
+     * @param yaw 观察偏航角。
      */
     public Flush(x: number, z: number, lng: number, lat: number, level: number, pitch: number, yaw: number) {
-        // PLOY3D世界原点经纬度通常固定，相机相对世界原点移动观察
+        /*/
+        当前世界空间原点墨卡托坐标originMC和经纬度originLL
+        当前世界空间相机观察点坐标camera.target
+        当前相机观察点墨卡托坐标targetMC和经纬度targetLL
+        当前相机观察点瓦片级别level
+
+        网格中心墨卡托坐标centerMC，各层级瓦片平铺和采样范围以低频方式更新
+        渲染GIS球体，首先计算每个网格顶点对应的经纬度，根据经纬度构造球面
+
+        相机观察点经纬度targetLL、世界空间相机观察点坐标camera.target实时更新
+        根据targetLL、camera.target旋转平移球体
+        /*/
+
+        // PLOY3D世界空间原点经纬度通常固定，相机相对世界空间原点移动观察
         // 渲染GIS球体时，首先计算每个网格顶点对应的经纬度，根据经纬度构造球面
-        // 旋转GIS球体至观察点坐标变换为(0, 0, 0)
+        // 旋转GIS球体使观察点垂直向上
         // 平移GIS球体观察点至相机观察点坐标
 
         if (this._lock) {
             return;
         }
 
-        const centerMC = this.LL2MC([lng, lat]);
         const timestamp = Date.now();
 
         if (this._flushing) {
@@ -220,8 +256,10 @@ export class Gis {
         const layerTiling = this._pyramid.layerTiling;
         const layerTilingHalf = layerTiling * 0.5;
 
+        const centerMC = this.LL2MC([lng, lat]);
         const tileY = Math.floor(level);
         const tileS = this.perimeter / Math.pow(2, tileY);
+        // 注意，最内层子网格大小64 * 4 = 256
         const meshS = (tileS * (layerTiling - 1)) / (1 * 64 * 4);
         // 注意，列从经度-180度开始划分，而我们LL2MC是从经度0开始的
         const unitX = (this.perimeter_half + centerMC[0]) / tileS;
@@ -271,6 +309,12 @@ export class Gis {
         this._flushing = true;
         this._waiting = null;
 
+        console.log("-----------------");
+        this.FlushMaterial({
+            centerMC: centerMC,
+            size: [16384 * this._meshS]
+        });
+
         this._pyramid.Flush(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
             if (timestamp != this._timestamp) {
                 console.warn("该GIS刷新响应已经超时！", Math.ceil((Date.now() - timestamp) / 1000));
@@ -293,6 +337,62 @@ export class Gis {
                 this.Flush(x, z, lng, lat, level, pitch, yaw);
             }
         });
+    }
+
+    /**
+     * 刷新材质属性。
+     * @param values 材质属性值。
+     */
+    public FlushMaterial(values: {
+        centerMC?: number[];
+        size?: number[];
+        focusMC?: number[];
+        focusPos?: number[];
+    }) {
+        for (let key in values) {
+            const value = values[key as keyof typeof values];
+
+            for (let mat of this.materials) {
+                mat.material.view[key] = value;
+            }
+        }
+    }
+
+    /**
+     * 绘制场景。
+     * @param passEncoder 渲染通道命令编码器。
+     */
+    public Draw(queue: Miaoverse.DrawQueue) {
+        const resources = this._global.resources;
+        const context = this._global.context;
+        const g1 = resources.MeshRenderer.defaultG1;
+        const triangles = this._mesh.triangles;
+        const ibFormat = this._mesh.ibFormat;
+
+        const pipelineCfg = {
+            flags: 1,
+            topology: 1,//3,
+            frontFace: 0,
+            cullMode: 1
+        };
+
+        queue.BindMeshRenderer(g1);
+
+        context.SetVertexBuffers(0, this._mesh.vertices, queue.passEncoder);
+
+        for (let mat of this._materials) {
+            queue.BindMaterial(mat.material);
+            queue.BindRenderPipeline(pipelineCfg);
+            context.SetIndexBuffer(ibFormat, triangles[mat.group], queue.passEncoder);
+
+            queue.passEncoder.drawIndexed(
+                triangles[mat.group].size / ibFormat,   // indexCount
+                1,                      // instanceCount
+                0,                      // firstIndex
+                0,                      // baseVertex
+                0,                      // firstInstance
+            );
+        }
     }
 
     /**
@@ -606,8 +706,6 @@ export class Gis {
 
     /** GIS金字塔结构。 */
     private _pyramid: Gis_pyramid;
-    /** GIS对象。 */
-    private _object3D: Miaoverse.Object3D;
     /** GIS网格。 */
     private _mesh: Miaoverse.Mesh;
     /** GIS各层级材质数组。 */
@@ -1100,6 +1198,8 @@ export class Gis_pyramid {
      * @param callback 刷新完成回调。
      */
     public Flush(level: number, lb_col: number, lb_row: number, lb_bias_x: number, lb_bias_z: number, callback: () => void) {
+        callback();
+        return;
         // 将当前世界空间原点经纬度和MC坐标同步到内核
         this._gis["_global"].env.Tick(
             this.terrain ? 2 : 1,
