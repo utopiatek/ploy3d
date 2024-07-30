@@ -3,6 +3,7 @@ export class Gis {
         this._global = _global;
         this._originMC = [12270000, 2910000];
         this._originLL = this.MC2LL(this._originMC);
+        this._centerMC = [12270000, 2910000];
         this._global.env.Tick(1, [
             this["_originLL"][0], this["_originLL"][1],
             this["_originMC"][0], this["_originMC"][1]
@@ -111,8 +112,10 @@ export class Gis {
         const pow = 40075016.685578488 / (256 * dpi);
         const level = Math.log2(pow);
         this.FlushMaterial({
-            focusMC: targetMC,
-            focusPos: [target[0], target[2]]
+            centerMC: this._centerMC,
+            targetMC: targetMC,
+            movedMC: [targetMC[0] - this._centerMC[0], targetMC[1] - this._centerMC[1]],
+            targetXZ: [target[0], target[2]]
         });
         this.Flush(target[0], target[2], targetLL[0], targetLL[1], level, pitch, yaw);
         return resetOrigin ? target : null;
@@ -123,7 +126,7 @@ export class Gis {
         }
         const timestamp = Date.now();
         if (this._flushing) {
-            if (Math.ceil((timestamp - this._timestamp) / 1000) < 5) {
+            if (Math.ceil((timestamp - this._timestamp) / 1000) < 1) {
                 this._waiting = [x, z, lng, lat, level, pitch, yaw];
                 return;
             }
@@ -178,12 +181,13 @@ export class Gis {
         this._timestamp = timestamp;
         this._flushing = true;
         this._waiting = null;
-        console.log("-----------------");
+        console.error("ccccccccccccccc");
         this.FlushMaterial({
             centerMC: centerMC,
-            size: [16384 * this._meshS]
+            movedMC: [0, 0],
+            size: [16384 * this._meshS],
         });
-        this._pyramid.Flush(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
+        this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
             if (timestamp != this._timestamp) {
                 console.warn("该GIS刷新响应已经超时！", Math.ceil((Date.now() - timestamp) / 1000));
                 return;
@@ -203,11 +207,67 @@ export class Gis {
         });
     }
     FlushMaterial(values) {
-        for (let key in values) {
-            const value = values[key];
-            for (let mat of this.materials) {
-                mat.material.view[key] = value;
+        if (values) {
+            for (let key in values) {
+                const value = values[key];
+                for (let mat of this.materials) {
+                    mat.material.view[key] = value;
+                }
             }
+            return;
+        }
+        const levelCount = this._pyramid["levelCount"];
+        const levels = this._pyramid["_pyramid"];
+        const top = this._pyramid["_pyramidTop"];
+        const top_level = this._tileY;
+        const layers = this._pyramid["_layers"];
+        for (let i = 0; i < levelCount; i++) {
+            const cur = (top + i) % levelCount;
+            const cur_level = levels[cur];
+            const material = this._materials[i];
+            const layers_enabled = [0, 0, 0, 0];
+            const layers_layer = [0, 0, 0, 0];
+            const layers_uvst = [
+                [0, 0, 1, 1],
+                [0, 0, 1, 1],
+                [0, 0, 1, 1],
+                [0, 0, 1, 1]
+            ];
+            for (let j = 0; j < layers.length; j++) {
+                const layer = layers[j];
+                if (!layer.enabled) {
+                    continue;
+                }
+                const layer_data = cur_level.layers[j];
+                if (layer_data.invalid) {
+                    continue;
+                }
+                layers_enabled[j] = 1;
+                const texture = layer_data.inherit?.texture || layer_data.texture;
+                if (!texture) {
+                    continue;
+                }
+                const block_layer = texture.layer;
+                const block_uvst = texture.rect;
+                const layer_uvst = layer_data.inherit?.uvst || layer_data.uvst;
+                layers_layer[j] = block_layer;
+                layers_uvst[j] = [
+                    block_uvst[0] + block_uvst[2] * layer_uvst.offset_x,
+                    block_uvst[1] + block_uvst[3] * layer_uvst.offset_z,
+                    block_uvst[2] * layer_uvst.scale_x,
+                    block_uvst[3] * layer_uvst.scale_z,
+                ];
+            }
+            if (cur_level.level != (top_level - i)) {
+                console.error("cur_level.level != (top_level - i)");
+            }
+            material.material.view["level"] = [cur_level.level];
+            material.material.view["layers_enabled"] = layers_enabled;
+            material.material.view["layers_layer"] = layers_layer;
+            material.material.view["layers_uvst0"] = layers_uvst[0];
+            material.material.view["layers_uvst1"] = layers_uvst[1];
+            material.material.view["layers_uvst2"] = layers_uvst[2];
+            material.material.view["layers_uvst3"] = layers_uvst[3];
         }
     }
     Draw(queue) {
@@ -218,12 +278,13 @@ export class Gis {
         const ibFormat = this._mesh.ibFormat;
         const pipelineCfg = {
             flags: 1,
-            topology: 1,
+            topology: 3,
             frontFace: 0,
             cullMode: 1
         };
         queue.BindMeshRenderer(g1);
         context.SetVertexBuffers(0, this._mesh.vertices, queue.passEncoder);
+        this.FlushMaterial();
         for (let mat of this._materials) {
             queue.BindMaterial(mat.material);
             queue.BindRenderPipeline(pipelineCfg);
@@ -726,9 +787,7 @@ export class Gis_pyramid {
             }
         }
     }
-    Flush(level, lb_col, lb_row, lb_bias_x, lb_bias_z, callback) {
-        callback();
-        return;
+    Update(level, lb_col, lb_row, lb_bias_x, lb_bias_z, callback) {
         this._gis["_global"].env.Tick(this.terrain ? 2 : 1, [
             this._gis["_originLL"][0], this._gis["_originLL"][1],
             this._gis["_originMC"][0], this._gis["_originMC"][1]
@@ -845,23 +904,20 @@ export class Gis_pyramid {
             }
         }
         const timestamp = this._gis.timestamp;
-        this.Load(timestamp, (reuse, total, succeed, failed) => {
+        this.Flush(timestamp, (reuse, total, succeed, failed) => {
+            console.log(timestamp, ":", reuse, total, succeed, failed);
             callback();
         });
     }
-    Load(timestamp, callback) {
+    Flush(timestamp, callback) {
         const levelCount = this.levelCount;
         const levels = this._pyramid;
         const top = this._pyramidTop;
-        const dem_enabled = this.terrain;
         const understudy = [];
-        let last_dem = null;
-        let cur_dem = null;
         let reuse = 0;
         for (let i = levelCount - 1; i > -1; i--) {
             const cur = (top + i) % levelCount;
             const cur_level = levels[cur];
-            const material = this._gis.materials[cur_level.submesh];
             for (let j = 0; j < this._layers.length; j++) {
                 const layer = this._layers[j];
                 if (!layer.enabled) {
@@ -871,34 +927,21 @@ export class Gis_pyramid {
                 const layer_serv = this._gis.servers[layer.type];
                 const layer_projection = cur_level.projections[layer_serv.projection];
                 const cache = {};
-                const has_dem = dem_enabled && cur_level.level > 6;
-                if (j == 0 && has_dem) {
-                    cur_dem = {
-                        level: cur_level.level,
-                        texture: layer_data.texture,
-                        uvst: layer_projection,
-                    };
-                    last_dem = last_dem || cur_dem;
-                    if (last_dem) {
-                        this.SetTexture(material.material, last_dem.texture, last_dem.uvst, undefined, "baseDemTex");
-                    }
-                    last_dem = cur_dem;
-                }
-                if (j == 1) {
-                    material.material.view["params"] = [
-                        has_dem ? last_dem.level : 0,
-                        cur_level.level,
-                        Math.round(this._gis.centerMC[0]),
-                        Math.round(this._gis.centerMC[1])
-                    ];
-                }
+                layer_data.uvst = layer_projection;
                 if (cur_level.level < 1) {
                     continue;
                 }
+                layer_data.invalid = false;
                 layer_data.inherit = null;
+                if (cur_level.level < layer_serv.min_level) {
+                    layer_data.invalid = true;
+                    continue;
+                }
                 if (cur_level.level > layer_serv.max_level) {
                     if (i == (levelCount - 1)) {
                         console.error("todo ...");
+                        layer_data.invalid = true;
+                        continue;
                     }
                     else {
                         const bias = cur_level.level - layer_serv.max_level;
@@ -919,17 +962,14 @@ export class Gis_pyramid {
                             uvst.scale_z = uvst.scale_z * 0.5;
                         }
                         layer_data.inherit = {
-                            parent: last_data,
+                            texture: last_data.texture,
                             uvst: uvst,
-                            layer: j,
-                            material: material.material,
                             temporary: false
                         };
                         continue;
                     }
                 }
-                this.SetTexture(material.material, layer_data.texture, layer_projection, j);
-                const flush = cur_level.reset || layer_projection.lb_col !== layer_projection.last_lb_col || layer_projection.lb_row !== layer_projection.last_lb_row;
+                const flush = cur_level.reset || layer_projection.lb_col != layer_projection.last_lb_col || layer_projection.lb_row != layer_projection.last_lb_row;
                 if (!flush) {
                     understudy[j] = i;
                     continue;
@@ -947,7 +987,7 @@ export class Gis_pyramid {
                     layer_data.cache = {};
                 }
                 else {
-                    if (j == 1 && Object.keys(layer_data.cache).length != (tiling * tiling)) {
+                    if (Object.keys(layer_data.cache).length != (tiling * tiling)) {
                         console.error("layer cache count error:", Object.keys(layer_data.cache).length, (tiling * tiling));
                     }
                 }
@@ -963,11 +1003,7 @@ export class Gis_pyramid {
                         if (tile) {
                             cache[key] = tile;
                             layer_data.cache[key] = null;
-                            tile.layer = 0;
-                            tile.level = 0;
-                            tile.xoffset = layer_serv.tile_size * c;
-                            tile.yoffset = layer_serv.tile_size * (tiling - r - 1);
-                            this.FillTexture(layer_data.texture, tile);
+                            this.FillTexture(layer_data.texture, tile, layer_serv.tile_size * c, layer_serv.tile_size * (tiling - r - 1));
                             reuse++;
                         }
                         else {
@@ -981,11 +1017,7 @@ export class Gis_pyramid {
                                 });
                             }
                             if (layer_data.texture && layer_serv.tile_size == 256) {
-                                this._blankTile.layer = 0;
-                                this._blankTile.level = 0;
-                                this._blankTile.xoffset = layer_serv.tile_size * c;
-                                this._blankTile.yoffset = layer_serv.tile_size * (tiling - r - 1);
-                                this.FillTexture(layer_data.texture, this._blankTile);
+                                this.FillTexture(layer_data.texture, this._blankTile, layer_serv.tile_size * c, layer_serv.tile_size * (tiling - r - 1));
                             }
                         }
                     }
@@ -1017,10 +1049,8 @@ export class Gis_pyramid {
                             uvst.scale_z = uvst.scale_z * 0.5;
                         }
                         layer_data.inherit = {
-                            parent: last_data,
+                            texture: last_data.texture,
                             uvst: uvst,
-                            layer: j,
-                            material: material.material,
                             temporary: true
                         };
                     }
@@ -1033,140 +1063,147 @@ export class Gis_pyramid {
                 cur_level.reset = false;
             }
         }
-        const this_ = this;
-        const global_ = this._gis["_global"];
-        global_.app.DrawFrame(1);
-        (async function () {
-            function sort_weight(level) {
-                let max_loading = this_._tiling * this_._tiling;
-                for (let j = 0; j < this_._layers.length; j++) {
-                    if (this_._layers[j].enabled) {
-                        const layer = level.layers[j];
-                        if (layer.loading && max_loading > layer.loading.length) {
-                            max_loading = layer.loading.length;
-                        }
+        this._gis["_global"].app.DrawFrame(1);
+        this.Load(timestamp, (total, succeed, failed) => {
+            callback(reuse, total, succeed, failed);
+        });
+    }
+    FillTexture(texture, data, xoffset, yoffset) {
+        const Texture = this._gis["_global"].resources.Texture;
+        Texture._WriteTile(texture.tile, data, xoffset, yoffset);
+    }
+    async Load(timestamp, callback) {
+        const sort_weight = (level) => {
+            let max_loading = this._tiling * this._tiling;
+            for (let j = 0; j < this._layers.length; j++) {
+                if (this._layers[j].enabled) {
+                    const layer = level.layers[j];
+                    if (layer.loading && max_loading > layer.loading.length) {
+                        max_loading = layer.loading.length;
                     }
-                }
-                if (max_loading < (this_._tiling * 2)) {
-                    return level.level * 100;
-                }
-                else {
-                    return 100 - level.level;
                 }
             }
-            const sorted_levels = levels.slice().sort((a, b) => {
-                return sort_weight(b) - sort_weight(a);
-            });
-            const promises = [];
-            let inherits = [];
-            let total = 0;
-            let succeed = 0;
-            let failed = 0;
-            for (let level of sorted_levels) {
-                const cur_level = level;
-                const material = this_._gis.materials[cur_level.submesh];
-                for (let j = 0; j < this_._layers.length; j++) {
-                    const layer_index = j;
-                    const layer = this_._layers[j];
-                    if (!layer.enabled) {
-                        continue;
-                    }
-                    const layer_data = cur_level.layers[j];
-                    if (layer_data.inherit) {
-                        inherits.push(layer_data.inherit);
-                        if (!layer_data.inherit.temporary) {
-                            continue;
-                        }
-                    }
-                    const layer_serv = this_._gis.servers[layer.type];
-                    const layer_projection = cur_level.projections[layer_serv.projection];
-                    const tiling = layer_serv.projection > 1 ? this_._tiling + 1 : this_._tiling;
-                    if (!layer_data.texture) {
-                    }
-                    if (!layer_data.inherit) {
-                        this.SetTexture(material.material, layer_data.texture, layer_projection, j);
-                    }
-                    let loading = layer_data.loading?.length || 0;
-                    total += loading;
-                    if (loading > 0) {
-                        const cache = layer_data.cache;
-                        function load_buffer(url, times, callback_) {
-                            function response_(buffer) {
-                                if (buffer) {
-                                    callback_(buffer);
-                                }
-                                else if (0 < --times) {
-                                    console.warn("再次尝试加载瓦片：", url);
-                                    setTimeout(load_, 500);
-                                }
-                                else {
-                                    callback_(null);
-                                }
+            if (max_loading < (this._tiling * 2)) {
+                return level.level * 100;
+            }
+            else {
+                return 100 - level.level;
+            }
+        };
+        const levels = this._pyramid;
+        const sorted_levels = levels.slice().sort((a, b) => {
+            return sort_weight(b) - sort_weight(a);
+        });
+        const promises = [];
+        const _global = this._gis["_global"];
+        let total = 0;
+        let succeed = 0;
+        let failed = 0;
+        for (let level of sorted_levels) {
+            const cur_level = level;
+            for (let j = 0; j < this._layers.length; j++) {
+                const layer_index = j;
+                const layer = this._layers[j];
+                if (!layer.enabled) {
+                    continue;
+                }
+                const layer_data = cur_level.layers[j];
+                if (layer_data.invalid) {
+                    continue;
+                }
+                if (layer_data.inherit && !layer_data.inherit.temporary) {
+                    continue;
+                }
+                const layer_serv = this._gis.servers[layer.type];
+                const layer_projection = cur_level.projections[layer_serv.projection];
+                const tiling = layer_serv.projection > 1 ? this._tiling + 1 : this._tiling;
+                if (!layer_data.texture) {
+                    const tile = _global.resources.Texture._CreateTile(layer_serv.tile_size * tiling, layer_serv.tile_size * tiling, 0);
+                    const info = _global.env.uarrayGet(tile, 12, 8);
+                    const layer = info[1];
+                    const rect = [
+                        info[6] * 64 / 4096,
+                        info[7] * 64 / 4096,
+                        (info[2] - 1) / 4096,
+                        (info[3] - 1) / 4096
+                    ];
+                    layer_data.texture = {
+                        tile,
+                        layer,
+                        rect
+                    };
+                }
+                let loading = layer_data.loading?.length || 0;
+                total += loading;
+                if (loading > 0) {
+                    const cache = layer_data.cache;
+                    function load_buffer(url, times, callback_) {
+                        function response_(buffer) {
+                            if (buffer) {
+                                callback_(buffer);
                             }
-                            function load_() {
-                                global_.Fetch(url, null, "arrayBuffer").then(response_).catch((e) => {
-                                    console.error(e);
-                                    response_(null);
+                            else if (0 < --times) {
+                                console.warn("再次尝试加载瓦片：", url);
+                                setTimeout(load_, 500);
+                            }
+                            else {
+                                callback_(null);
+                            }
+                        }
+                        function load_() {
+                            _global.Fetch(url, null, "arrayBuffer").then(response_).catch((e) => {
+                                console.error(e);
+                                response_(null);
+                            });
+                        }
+                        load_();
+                    }
+                    promises.push((new Promise((resolve, reject) => {
+                        const flush = (succ) => {
+                            if (succ === true) {
+                                succeed++;
+                            }
+                            else {
+                                failed++;
+                            }
+                            this._gis["_global"].app.DrawFrame(1);
+                            if (0 == --loading) {
+                                layer_data.loading = [];
+                                if (layer_data.inherit && layer_data.inherit.temporary) {
+                                    layer_data.inherit = null;
+                                }
+                                resolve();
+                            }
+                        };
+                        for (let info_ of layer_data.loading) {
+                            const info = info_;
+                            const key = "" + info.col + "_" + info.row + "_" + info.level;
+                            const url = this._gis.ServeUrl(layer.type, layer.token, info.col, info.row, info.level);
+                            if (layer.type == "tianditu_dem_c") {
+                            }
+                            else {
+                                load_buffer(url, 3, (buffer) => {
+                                    if (buffer && timestamp == this._gis.timestamp) {
+                                        const blob = new Blob([new Int8Array(buffer)]);
+                                        const option = undefined;
+                                        createImageBitmap(blob, option).then((bitmap) => {
+                                            this.FillTexture(layer_data.texture, bitmap, layer_serv.tile_size * info.xoffset, layer_serv.tile_size * (tiling - info.zoffset - 1));
+                                            cache[key] = bitmap;
+                                            flush(true);
+                                        }).catch(flush);
+                                    }
+                                    else {
+                                        flush(false);
+                                    }
                                 });
                             }
-                            load_();
                         }
-                        promises.push((new Promise(function (resolve, reject) {
-                            function flush(succ) {
-                                if (succ === true) {
-                                    succeed++;
-                                }
-                                else {
-                                    failed++;
-                                }
-                                global_.app.DrawFrame(1);
-                                if (0 == --loading) {
-                                    layer_data.loading = [];
-                                    this.SetTexture(material.material, layer_data.texture, layer_projection, layer_index);
-                                    resolve();
-                                }
-                            }
-                            for (let info_ of layer_data.loading) {
-                                const info = info_;
-                                const key = "" + info.col + "_" + info.row + "_" + info.level;
-                                const url = this_._gis.ServeUrl(layer.type, layer.token, info.col, info.row, info.level);
-                                if (layer.type == "tianditu_dem_c") {
-                                }
-                                else {
-                                    load_buffer(url, 3, function (buffer) {
-                                        if (buffer && timestamp == this_._gis.timestamp) {
-                                            const blob = new Blob([new Int8Array(buffer)]);
-                                            const option = undefined;
-                                            createImageBitmap(blob, option).then((bitmap) => {
-                                                bitmap.layer = 0;
-                                                bitmap.level = 0;
-                                                bitmap.xoffset = layer_serv.tile_size * info.xoffset;
-                                                bitmap.yoffset = layer_serv.tile_size * (tiling - info.zoffset - 1);
-                                                this.FillTexture(layer_data.texture, bitmap);
-                                                cache[key] = bitmap;
-                                                flush(true);
-                                            }).catch(flush);
-                                        }
-                                        else {
-                                            flush(false);
-                                        }
-                                    });
-                                }
-                            }
-                        })));
-                    }
+                    })));
                 }
             }
-            for (let inherit of inherits) {
-                this.SetTexture(inherit.material, inherit.parent.texture, inherit.uvst, inherit.layer);
-            }
-            await Promise.all(promises);
-            callback(reuse, total, succeed, failed);
-        })();
-    }
-    SetTexture(material, texture, uvst, layer, name) {
-    }
-    FillTexture(texture, data) {
+        }
+        await Promise.all(promises);
+        callback(total, succeed, failed);
     }
     get levelCount() {
         return this._pyramidHeight;

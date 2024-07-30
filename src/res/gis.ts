@@ -11,6 +11,7 @@ export class Gis {
 
         this._originMC = [12270000, 2910000];
         this._originLL = this.MC2LL(this._originMC);
+        this._centerMC = [12270000, 2910000];
 
         // 将当前世界空间原点经纬度和MC坐标同步到内核
         this._global.env.Tick(
@@ -181,8 +182,10 @@ export class Gis {
         const level = Math.log2(pow);
 
         this.FlushMaterial({
-            focusMC: targetMC,
-            focusPos: [target[0], target[2]]
+            centerMC: this._centerMC,
+            targetMC: targetMC,
+            movedMC: [targetMC[0] - this._centerMC[0], targetMC[1] - this._centerMC[1]],
+            targetXZ: [target[0], target[2]]
         });
 
         // 刷新地图
@@ -228,7 +231,7 @@ export class Gis {
 
         if (this._flushing) {
             // 上一次刷新响应未超时的情况下，将当前刷新命令置入等待队列
-            if (Math.ceil((timestamp - this._timestamp) / 1000) < 5) {
+            if (Math.ceil((timestamp - this._timestamp) / 1000) < 1) {
                 this._waiting = [x, z, lng, lat, level, pitch, yaw];
                 return;
             }
@@ -308,14 +311,14 @@ export class Gis {
         this._timestamp = timestamp;
         this._flushing = true;
         this._waiting = null;
-
-        console.log("-----------------");
+        console.error("ccccccccccccccc");
         this.FlushMaterial({
             centerMC: centerMC,
-            size: [16384 * this._meshS]
+            movedMC: [0, 0],
+            size: [16384 * this._meshS],
         });
 
-        this._pyramid.Flush(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
+        this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
             if (timestamp != this._timestamp) {
                 console.warn("该GIS刷新响应已经超时！", Math.ceil((Date.now() - timestamp) / 1000));
                 return;
@@ -343,18 +346,93 @@ export class Gis {
      * 刷新材质属性。
      * @param values 材质属性值。
      */
-    public FlushMaterial(values: {
+    public FlushMaterial(values?: {
         centerMC?: number[];
+        targetMC?: number[];
+        movedMC?: number[];
+        targetXZ?: number[];
         size?: number[];
-        focusMC?: number[];
-        focusPos?: number[];
     }) {
-        for (let key in values) {
-            const value = values[key as keyof typeof values];
+        if (values) {
+            for (let key in values) {
+                const value = values[key as keyof typeof values];
 
-            for (let mat of this.materials) {
-                mat.material.view[key] = value;
+                for (let mat of this.materials) {
+                    mat.material.view[key] = value;
+                }
             }
+
+            return;
+        }
+
+        // ==============--------------------------
+
+        const levelCount = this._pyramid["levelCount"];
+        const levels = this._pyramid["_pyramid"];
+        const top = this._pyramid["_pyramidTop"];
+        const top_level = this._tileY;
+        const layers = this._pyramid["_layers"];
+
+        for (let i = 0; i < levelCount; i++) {
+            const cur = (top + i) % levelCount;
+            const cur_level = levels[cur];
+
+            const material = this._materials[i];
+            const layers_enabled = [0, 0, 0, 0];
+            const layers_layer = [0, 0, 0, 0];
+            const layers_uvst = [
+                [0, 0, 1, 1],
+                [0, 0, 1, 1],
+                [0, 0, 1, 1],
+                [0, 0, 1, 1]
+            ];
+
+            for (let j = 0; j < layers.length; j++) {
+                const layer = layers[j];
+                if (!layer.enabled) {
+                    continue;
+                }
+
+                const layer_data = cur_level.layers[j];
+                if (layer_data.invalid) {
+                    continue;
+                }
+
+                layers_enabled[j] = 1;
+
+                const texture = layer_data.inherit?.texture || layer_data.texture;
+                if (!texture) {
+                    continue;
+                }
+
+                const block_layer = texture.layer;
+                const block_uvst = texture.rect;
+                const layer_uvst = layer_data.inherit?.uvst || layer_data.uvst;
+
+                layers_layer[j] = block_layer;
+
+                layers_uvst[j] = [
+                    block_uvst[0] + block_uvst[2] * layer_uvst.offset_x,
+                    block_uvst[1] + block_uvst[3] * layer_uvst.offset_z,
+                    block_uvst[2] * layer_uvst.scale_x,
+                    block_uvst[3] * layer_uvst.scale_z,
+                ];
+            }
+
+            if (cur_level.level != (top_level - i)) {
+                console.error("cur_level.level != (top_level - i)");
+            }
+
+            material.material.view["level"] = [cur_level.level];
+
+            material.material.view["layers_enabled"] = layers_enabled;
+
+            material.material.view["layers_layer"] = layers_layer;
+
+            material.material.view["layers_uvst0"] = layers_uvst[0];
+            material.material.view["layers_uvst1"] = layers_uvst[1];
+            material.material.view["layers_uvst2"] = layers_uvst[2];
+            material.material.view["layers_uvst3"] = layers_uvst[3];
         }
     }
 
@@ -371,7 +449,7 @@ export class Gis {
 
         const pipelineCfg = {
             flags: 1,
-            topology: 1,//3,
+            topology: 3,
             frontFace: 0,
             cullMode: 1
         };
@@ -379,6 +457,8 @@ export class Gis {
         queue.BindMeshRenderer(g1);
 
         context.SetVertexBuffers(0, this._mesh.vertices, queue.passEncoder);
+
+        this.FlushMaterial();
 
         for (let mat of this._materials) {
             queue.BindMaterial(mat.material);
@@ -1189,7 +1269,7 @@ export class Gis_pyramid {
     }
 
     /**
-     * 刷新LOD层级金字塔。
+     * 更新LOD层级金字塔。
      * @param level 顶层级别。
      * @param lb_col 顶层左下角列号。
      * @param lb_row 顶层左下角行号。
@@ -1197,9 +1277,7 @@ export class Gis_pyramid {
      * @param lb_bias_z 顶层左下角瓦片采样偏移。
      * @param callback 刷新完成回调。
      */
-    public Flush(level: number, lb_col: number, lb_row: number, lb_bias_x: number, lb_bias_z: number, callback: () => void) {
-        callback();
-        return;
+    public Update(level: number, lb_col: number, lb_row: number, lb_bias_x: number, lb_bias_z: number, callback: () => void) {
         // 将当前世界空间原点经纬度和MC坐标同步到内核
         this._gis["_global"].env.Tick(
             this.terrain ? 2 : 1,
@@ -1255,7 +1333,7 @@ export class Gis_pyramid {
         // 由于计算参考原点位于左下角，因此暂时翻转行增长方向
         lb_row = (Math.pow(2, level) - 1) - lb_row;
 
-        // 即使所有投影坐标系下各LOD级别瓦片平铺和采样参数
+        // 计算所有投影坐标系下各LOD级别瓦片平铺和采样参数
         for (let j = 0; j < 4; j++) {
             // 因为不同投影坐标系需要缩放偏移以对齐的关系，非WGS84、CGCS2000层平铺数量+1
             const tiling = j > Gis_projection.CGCS2000 ? this._tiling + 1 : this._tiling;
@@ -1285,6 +1363,7 @@ export class Gis_pyramid {
                     cur_level.outer = i == (levelCount - 1);
 
                     if (cur_level.level != level - i) {
+                        // 越界级别不启用
                         if ((level - i) < 1) {
                             cur_level.level = 0;
                             cur_level.reset = true;
@@ -1393,17 +1472,21 @@ export class Gis_pyramid {
         // 当前加载任务时间戳
         const timestamp = this._gis.timestamp;
 
-        // 加载影像瓦片
-        this.Load(timestamp, (reuse, total, succeed, failed) => {
+        // 到此已计算出了所有层级对象的级别、子网格、左下角瓦片行列号，图层采样偏移和缩放...
+
+        // 刷新并加载瓦片资源
+        this.Flush(timestamp, (reuse, total, succeed, failed) => {
+            console.log(timestamp, ":", reuse, total, succeed, failed);
             callback();
         });
     }
 
     /**
-     * 瓦片资源加载映射。
+     * 刷新并加载瓦片资源。
+     * @param timestamp 加载任务时间戳。
      * @param callback 加载完成回调。
      */
-    private Load(timestamp: number, callback: (reuse: number, total: number, succeed: number, failed: number) => void) {
+    private Flush(timestamp: number, callback: (reuse: number, total: number, succeed: number, failed: number) => void) {
         // 图层待刷新瓦片量小于1/3时，允许被更高层采样，为避免显示错乱，待刷新瓦片区域应当填充为白色
         // 优先加载待刷新瓦片量较少的图层，图层实际刷新间隔应大于1秒
         // 优先加载较低层图层，更高层在图层尚不可用时可以采样较低层图层，直到加载完毕
@@ -1413,26 +1496,20 @@ export class Gis_pyramid {
         const levelCount = this.levelCount;
         const levels = this._pyramid;
         const top = this._pyramidTop;
-        const dem_enabled = this.terrain;
 
         // 各图层当前替补级别索引（如果某图层需加载瓦片较多，暂时采样当前可用替补级别索引）
         const understudy: number[] = [];
-        // 上层地形采样数据，LOD边缘从上层采样以缝合边缘
-        let last_dem = null;
-        // 当前层地形采样数据
-        let cur_dem = null;
-
+        // 重用瓦片数量统计
         let reuse = 0;
 
         // 从底层往顶层处理
         for (let i = levelCount - 1; i > -1; i--) {
             const cur = (top + i) % levelCount;
             const cur_level = levels[cur];
-            const material = this._gis.materials[cur_level.submesh];
 
-            // 。。。加载当前层级的每个图层的瓦片数据
+            // 加载当前层级的每个图层的瓦片数据
             for (let j = 0; j < this._layers.length; j++) {
-                // 图层激活配置，如果不激活则跳过处理
+                // 如果图层不激活则跳过处理
                 const layer = this._layers[j];
                 if (!layer.enabled) {
                     continue;
@@ -1446,49 +1523,32 @@ export class Gis_pyramid {
                 const layer_projection = cur_level.projections[layer_serv.projection];
                 // 新建当前层级当前图层瓦片缓存
                 const cache: Record<string, Miaoverse.GLTextureSource> = {};
-                // 天地图地形DEM瓦片仅存在于[7, 12]级别之间
-                const has_dem = dem_enabled && cur_level.level > 6;
 
-                // 地形图层贴图引用设置
-                if (j == 0 && has_dem) {
-                    cur_dem = {
-                        level: cur_level.level,
-                        texture: layer_data.texture,
-                        uvst: layer_projection,
-                    };
-
-                    last_dem = last_dem || cur_dem;
-
-                    if (last_dem) {
-                        this.SetTexture(material.material, last_dem.texture, last_dem.uvst, undefined, "baseDemTex");
-                    }
-
-                    last_dem = cur_dem;
-                }
-
-                // 在处理图层1时设置层级绘制参数
-                if (j == 1) {
-                    // 基础地形层级、当前层级、层级网格中心墨卡托坐标
-                    material.material.view["params"] = [
-                        has_dem ? last_dem.level : 0,
-                        cur_level.level,
-                        Math.round(this._gis.centerMC[0]),
-                        Math.round(this._gis.centerMC[1])
-                    ];
-                }
+                // 设置当前图层采样偏移缩放
+                layer_data.uvst = layer_projection;
 
                 // 不绘制当前层级
                 if (cur_level.level < 1) {
                     continue;
                 }
 
+                layer_data.invalid = false;
                 layer_data.inherit = null;
+
+                // 当前图层当前级别下没有瓦片数据
+                if (cur_level.level < layer_serv.min_level) {
+                    layer_data.invalid = true;
+                    continue;
+                }
 
                 // 超过瓦片服务提供的最大级别，采样较低级别图层
                 if (cur_level.level > layer_serv.max_level) {
-                    // 最底层级别依然超过瓦片服务提供的最大级别（通常不会）
+                    // 最底层级别依然超过瓦片服务提供的最大级别
                     if (i == (levelCount - 1)) {
                         console.error("todo ...");
+
+                        layer_data.invalid = true;
+                        continue;
                     }
                     else {
                         const bias = cur_level.level - layer_serv.max_level;
@@ -1497,7 +1557,7 @@ export class Gis_pyramid {
                         const last_data = last_level.layers[j];
                         const last_projection = last_level.projections[layer_serv.projection];
 
-                        const uvst = {
+                        const uvst: Gis_uvst = {
                             offset_x: last_projection.offset_x,
                             offset_z: last_projection.offset_z,
                             scale_x: last_projection.scale_x,
@@ -1513,10 +1573,8 @@ export class Gis_pyramid {
                         }
 
                         layer_data.inherit = {
-                            parent: last_data,
+                            texture: last_data.texture,
                             uvst: uvst,
-                            layer: j,
-                            material: material.material,
                             temporary: false
                         };
 
@@ -1524,9 +1582,7 @@ export class Gis_pyramid {
                     }
                 }
 
-                this.SetTexture(material.material, layer_data.texture, layer_projection, j);
-
-                const flush = cur_level.reset || layer_projection.lb_col !== layer_projection.last_lb_col || layer_projection.lb_row !== layer_projection.last_lb_row;
+                const flush = cur_level.reset || layer_projection.lb_col != layer_projection.last_lb_col || layer_projection.lb_row != layer_projection.last_lb_row;
                 if (!flush) {
                     understudy[j] = i;
                     continue;
@@ -1549,7 +1605,7 @@ export class Gis_pyramid {
                     layer_data.cache = {};
                 }
                 else {
-                    if (j == 1 && Object.keys(layer_data.cache).length != (tiling * tiling)) {
+                    if (Object.keys(layer_data.cache).length != (tiling * tiling)) {
                         console.error("layer cache count error:", Object.keys(layer_data.cache).length, (tiling * tiling));
                     }
                 }
@@ -1571,12 +1627,12 @@ export class Gis_pyramid {
                             cache[key] = tile;
                             layer_data.cache[key] = null;
 
-                            tile.layer = 0;
-                            tile.level = 0;
-                            tile.xoffset = layer_serv.tile_size * c;
-                            tile.yoffset = layer_serv.tile_size * (tiling - r - 1);
-
-                            this.FillTexture(layer_data.texture, tile);
+                            this.FillTexture(
+                                layer_data.texture,
+                                tile,
+                                layer_serv.tile_size * c,
+                                layer_serv.tile_size * (tiling - r - 1)
+                            );
 
                             reuse++;
                         }
@@ -1593,12 +1649,12 @@ export class Gis_pyramid {
                             }
 
                             if (layer_data.texture && layer_serv.tile_size == 256) {
-                                this._blankTile.layer = 0;
-                                this._blankTile.level = 0;
-                                this._blankTile.xoffset = layer_serv.tile_size * c;
-                                this._blankTile.yoffset = layer_serv.tile_size * (tiling - r - 1);
-
-                                this.FillTexture(layer_data.texture, this._blankTile);
+                                this.FillTexture(
+                                    layer_data.texture,
+                                    this._blankTile,
+                                    layer_serv.tile_size * c,
+                                    layer_serv.tile_size * (tiling - r - 1)
+                                );
                             }
                         }
                     }
@@ -1623,7 +1679,7 @@ export class Gis_pyramid {
                         const last_data = last_level.layers[j];
                         const last_projection = last_level.projections[layer_serv.projection];
 
-                        const uvst = {
+                        const uvst: Gis_uvst = {
                             offset_x: last_projection.offset_x,
                             offset_z: last_projection.offset_z,
                             scale_x: last_projection.scale_x,
@@ -1639,10 +1695,8 @@ export class Gis_pyramid {
                         }
 
                         layer_data.inherit = {
-                            parent: last_data,
+                            texture: last_data.texture,
                             uvst: uvst,
-                            layer: j,
-                            material: material.material,
                             temporary: true
                         };
                     }
@@ -1657,230 +1711,236 @@ export class Gis_pyramid {
             }
         }
 
-        const this_ = this;
-        const global_ = this._gis["_global"];
+        // 我们总是应当立即应用各图层贴图采样偏移参数，瓦片加载在最后整体等待完成即可
+        this._gis["_global"].app.DrawFrame(1);
 
-        global_.app.DrawFrame(1);
-
-        (async function () {
-            // 优先从高层往低层加载待加载瓦片量小于图层瓦片总量1/2的图层瓦片
-            // 其次从低层往高层加载其它图层瓦片
-            function sort_weight(level: Gis_level) {
-                let max_loading = this_._tiling * this_._tiling;
-
-                for (let j = 0; j < this_._layers.length; j++) {
-                    if (this_._layers[j].enabled) {
-                        const layer = level.layers[j];
-
-                        if (layer.loading && max_loading > layer.loading.length) {
-                            max_loading = layer.loading.length;
-                        }
-                    }
-                }
-
-                if (max_loading < (this_._tiling * 2)) {
-                    return level.level * 100;
-                }
-                else {
-                    return 100 - level.level;
-                }
-            }
-
-            const sorted_levels = levels.slice().sort((a, b) => {
-                return sort_weight(b) - sort_weight(a);
-            });
-
-            // 我们总是应当立即应用各图层贴图采样偏移参数，瓦片加载在最后整体等待完成即可
-            const promises: Promise<void>[] = [];
-
-            let inherits = [];
-            let total = 0;
-            let succeed = 0;
-            let failed = 0;
-
-            for (let level of sorted_levels) {
-                const cur_level = level;
-                const material = this_._gis.materials[cur_level.submesh];
-
-                for (let j = 0; j < this_._layers.length; j++) {
-                    const layer_index = j;
-                    const layer = this_._layers[j];
-                    if (!layer.enabled) {
-                        continue;
-                    }
-
-                    const layer_data = cur_level.layers[j];
-
-                    if (layer_data.inherit) {
-                        inherits.push(layer_data.inherit);
-                        if (!layer_data.inherit.temporary) {
-                            continue;
-                        }
-                    }
-
-                    const layer_serv = this_._gis.servers[layer.type];
-                    const layer_projection = cur_level.projections[layer_serv.projection];
-                    const tiling = layer_serv.projection > Gis_projection.CGCS2000 ? this_._tiling + 1 : this_._tiling;
-
-                    if (!layer_data.texture) {
-                        //TODO
-                        //layer_data.texture = await Global.resources.CreateTexture2D("gis.jpg", false, layer_serv.tile_size * tiling, layer_serv.tile_size * tiling);
-                        //layer_data.texture.AddRef();
-                    }
-
-                    if (!layer_data.inherit) {
-                        this.SetTexture(material.material, layer_data.texture, layer_projection, j);
-                    }
-
-                    let loading = layer_data.loading?.length || 0;
-
-                    total += loading;
-
-                    if (loading > 0) {
-                        const cache = layer_data.cache;
-
-                        function load_buffer(url: string, times: number, callback_: (buffer: ArrayBuffer) => void) {
-                            function response_(buffer: ArrayBuffer) {
-                                if (buffer) {
-                                    callback_(buffer);
-                                }
-                                else if (0 < --times) {
-                                    // 天地图拒绝频繁多次请求，因此我们等待0.5秒
-                                    console.warn("再次尝试加载瓦片：", url);
-                                    setTimeout(load_, 500);
-                                }
-                                else {
-                                    callback_(null);
-                                }
-                            }
-
-                            function load_() {
-                                global_.Fetch<ArrayBuffer>(url, null, "arrayBuffer").then(response_).catch((e) => {
-                                    console.error(e);
-                                    response_(null);
-                                });
-                            }
-
-                            load_();
-                        }
-
-                        promises.push((new Promise<void>(function (resolve, reject) {
-                            function flush(succ: boolean) {
-                                if (succ === true) {
-                                    succeed++;
-                                }
-                                else {
-                                    failed++;
-                                }
-
-                                global_.app.DrawFrame(1);
-
-                                if (0 == --loading) {
-                                    layer_data.loading = [];
-
-                                    // 此调用将撤换掉替补数据
-                                    this.SetTexture(material.material, layer_data.texture, layer_projection, layer_index);
-
-                                    resolve();
-                                }
-                            }
-
-                            for (let info_ of layer_data.loading) {
-                                const info = info_;
-                                const key = "" + info.col + "_" + info.row + "_" + info.level;
-                                const url = this_._gis.ServeUrl(layer.type, layer.token, info.col, info.row, info.level);
-
-                                if (layer.type == "tianditu_dem_c") {
-                                    //TODO
-                                    /*
-                                    Global.worker.Decode_dem(0, url).then((data) => {
-                                        if (data && timestamp == this_._gis.timestamp) {
-                                            const bitmap: Asset_wrapper_bitmap = {
-                                                data: data,
-                                                dataLayout: {
-                                                    offset: 0,
-                                                    bytesPerRow: 4 * layer_serv.tile_size,
-                                                    rowsPerImage: layer_serv.tile_size
-                                                },
-                                                xoffset: layer_serv.tile_size * info.xoffset,
-                                                yoffset: layer_serv.tile_size * (tiling - info.zoffset - 1),
-                                                layer: 0,
-                                                level: 0,
-                                                width: layer_serv.tile_size,
-                                                height: layer_serv.tile_size
-                                            };
-
-                                            layer_data.texture.Fill(bitmap);
-                                            cache[key] = bitmap;
-
-                                            flush(true);
-                                        }
-                                        else {
-                                            flush(false);
-                                        }
-                                    }).catch(e => {
-                                        flush(false);
-                                    });
-                                    */
-                                }
-                                else {
-                                    load_buffer(url, 3, function (buffer) {
-                                        if (buffer && timestamp == this_._gis.timestamp) {
-                                            const blob = new Blob([new Int8Array(buffer)]);
-                                            const option: ImageBitmapOptions = undefined;
-
-                                            createImageBitmap(blob, option).then((bitmap: Miaoverse.GLTextureSource) => {
-                                                bitmap.layer = 0;
-                                                bitmap.level = 0;
-                                                bitmap.xoffset = layer_serv.tile_size * info.xoffset;
-                                                bitmap.yoffset = layer_serv.tile_size * (tiling - info.zoffset - 1);
-
-                                                this.FillTexture(layer_data.texture, bitmap);
-                                                cache[key] = bitmap;
-
-                                                flush(true);
-                                            }).catch(flush);
-                                        }
-                                        else {
-                                            flush(false);
-                                        }
-                                    });
-                                }
-                            }
-                        })));
-                    }
-                }
-            }
-
-            for (let inherit of inherits) {
-                this.SetTexture(inherit.material, inherit.parent.texture, inherit.uvst, inherit.layer);
-            }
-
-            await Promise.all(promises);
-
+        this.Load(timestamp, (total: number, succeed: number, failed: number) => {
             callback(reuse, total, succeed, failed);
-        })();
-    }
-
-    /**
-     * 为材质设置图层贴图属性。
-     * @param material 材质资源实例。
-     * @param texture 图层贴图（我们使用图集图块实现）。
-     * @param uvst 图层贴图采样偏移缩放。
-     * @param layer 贴图对应图层。
-     * @param name 贴图属性名称。
-     */
-    private SetTexture(material: Miaoverse.Material, texture: Gis_texture, uvst: Gis_uvst, layer?: number, name?: string) {
-        // TODO ...
+        });
     }
 
     /**
      * 填充贴图数据。
      * @param texture 贴图实例。
      * @param data 贴图数据。
+     * @param xoffset 写入横向像素偏移。 
+     * @param yoffset 写入纵向像素偏移。
      */
-    private FillTexture(texture: Gis_texture, data: Miaoverse.GLTextureSource) {
-        // ...
+    private FillTexture(texture: Gis_texture, data: Miaoverse.GLTextureSource, xoffset: number, yoffset: number) {
+        const Texture = this._gis["_global"].resources.Texture;
+
+        Texture._WriteTile(texture.tile, data, xoffset, yoffset);
+    }
+
+    /**
+     * 加载瓦片资源。
+     * @param timestamp 加载任务时间戳。
+     * @param callback 加载完成回调。
+     */
+    private async Load(timestamp: number, callback: (total: number, succeed: number, failed: number) => void) {
+        // 优先从高层往低层加载待加载瓦片量小于图层瓦片总量1/2的图层瓦片
+        // 其次从低层往高层加载其它图层瓦片
+        const sort_weight = (level: Gis_level) => {
+            let max_loading = this._tiling * this._tiling;
+
+            for (let j = 0; j < this._layers.length; j++) {
+                if (this._layers[j].enabled) {
+                    const layer = level.layers[j];
+
+                    if (layer.loading && max_loading > layer.loading.length) {
+                        max_loading = layer.loading.length;
+                    }
+                }
+            }
+
+            if (max_loading < (this._tiling * 2)) {
+                return level.level * 100;
+            }
+            else {
+                return 100 - level.level;
+            }
+        }
+
+        const levels = this._pyramid;
+
+        const sorted_levels = levels.slice().sort((a, b) => {
+            return sort_weight(b) - sort_weight(a);
+        });
+
+        const promises: Promise<void>[] = [];
+        const _global = this._gis["_global"];
+
+        let total = 0;
+        let succeed = 0;
+        let failed = 0;
+
+        for (let level of sorted_levels) {
+            const cur_level = level;
+
+            for (let j = 0; j < this._layers.length; j++) {
+                const layer_index = j;
+                const layer = this._layers[j];
+                if (!layer.enabled) {
+                    continue;
+                }
+
+                const layer_data = cur_level.layers[j];
+                if (layer_data.invalid) {
+                    continue;
+                }
+
+                if (layer_data.inherit && !layer_data.inherit.temporary) {
+                    continue;
+                }
+
+                const layer_serv = this._gis.servers[layer.type];
+                const layer_projection = cur_level.projections[layer_serv.projection];
+                const tiling = layer_serv.projection > Gis_projection.CGCS2000 ? this._tiling + 1 : this._tiling;
+
+                if (!layer_data.texture) {
+                    const tile = _global.resources.Texture._CreateTile(layer_serv.tile_size * tiling, layer_serv.tile_size * tiling, 0);
+                    const info = _global.env.uarrayGet(tile, 12, 8);
+                    const layer = info[1];
+                    const rect = [
+                        info[6] * 64 / 4096,
+                        info[7] * 64 / 4096,
+                        (info[2] - 1) / 4096,
+                        (info[3] - 1) / 4096
+                    ];
+
+                    layer_data.texture = {
+                        tile,
+                        layer,
+                        rect
+                    };
+                }
+
+                let loading = layer_data.loading?.length || 0;
+
+                total += loading;
+
+                if (loading > 0) {
+                    const cache = layer_data.cache;
+
+                    function load_buffer(url: string, times: number, callback_: (buffer: ArrayBuffer) => void) {
+                        function response_(buffer: ArrayBuffer) {
+                            if (buffer) {
+                                callback_(buffer);
+                            }
+                            else if (0 < --times) {
+                                // 天地图拒绝频繁多次请求，因此我们等待0.5秒
+                                console.warn("再次尝试加载瓦片：", url);
+                                setTimeout(load_, 500);
+                            }
+                            else {
+                                callback_(null);
+                            }
+                        }
+
+                        function load_() {
+                            _global.Fetch<ArrayBuffer>(url, null, "arrayBuffer").then(response_).catch((e) => {
+                                console.error(e);
+                                response_(null);
+                            });
+                        }
+
+                        load_();
+                    }
+
+                    promises.push((new Promise<void>((resolve, reject) => {
+                        const flush = (succ: boolean) => {
+                            if (succ === true) {
+                                succeed++;
+                            }
+                            else {
+                                failed++;
+                            }
+
+                            this._gis["_global"].app.DrawFrame(1);
+
+                            if (0 == --loading) {
+                                layer_data.loading = [];
+
+                                // 撤换掉替补数据
+                                if (layer_data.inherit && layer_data.inherit.temporary) {
+                                    layer_data.inherit = null;
+                                }
+
+                                resolve();
+                            }
+                        }
+
+                        for (let info_ of layer_data.loading) {
+                            const info = info_;
+                            const key = "" + info.col + "_" + info.row + "_" + info.level;
+                            const url = this._gis.ServeUrl(layer.type, layer.token, info.col, info.row, info.level);
+
+                            if (layer.type == "tianditu_dem_c") {
+                                //TODO
+                                /*
+                                Global.worker.Decode_dem(0, url).then((data) => {
+                                    if (data && timestamp == this_._gis.timestamp) {
+                                        const bitmap: Asset_wrapper_bitmap = {
+                                            data: data,
+                                            dataLayout: {
+                                                offset: 0,
+                                                bytesPerRow: 4 * layer_serv.tile_size,
+                                                rowsPerImage: layer_serv.tile_size
+                                            },
+                                            xoffset: layer_serv.tile_size * info.xoffset,
+                                            yoffset: layer_serv.tile_size * (tiling - info.zoffset - 1),
+                                            layer: 0,
+                                            level: 0,
+                                            width: layer_serv.tile_size,
+                                            height: layer_serv.tile_size
+                                        };
+
+                                        layer_data.texture.Fill(bitmap);
+                                        cache[key] = bitmap;
+
+                                        flush(true);
+                                    }
+                                    else {
+                                        flush(false);
+                                    }
+                                }).catch(e => {
+                                    flush(false);
+                                });
+                                */
+                            }
+                            else {
+                                load_buffer(url, 3, (buffer) => {
+                                    if (buffer && timestamp == this._gis.timestamp) {
+                                        const blob = new Blob([new Int8Array(buffer)]);
+                                        const option: ImageBitmapOptions = undefined;
+
+                                        createImageBitmap(blob, option).then((bitmap: Miaoverse.GLTextureSource) => {
+                                            this.FillTexture(
+                                                layer_data.texture,
+                                                bitmap,
+                                                layer_serv.tile_size * info.xoffset,
+                                                layer_serv.tile_size * (tiling - info.zoffset - 1)
+                                            );
+
+                                            cache[key] = bitmap;
+
+                                            flush(true);
+                                        }).catch(flush);
+                                    }
+                                    else {
+                                        flush(false);
+                                    }
+                                });
+                            }
+                        }
+                    })));
+                }
+            }
+        }
+
+        await Promise.all(promises);
+
+        callback(total, succeed, failed);
     }
 
     /** LOD层级数。 */
@@ -1963,7 +2023,6 @@ export interface Gis_level {
         last_lb_col: number;
         /** 上一帧左下角瓦片行号（用于检测刷新）。 */
         last_lb_row: number;
-
         /** 左下角瓦片列号。 */
         lb_col: number;
         /** 左下角瓦片行号。 */
@@ -1971,29 +2030,21 @@ export interface Gis_level {
     } & Gis_uvst)[];
     /** 图层数组。 */
     layers: {
+        /** 图层数据无效。 */
+        invalid?: boolean;
         /** 继承上级图层。 */
         inherit?: {
-            /** 上级图层数据。 */
-            parent: {
-                /** 贴图对象。 */
-                texture?: Gis_texture;
-            };
-            /** 继承图层UV偏移缩放。 */
-            uvst: {
-                offset_x: number;
-                offset_z: number;
-                scale_x: number;
-                scale_z: number;
-            };
-            /** 图层索引。 */
-            layer: number;
-            /** 材质对象。 */
-            material: Miaoverse.Material;
-            /** 是否为临时的替补数据。 */
+            /** 继承图层贴图图块。 */
+            texture: Gis_texture;
+            /** 继承图层采样偏移缩放。 */
+            uvst: Gis_uvst;
+            /** 是否是临时的替补数据。 */
             temporary: boolean;
         };
         /** 图层贴图图块。 */
         texture?: Gis_texture;
+        /** 图层采样偏移缩放。 */
+        uvst?: Gis_uvst;
         /** 图层瓦片缓存（重置层级状态时清空）。 */
         cache?: Record<string, Miaoverse.GLTextureSource>;
         /** 图层瓦片加载任务列表。 */

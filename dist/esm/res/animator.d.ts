@@ -58,7 +58,10 @@ export declare const Animator_member_index: {
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
-    readonly id: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member; /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
     readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;
@@ -79,7 +82,10 @@ export declare const AnimationData_member_index: {
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
-    readonly id: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member; /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
     readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;
@@ -100,7 +106,10 @@ export declare const Skeleton_member_index: {
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
-    readonly id: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member; /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
     readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;
@@ -117,7 +126,10 @@ export declare const Skin_member_index: {
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
-    readonly id: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member; /**
+     * 构造函数。
+     * @param _global 引擎实例。
+     */
     readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;

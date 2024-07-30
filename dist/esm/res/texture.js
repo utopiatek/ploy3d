@@ -148,12 +148,12 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
             this._instanceIdle = id;
         }
     }
-    _WriteTile(tile, bitmap) {
+    _WriteTile(tile, bitmap, xoffset = 0, yoffset = 0) {
         const info = this._global.env.uarrayGet(tile, 12, 8);
         bitmap.layer = info[1];
         bitmap.level = 0;
-        bitmap.xoffset = info[6] * 64;
-        bitmap.yoffset = info[7] * 64;
+        bitmap.xoffset = xoffset + info[6] * 64;
+        bitmap.yoffset = yoffset + info[7] * 64;
         this._global.device.ResizeAtlas(this.defaultAtlas, bitmap.layer);
         this._global.device.WriteTexture2D_RAW(this.defaultAtlas, false, bitmap);
     }

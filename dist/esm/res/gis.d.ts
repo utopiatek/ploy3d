@@ -34,11 +34,12 @@ export declare class Gis {
      * 刷新材质属性。
      * @param values 材质属性值。
      */
-    FlushMaterial(values: {
+    FlushMaterial(values?: {
         centerMC?: number[];
+        targetMC?: number[];
+        movedMC?: number[];
+        targetXZ?: number[];
         size?: number[];
-        focusMC?: number[];
-        focusPos?: number[];
     }): void;
     /**
      * 绘制场景。
@@ -325,7 +326,7 @@ export declare class Gis_pyramid {
      */
     constructor(_gis: Gis, _levels: number, _tiling: number);
     /**
-     * 刷新LOD层级金字塔。
+     * 更新LOD层级金字塔。
      * @param level 顶层级别。
      * @param lb_col 顶层左下角列号。
      * @param lb_row 顶层左下角行号。
@@ -333,27 +334,27 @@ export declare class Gis_pyramid {
      * @param lb_bias_z 顶层左下角瓦片采样偏移。
      * @param callback 刷新完成回调。
      */
-    Flush(level: number, lb_col: number, lb_row: number, lb_bias_x: number, lb_bias_z: number, callback: () => void): void;
+    Update(level: number, lb_col: number, lb_row: number, lb_bias_x: number, lb_bias_z: number, callback: () => void): void;
     /**
-     * 瓦片资源加载映射。
+     * 刷新并加载瓦片资源。
+     * @param timestamp 加载任务时间戳。
      * @param callback 加载完成回调。
      */
-    private Load;
-    /**
-     * 为材质设置图层贴图属性。
-     * @param material 材质资源实例。
-     * @param texture 图层贴图（我们使用图集图块实现）。
-     * @param uvst 图层贴图采样偏移缩放。
-     * @param layer 贴图对应图层。
-     * @param name 贴图属性名称。
-     */
-    private SetTexture;
+    private Flush;
     /**
      * 填充贴图数据。
      * @param texture 贴图实例。
      * @param data 贴图数据。
+     * @param xoffset 写入横向像素偏移。
+     * @param yoffset 写入纵向像素偏移。
      */
     private FillTexture;
+    /**
+     * 加载瓦片资源。
+     * @param timestamp 加载任务时间戳。
+     * @param callback 加载完成回调。
+     */
+    private Load;
     /** LOD层级数。 */
     get levelCount(): number;
     /** LOD层级图层瓦片平铺数量。 */
@@ -424,29 +425,21 @@ export interface Gis_level {
     } & Gis_uvst)[];
     /** 图层数组。 */
     layers: {
+        /** 图层数据无效。 */
+        invalid?: boolean;
         /** 继承上级图层。 */
         inherit?: {
-            /** 上级图层数据。 */
-            parent: {
-                /** 贴图对象。 */
-                texture?: Gis_texture;
-            };
-            /** 继承图层UV偏移缩放。 */
-            uvst: {
-                offset_x: number;
-                offset_z: number;
-                scale_x: number;
-                scale_z: number;
-            };
-            /** 图层索引。 */
-            layer: number;
-            /** 材质对象。 */
-            material: Miaoverse.Material;
-            /** 是否为临时的替补数据。 */
+            /** 继承图层贴图图块。 */
+            texture: Gis_texture;
+            /** 继承图层采样偏移缩放。 */
+            uvst: Gis_uvst;
+            /** 是否是临时的替补数据。 */
             temporary: boolean;
         };
         /** 图层贴图图块。 */
         texture?: Gis_texture;
+        /** 图层采样偏移缩放。 */
+        uvst?: Gis_uvst;
         /** 图层瓦片缓存（重置层级状态时清空）。 */
         cache?: Record<string, Miaoverse.GLTextureSource>;
         /** 图层瓦片加载任务列表。 */

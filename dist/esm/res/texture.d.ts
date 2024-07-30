@@ -109,8 +109,10 @@ export declare class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> 
      * 写图块数据。
      * @param tile 图集图块实例指针。
      * @param bitmap 位图数据。
+     * @param xoffset 写入横向像素偏移。
+     * @param yoffset 写入纵向像素偏移。
      */
-    _WriteTile(tile: Miaoverse.io_ptr, bitmap: Miaoverse.GLTextureSource): void;
+    _WriteTile(tile: Miaoverse.io_ptr, bitmap: Miaoverse.GLTextureSource, xoffset?: number, yoffset?: number): void;
     /**
      * 创建图块实例（分配图集中的存储区块）。
      * @param width 贴图像素宽度。

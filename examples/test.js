@@ -47,9 +47,9 @@ export class PloyApp_test extends ploycloud.PloyApp {
             creater: {
                 type: "box",
                 box: {
-                    width: 1,
+                    width: 231.486,//256,
                     height: 1,
-                    depth: 1,
+                    depth: 231.486,//256,
                     widthSegments: 2,
                     heightSegments: 2,
                     depthSegments: 2

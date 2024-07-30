@@ -15,14 +15,7 @@
                     2910000
                 ]
             },
-            "size": {
-                "note": "网格缩放。",
-                "sign": "f32",
-                "value": [
-                    16384000
-                ]
-            },
-            "focusMC": {
+            "targetMC": {
                 "note": "相机观察点墨卡托坐标。",
                 "sign": "vec2<f32>",
                 "value": [
@@ -30,12 +23,94 @@
                     2910000
                 ]
             },
-            "focusPos": {
-                "note": "相机观察点世界坐标。",
+            "movedMC": {
+                "note": "相机观察点相对网格原点的墨卡托偏移（targetMC - centerMC）。",
                 "sign": "vec2<f32>",
                 "value": [
                     0,
                     0
+                ]
+            },
+            "targetXZ": {
+                "note": "相机观察点世界空间坐标。",
+                "sign": "vec2<f32>",
+                "value": [
+                    0,
+                    0
+                ]
+            },
+            "size": {
+                "note": "网格缩放。",
+                "sign": "f32",
+                "value": [
+                    16384000
+                ]
+            },
+            "level": {
+                "note": "子网格显示级别。",
+                "sign": "f32",
+                "value": [
+                    16384000
+                ]
+            },
+            "layers_enabled": {
+                "note": "各图层启用状态。",
+                "sign": "vec4<u32>",
+                "value": [
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "layers_layer": {
+                "note": "各图层贴图采样层级。",
+                "sign": "vec4<u32>",
+                "value": [
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "layers_uvst0": {
+                "note": "图层0贴图采样偏移缩放。",
+                "sign": "vec4<f32>",
+                "value": [
+                    0,
+                    0,
+                    1,
+                    1
+                ]
+            },
+            "layers_uvst1": {
+                "note": "图层1贴图采样偏移缩放。",
+                "sign": "vec4<f32>",
+                "value": [
+                    0,
+                    0,
+                    1,
+                    1
+                ]
+            },
+            "layers_uvst2": {
+                "note": "图层2贴图采样偏移缩放。",
+                "sign": "vec4<f32>",
+                "value": [
+                    0,
+                    0,
+                    1,
+                    1
+                ]
+            },
+            "layers_uvst3": {
+                "note": "图层3贴图采样偏移缩放。",
+                "sign": "vec4<f32>",
+                "value": [
+                    0,
+                    0,
+                    1,
+                    1
                 ]
             }
         },
