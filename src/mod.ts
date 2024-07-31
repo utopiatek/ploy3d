@@ -1,11 +1,9 @@
-/// <reference path="../lib/lib.deno.ns.d.ts" />
 
 import type * as sdl2 from '../lib/sdl2';
-import type * as canvaskit from 'canvaskit-wasm/types/';
 import type * as echarts from 'echarts/types/dist/echarts';
 import type JSZip from 'jszip';
 
-export { sdl2, canvaskit, echarts, JSZip }
+export { sdl2, echarts, JSZip }
 
 export * from "./math/vector3.js"
 export * from "./math/quaternion.js"
@@ -37,5 +35,7 @@ export * from "./res/dioramas_3mx.js"
 export * from "./res/object3d.js"
 export * from "./res/scene.js"
 export * from "./res/gis.js"
+
+export * from "./worker/worker.js"
 
 export * from "./ui/index.js"

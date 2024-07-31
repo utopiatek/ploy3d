@@ -1,4 +1,4 @@
-/// <reference types="@webgpu/types" />
+/// <reference types="dist" />
 import * as Miaoverse from "../mod.js";
 /** 着色器资源组基类。 */
 export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {

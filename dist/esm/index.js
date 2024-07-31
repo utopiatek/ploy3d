@@ -48,9 +48,6 @@ export class Ploy3D {
         if (options.sdl2) {
             this.sdl2 = options.sdl2;
         }
-        if (options.canvaskit) {
-            this.canvaskit = options.canvaskit;
-        }
         if (options.echarts) {
             this.echarts = options.echarts;
         }
@@ -197,6 +194,10 @@ export class Ploy3D {
         if (!this.assembly) {
             throw "渲染管线装配器接口初始化失败！";
         }
+        this.worker = await (new Miaoverse.Miaoworker(this)).Startup();
+        if (!this.worker) {
+            throw "多线程事务处理器启动失败！";
+        }
         this.gis = await (new Miaoverse.Gis(this)).Init();
         if (!this.gis) {
             throw "GIS初始化失败！";
@@ -222,6 +223,9 @@ export class Ploy3D {
     Matrix4x4(values) {
         return new Miaoverse.Matrix4x4(this.resources.VMath, values);
     }
+    get webgl() {
+        return this.config.webgl;
+    }
     startTS = Date.now();
     kernelUrl = "./lib/ploycloud.wasm";
     workerUrl = "./lib/ploycloud.worker.wasm";
@@ -237,7 +241,6 @@ export class Ploy3D {
     appLut = {};
     app;
     sdl2;
-    canvaskit;
     echarts;
     JSZip;
     internal;
@@ -248,6 +251,7 @@ export class Ploy3D {
     renderer;
     assembly;
     resources;
+    worker;
     gis;
     ui;
     config = {

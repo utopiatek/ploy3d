@@ -1,4 +1,4 @@
-/// <reference types="@webgpu/types" />
+/// <reference types="dist" />
 import * as Miaoverse from "../mod.js";
 /** 倾斜摄影组件（3MX）。 */
 export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {

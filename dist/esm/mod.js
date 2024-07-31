@@ -26,5 +26,6 @@ export * from "./res/dioramas_3mx.js";
 export * from "./res/object3d.js";
 export * from "./res/scene.js";
 export * from "./res/gis.js";
+export * from "./worker/worker.js";
 export * from "./ui/index.js";
 //# sourceMappingURL=mod.js.map

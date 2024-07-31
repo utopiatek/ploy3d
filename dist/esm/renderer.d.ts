@@ -1,4 +1,4 @@
-/// <reference types="@webgpu/types" />
+/// <reference types="dist" />
 import * as Miaoverse from "./mod.js";
 /** 渲染器接口。 */
 export declare class Renderer {

@@ -36,8 +36,6 @@ export declare class Ploy3D {
         appLut?: Ploy3D["appLut"];
         /** SDL2模块名字空间。 */
         sdl2?: Ploy3D["sdl2"];
-        /** CanvasKit模块实例。 */
-        canvaskit?: Ploy3D["canvaskit"];
         /** 导入ECharts图表库。 */
         echarts?: Ploy3D["echarts"];
         /** 导入JSZip库。 */
@@ -136,6 +134,8 @@ export declare class Ploy3D {
      * @returns 返回四阶矩阵。
      */
     Matrix4x4(values: ArrayLike<number>): Miaoverse.Matrix4x4;
+    /** 是否使用的是WebGL图形API*/
+    get webgl(): boolean;
     /** 引擎启动时间戳。 */
     startTS: number;
     /** 内核模块URL。 */
@@ -166,8 +166,6 @@ export declare class Ploy3D {
     app: PloyApp;
     /** SDL2模块名字空间。 */
     sdl2: typeof Miaoverse.sdl2;
-    /** CanvasKit模块实例。 */
-    canvaskit: Miaoverse.canvaskit.CanvasKit;
     /** ECharts模块名字空间。 */
     echarts: typeof Miaoverse.echarts;
     /** JSZip模块接口。 */
@@ -188,6 +186,8 @@ export declare class Ploy3D {
     assembly: Miaoverse.Assembly;
     /** 资源管理器。 */
     resources: Miaoverse.Resources;
+    /** 多线程事务处理器。 */
+    worker: Miaoverse.Miaoworker;
     /** GIS系统。 */
     gis: Miaoverse.Gis;
     /** CalynUI系统。 */

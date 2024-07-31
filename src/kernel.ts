@@ -1,4 +1,23 @@
-import * as Miaoverse from "./mod.js"
+
+/** 子线程代码依赖该文件，此处定义一个引擎模块抽象。 */
+type Ploy3D = {
+    /** 日志打印方法。 */
+    Track: (msg: string, ctrl?: number) => void;
+    /** 启动时间戳。 */
+    startTS: number;
+    /** 用户ID（请登陆并设置真实用户ID，用户仅能上传使用真实用户ID标识的资源，模拟用户ID可能会导致资源UUID冲突）。 */
+    uid: number;
+    /** 是否使用的是WebGL图形API*/
+    webgl: boolean;
+    /** 内核代码。 */
+    kernelCode: ArrayBuffer;
+    /** 内核管理器。 */
+    kernel: Kernel;
+    /** 共享数据环境。 */
+    env: SharedENV;
+    /** 内核接口。 */
+    internal: Internal;
+}
 
 /** 类型声明：用于与内核交换数据的指针（作为参数或返回值，为了内存安全，我们把它定义为奇怪的类型），地址应以4字节为单位，可共享16G内存空间。 */
 export type io_ptr = never;
@@ -12,7 +31,7 @@ export class Kernel {
     /**
      * 构造函数。
      */
-    public constructor(_global: Miaoverse.Ploy3D) {
+    public constructor(_global: Ploy3D) {
         this._global = _global;
     }
 
@@ -131,7 +150,7 @@ export class Kernel {
     }
 
     /** 模块实例对象。 */
-    private _global: Miaoverse.Ploy3D;
+    private _global: Ploy3D;
     /** 内核实例。*/
     private _wasm: WebAssembly.Instance;
     /** 内存实例。*/
@@ -144,7 +163,7 @@ export class SharedENV {
      * 构造函数。
      * @param _global 模块实例对象。
      */
-    public constructor(_global: Miaoverse.Ploy3D) {
+    public constructor(_global: Ploy3D) {
         this._global = _global;
 
         this._textDecoder = new TextDecoder('utf-8');
@@ -169,7 +188,7 @@ export class SharedENV {
         this.uscalarSet(this._ptr, Env_member.sizeG0, 2048);
         this.uscalarSet(this._ptr, Env_member.sizeG1, 256);
         this.uscalarSet(this._ptr, Env_member.reversedZ, 1);
-        this.uscalarSet(this._ptr, Env_member.webGL, this._global.config.webgl ? 1 : 0);
+        this.uscalarSet(this._ptr, Env_member.webGL, this._global.webgl ? 1 : 0);
         this.uscalarSet(this._ptr, Env_member.shadowMapSize, 1024);
         this.uscalarSet(this._ptr, Env_member.gisTS, 0);
         this.uscalarSet(this._ptr, Env_member.gisState, 0);
@@ -573,7 +592,7 @@ export class SharedENV {
     }
 
     /** 模块实例对象。 */
-    private _global: Miaoverse.Ploy3D;
+    private _global: Ploy3D;
 
     /** 环境数据指针。 */
     private _ptr: io_ptr;
@@ -632,7 +651,7 @@ export interface Internal {
 }
 
 /** 共享环境变量成员索引。 */
-const enum Env_member {
+export const enum Env_member {
     /** 系统帧时间戳。 */
     frameTS = 0,
     /** 统一缓存动态偏移地址对齐。 */

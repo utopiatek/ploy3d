@@ -1,4 +1,4 @@
-/// <reference types="@webgpu/types" />
+/// <reference types="dist" />
 import * as Miaoverse from "./mod.js";
 /** GPU虚拟设备接口。 */
 export declare class Device {

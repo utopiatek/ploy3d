@@ -37,8 +37,6 @@ export class Ploy3D {
         appLut?: Ploy3D["appLut"];
         /** SDL2模块名字空间。 */
         sdl2?: Ploy3D["sdl2"];
-        /** CanvasKit模块实例。 */
-        canvaskit?: Ploy3D["canvaskit"];
         /** 导入ECharts图表库。 */
         echarts?: Ploy3D["echarts"];
         /** 导入JSZip库。 */
@@ -106,10 +104,6 @@ export class Ploy3D {
 
         if (options.sdl2) {
             this.sdl2 = options.sdl2;
-        }
-
-        if (options.canvaskit) {
-            this.canvaskit = options.canvaskit;
         }
 
         if (options.echarts) {
@@ -371,6 +365,11 @@ export class Ploy3D {
             throw "渲染管线装配器接口初始化失败！"
         }
 
+        this.worker = await (new Miaoverse.Miaoworker(this)).Startup();
+        if (!this.worker) {
+            throw "多线程事务处理器启动失败！"
+        }
+
         this.gis = await (new Miaoverse.Gis(this)).Init();
         if (!this.gis) {
             throw "GIS初始化失败！"
@@ -426,6 +425,11 @@ export class Ploy3D {
         return new Miaoverse.Matrix4x4(this.resources.VMath, values);
     }
 
+    /** 是否使用的是WebGL图形API*/
+    public get webgl() {
+        return this.config.webgl;
+    }
+
     /** 引擎启动时间戳。 */
     public startTS = Date.now();
     /** 内核模块URL。 */
@@ -460,8 +464,6 @@ export class Ploy3D {
 
     /** SDL2模块名字空间。 */
     public sdl2: typeof Miaoverse.sdl2;
-    /** CanvasKit模块实例。 */
-    public canvaskit: Miaoverse.canvaskit.CanvasKit;
     /** ECharts模块名字空间。 */
     public echarts: typeof Miaoverse.echarts;
     /** JSZip模块接口。 */
@@ -483,6 +485,8 @@ export class Ploy3D {
     public assembly: Miaoverse.Assembly;
     /** 资源管理器。 */
     public resources: Miaoverse.Resources;
+    /** 多线程事务处理器。 */
+    public worker: Miaoverse.Miaoworker;
     /** GIS系统。 */
     public gis: Miaoverse.Gis;
     /** CalynUI系统。 */

@@ -181,7 +181,6 @@ export class Gis {
         this._timestamp = timestamp;
         this._flushing = true;
         this._waiting = null;
-        console.error("ccccccccccccccc");
         this.FlushMaterial({
             centerMC: centerMC,
             movedMC: [0, 0],
@@ -189,7 +188,6 @@ export class Gis {
         });
         this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
             if (timestamp != this._timestamp) {
-                console.warn("该GIS刷新响应已经超时！", Math.ceil((Date.now() - timestamp) / 1000));
                 return;
             }
             this._flushing = false;
@@ -258,8 +256,8 @@ export class Gis {
                     block_uvst[3] * layer_uvst.scale_z,
                 ];
             }
-            if (cur_level.level != (top_level - i)) {
-                console.error("cur_level.level != (top_level - i)");
+            if (cur_level.level && cur_level.level != (top_level - i)) {
+                this._global.Track(`Gis.FlushMaterial: LOD层级编排异常：cur_level.level = ${cur_level.level}, (top_level - i) = ${top_level - i}`, 2);
             }
             material.material.view["level"] = [cur_level.level];
             material.material.view["layers_enabled"] = layers_enabled;
@@ -748,8 +746,8 @@ export class Gis_pyramid {
         this._layers = [
             {
                 type: "tianditu_dem_c",
-                token: "c6f5fc06a3eeb819a9af72da96665a04",
-                enabled: true
+                token: "d46eda25e81327fdc47e09e286751657",
+                enabled: false
             },
             {
                 type: "arcgisonline_img_w",
@@ -849,7 +847,7 @@ export class Gis_pyramid {
                             continue;
                         }
                         if (!cur_level.reset) {
-                            console.error("layer.reset state error!");
+                            this._gis["_global"].Track("Gis_pyramid.Update LOD层级重制状态标记异常！", 2);
                             cur_level.reset = true;
                         }
                         cur_level.level = level - i;
@@ -887,7 +885,7 @@ export class Gis_pyramid {
                     const bottomRow = Math.floor((90.0 - bottomLat) / rowStride);
                     const topRow = Math.floor((90.0 - topLat) / rowStride);
                     if ((bottomRow - topRow) > this._tiling) {
-                        console.error("图层由墨卡托投影转经纬度投影时瓦片平铺数量溢出：", (bottomRow - topRow));
+                        this._gis["_global"].Track(`图层由墨卡托投影转经纬度投影时瓦片平铺数量溢出：${bottomRow} - ${topRow} > ${this._tiling}`, 2);
                     }
                     const offset_z__ = ((1.0 - (((90.0 - bottomLat) / rowStride) - bottomRow)) * (1 / (this._tiling + 1)));
                     const scale_z__ = (topLat - bottomLat) / (rowStride * (this._tiling + 1));
@@ -986,11 +984,6 @@ export class Gis_pyramid {
                     }
                     layer_data.cache = {};
                 }
-                else {
-                    if (Object.keys(layer_data.cache).length != (tiling * tiling)) {
-                        console.error("layer cache count error:", Object.keys(layer_data.cache).length, (tiling * tiling));
-                    }
-                }
                 layer_data.loading = [];
                 const lb_col = layer_projection.lb_col;
                 const lb_row = layer_projection.lb_row;
@@ -1072,7 +1065,7 @@ export class Gis_pyramid {
         const Texture = this._gis["_global"].resources.Texture;
         Texture._WriteTile(texture.tile, data, xoffset, yoffset);
     }
-    async Load(timestamp, callback) {
+    Load(timestamp, callback) {
         const sort_weight = (level) => {
             let max_loading = this._tiling * this._tiling;
             for (let j = 0; j < this._layers.length; j++) {
@@ -1143,7 +1136,6 @@ export class Gis_pyramid {
                                 callback_(buffer);
                             }
                             else if (0 < --times) {
-                                console.warn("再次尝试加载瓦片：", url);
                                 setTimeout(load_, 500);
                             }
                             else {
@@ -1180,6 +1172,28 @@ export class Gis_pyramid {
                             const key = "" + info.col + "_" + info.row + "_" + info.level;
                             const url = this._gis.ServeUrl(layer.type, layer.token, info.col, info.row, info.level);
                             if (layer.type == "tianditu_dem_c") {
+                                _global.worker.Decode_dem(1, url).then((data) => {
+                                    if (data && timestamp == this._gis.timestamp) {
+                                        const bitmap = {
+                                            width: layer_serv.tile_size,
+                                            height: layer_serv.tile_size,
+                                            data: data,
+                                            dataLayout: {
+                                                offset: 0,
+                                                bytesPerRow: 4 * layer_serv.tile_size,
+                                                rowsPerImage: layer_serv.tile_size
+                                            }
+                                        };
+                                        this.FillTexture(layer_data.texture, bitmap, layer_serv.tile_size * info.xoffset, layer_serv.tile_size * (tiling - info.zoffset - 1));
+                                        cache[key] = bitmap;
+                                        flush(true);
+                                    }
+                                    else {
+                                        flush(false);
+                                    }
+                                }).catch(e => {
+                                    flush(false);
+                                });
                             }
                             else {
                                 load_buffer(url, 3, (buffer) => {
@@ -1202,8 +1216,12 @@ export class Gis_pyramid {
                 }
             }
         }
-        await Promise.all(promises);
-        callback(total, succeed, failed);
+        Promise.all(promises).then(() => {
+            callback(total, succeed, failed);
+        }).catch((e) => {
+            console.error(e);
+            callback(total, succeed, failed);
+        });
     }
     get levelCount() {
         return this._pyramidHeight;

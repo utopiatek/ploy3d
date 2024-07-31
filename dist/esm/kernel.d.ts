@@ -1,4 +1,20 @@
-import * as Miaoverse from "./mod.js";
+/** 子线程代码依赖该文件，此处定义一个引擎模块抽象。 */
+type Ploy3D = {
+    /** 日志打印方法。 */
+    Track: (msg: string, ctrl?: number) => void;
+    /** 启动时间戳。 */
+    startTS: number;
+    /** 用户ID（请登陆并设置真实用户ID，用户仅能上传使用真实用户ID标识的资源，模拟用户ID可能会导致资源UUID冲突）。 */
+    uid: number;
+    /** 是否使用的是WebGL图形API*/
+    webgl: boolean;
+    /** 内核代码。 */
+    kernelCode: ArrayBuffer;
+    /** 共享数据环境。 */
+    env: SharedENV;
+    /** 内核接口。 */
+    internal: Internal;
+};
 /** 类型声明：用于与内核交换数据的指针（作为参数或返回值，为了内存安全，我们把它定义为奇怪的类型），地址应以4字节为单位，可共享16G内存空间。 */
 export type io_ptr = never;
 /** 类型声明：用于与内核传参的32位无符号整型（作为参数和返回值）。 */
@@ -10,7 +26,7 @@ export declare class Kernel {
     /**
      * 构造函数。
      */
-    constructor(_global: Miaoverse.Ploy3D);
+    constructor(_global: Ploy3D);
     /** 初始化引擎内核。 */
     Init(_imports: {}): Promise<this>;
     /** 模块实例对象。 */
@@ -26,7 +42,7 @@ export declare class SharedENV {
      * 构造函数。
      * @param _global 模块实例对象。
      */
-    constructor(_global: Miaoverse.Ploy3D);
+    constructor(_global: Ploy3D);
     /**
      * 初始化共享数据环境接口。
      * @param buffer 内核内存。
@@ -197,3 +213,33 @@ export interface Internal {
     /** 导出引擎模块对象实现。 */
     Engine_Export: () => number[];
 }
+/** 共享环境变量成员索引。 */
+export declare const enum Env_member {
+    /** 系统帧时间戳。 */
+    frameTS = 0,
+    /** 统一缓存动态偏移地址对齐。 */
+    ubufferAlign = 1,
+    /** 统一缓存大小。 */
+    ubufferSize = 2,
+    /** 统一贴图大小。 */
+    utextureSize = 3,
+    /** G0资源组常量缓存大小。 */
+    sizeG0 = 4,
+    /** G1资源组常量缓存大小。 */
+    sizeG1 = 5,
+    /** 是否翻转相机Z值。 */
+    reversedZ = 6,
+    /** 是否使用WebGL API。 */
+    webGL = 7,
+    /** 阴影贴图大小。 */
+    shadowMapSize = 8,
+    /** 默认材质指针。 */
+    defaultG2 = 9,
+    /** 世界坐标原点经纬度或者地形启用状态更新时间戳。 */
+    gisTS = 10,
+    /** 当前GIS状态：0-不启用GIS，1-启用一般GIS，2-启用带地形GIS。 */
+    gisState = 11,
+    /** 当前世界坐标原点经纬度。 */
+    worldLngLat = 12
+}
+export {};

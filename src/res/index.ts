@@ -694,6 +694,8 @@ export const enum CLASSID {
     ASSET_TEXTURE_3D,
     /** 渲染贴图资源（JSON，描述文件，引用图像数据文件，可以是贴图数组）。 */
     ASSET_TEXTURE_RT,
+    /** 图像数据文件。 */
+    ASSET_TEXTURE_FILE,
 
     /** 材质资源（JSON，描述文件，引用ASSET_SHADER，包含贴图描述符）。 */
     ASSET_MATERIAL = 32,

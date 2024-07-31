@@ -311,7 +311,7 @@ export class Gis {
         this._timestamp = timestamp;
         this._flushing = true;
         this._waiting = null;
-        console.error("ccccccccccccccc");
+
         this.FlushMaterial({
             centerMC: centerMC,
             movedMC: [0, 0],
@@ -320,7 +320,7 @@ export class Gis {
 
         this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
             if (timestamp != this._timestamp) {
-                console.warn("该GIS刷新响应已经超时！", Math.ceil((Date.now() - timestamp) / 1000));
+                //this._global.Track(`Gis.Flush: 该GIS刷新响应已经超时！${Math.ceil((Date.now() - timestamp) / 1000)}s`, 2);
                 return;
             }
 
@@ -419,8 +419,8 @@ export class Gis {
                 ];
             }
 
-            if (cur_level.level != (top_level - i)) {
-                console.error("cur_level.level != (top_level - i)");
+            if (cur_level.level && cur_level.level != (top_level - i)) {
+                this._global.Track(`Gis.FlushMaterial: LOD层级编排异常：cur_level.level = ${cur_level.level}, (top_level - i) = ${top_level - i}`, 2);
             }
 
             material.material.view["level"] = [cur_level.level];
@@ -1225,8 +1225,8 @@ export class Gis_pyramid {
         this._layers = [
             {
                 type: "tianditu_dem_c",
-                token: "c6f5fc06a3eeb819a9af72da96665a04",
-                enabled: true
+                token: "d46eda25e81327fdc47e09e286751657",
+                enabled: false
             },
             {
                 type: "arcgisonline_img_w",
@@ -1371,7 +1371,7 @@ export class Gis_pyramid {
                         }
 
                         if (!cur_level.reset) {
-                            console.error("layer.reset state error!");
+                            this._gis["_global"].Track("Gis_pyramid.Update LOD层级重制状态标记异常！", 2);
                             cur_level.reset = true;
                         }
 
@@ -1443,7 +1443,7 @@ export class Gis_pyramid {
 
                     // 由于追加了偏移，所以平铺数量+1
                     if ((bottomRow - topRow) > this._tiling) {
-                        console.error("图层由墨卡托投影转经纬度投影时瓦片平铺数量溢出：", (bottomRow - topRow));
+                        this._gis["_global"].Track(`图层由墨卡托投影转经纬度投影时瓦片平铺数量溢出：${bottomRow} - ${topRow} > ${this._tiling}`, 2);
                     }
 
                     const offset_z__ = ((1.0 - (((90.0 - bottomLat) / rowStride) - bottomRow)) * (1 / (this._tiling + 1)));
@@ -1604,11 +1604,6 @@ export class Gis_pyramid {
 
                     layer_data.cache = {};
                 }
-                else {
-                    if (Object.keys(layer_data.cache).length != (tiling * tiling)) {
-                        console.error("layer cache count error:", Object.keys(layer_data.cache).length, (tiling * tiling));
-                    }
-                }
 
                 layer_data.loading = [];
 
@@ -1737,7 +1732,7 @@ export class Gis_pyramid {
      * @param timestamp 加载任务时间戳。
      * @param callback 加载完成回调。
      */
-    private async Load(timestamp: number, callback: (total: number, succeed: number, failed: number) => void) {
+    private Load(timestamp: number, callback: (total: number, succeed: number, failed: number) => void) {
         // 优先从高层往低层加载待加载瓦片量小于图层瓦片总量1/2的图层瓦片
         // 其次从低层往高层加载其它图层瓦片
         const sort_weight = (level: Gis_level) => {
@@ -1829,7 +1824,6 @@ export class Gis_pyramid {
                             }
                             else if (0 < --times) {
                                 // 天地图拒绝频繁多次请求，因此我们等待0.5秒
-                                console.warn("再次尝试加载瓦片：", url);
                                 setTimeout(load_, 500);
                             }
                             else {
@@ -1876,26 +1870,26 @@ export class Gis_pyramid {
                             const url = this._gis.ServeUrl(layer.type, layer.token, info.col, info.row, info.level);
 
                             if (layer.type == "tianditu_dem_c") {
-                                //TODO
-                                /*
-                                Global.worker.Decode_dem(0, url).then((data) => {
-                                    if (data && timestamp == this_._gis.timestamp) {
-                                        const bitmap: Asset_wrapper_bitmap = {
+                                _global.worker.Decode_dem(1, url).then((data) => {
+                                    if (data && timestamp == this._gis.timestamp) {
+                                        const bitmap: Miaoverse.GLTextureSource = {
+                                            width: layer_serv.tile_size,
+                                            height: layer_serv.tile_size,
                                             data: data,
                                             dataLayout: {
                                                 offset: 0,
                                                 bytesPerRow: 4 * layer_serv.tile_size,
                                                 rowsPerImage: layer_serv.tile_size
-                                            },
-                                            xoffset: layer_serv.tile_size * info.xoffset,
-                                            yoffset: layer_serv.tile_size * (tiling - info.zoffset - 1),
-                                            layer: 0,
-                                            level: 0,
-                                            width: layer_serv.tile_size,
-                                            height: layer_serv.tile_size
+                                            }
                                         };
 
-                                        layer_data.texture.Fill(bitmap);
+                                        this.FillTexture(
+                                            layer_data.texture,
+                                            bitmap,
+                                            layer_serv.tile_size * info.xoffset,
+                                            layer_serv.tile_size * (tiling - info.zoffset - 1)
+                                        );
+
                                         cache[key] = bitmap;
 
                                         flush(true);
@@ -1906,7 +1900,6 @@ export class Gis_pyramid {
                                 }).catch(e => {
                                     flush(false);
                                 });
-                                */
                             }
                             else {
                                 load_buffer(url, 3, (buffer) => {
@@ -1938,9 +1931,12 @@ export class Gis_pyramid {
             }
         }
 
-        await Promise.all(promises);
-
-        callback(total, succeed, failed);
+        Promise.all(promises).then(() => {
+            callback(total, succeed, failed);
+        }).catch((e) => {
+            console.error(e);
+            callback(total, succeed, failed);
+        });
     }
 
     /** LOD层级数。 */

@@ -1,4 +1,4 @@
-/// <reference types="@webgpu/types" />
+/// <reference types="dist" />
 import * as Miaoverse from "./mod.js";
 /** 着色器。 */
 export interface Shader extends PropLayout {

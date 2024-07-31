@@ -1,4 +1,4 @@
-/// <reference types="@webgpu/types" />
+/// <reference types="dist" />
 import * as Miaoverse from "./mod.js";
 /** 渲染设备上下文接口。 */
 export declare class Context {

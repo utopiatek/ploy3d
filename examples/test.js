@@ -33,7 +33,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
-        //this.dior = await resources.Dioramas.Create_3mx(/*"./packages/w3mx/Scene/Production_8.3mx"*/"http://localhost:55477/Production_1.3mx");
+        //this.dior = await resources.Dioramas.Create_3mx(/*"./packages/w3mx/Scene/Production_8.3mx"*/"http://localhost:56558/Production_1.3mx");
 
         this.mat_cube = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
         this.mat_dior = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json");
@@ -163,7 +163,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
                 flags: 0,
                 topology: 3,
                 frontFace: 0,
-                cullMode: 1
+                cullMode: 2
             });
 
             if (queue.framePass.label == "opaque") {

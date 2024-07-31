@@ -1,4 +1,4 @@
-/// <reference types="@webgpu/types" />
+/// <reference types="dist" />
 import * as Miaoverse from "../mod.js";
 /** 贴图资源实例。 */
 export declare class Texture extends Miaoverse.Resource<Texture> {

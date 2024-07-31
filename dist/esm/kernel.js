@@ -97,7 +97,7 @@ export class SharedENV {
         this.uscalarSet(this._ptr, 4, 2048);
         this.uscalarSet(this._ptr, 5, 256);
         this.uscalarSet(this._ptr, 6, 1);
-        this.uscalarSet(this._ptr, 7, this._global.config.webgl ? 1 : 0);
+        this.uscalarSet(this._ptr, 7, this._global.webgl ? 1 : 0);
         this.uscalarSet(this._ptr, 8, 1024);
         this.uscalarSet(this._ptr, 10, 0);
         this.uscalarSet(this._ptr, 11, 0);
