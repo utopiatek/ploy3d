@@ -33,6 +33,9 @@ export class PloyApp_test extends ploycloud.PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
+        //const gltf_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shader_ball.zip", () => { });
+        //console.log("gltf_pkg:", gltf_pkg);
+
         //this.dior = await resources.Dioramas.Create_3mx(/*"./packages/w3mx/Scene/Production_8.3mx"*/"http://localhost:56558/Production_1.3mx");
 
         this.mat_cube = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");

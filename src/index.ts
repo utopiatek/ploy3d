@@ -39,8 +39,6 @@ export class Ploy3D {
         sdl2?: Ploy3D["sdl2"];
         /** 导入ECharts图表库。 */
         echarts?: Ploy3D["echarts"];
-        /** 导入JSZip库。 */
-        JSZip?: Ploy3D["JSZip"];
         /** 引擎实例配置。 */
         config?: Ploy3D["config"];
     }) {
@@ -108,10 +106,6 @@ export class Ploy3D {
 
         if (options.echarts) {
             this.echarts = options.echarts;
-        }
-
-        if (options.JSZip) {
-            this.JSZip = options.JSZip;
         }
 
         if (options.config) {
@@ -466,8 +460,6 @@ export class Ploy3D {
     public sdl2: typeof Miaoverse.sdl2;
     /** ECharts模块名字空间。 */
     public echarts: typeof Miaoverse.echarts;
-    /** JSZip模块接口。 */
-    public JSZip: Miaoverse.JSZip;
 
     /** 内核接口。 */
     public internal: Miaoverse.Internal;

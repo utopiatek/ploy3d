@@ -355,6 +355,8 @@ export declare const Morph_member_index: {
 export interface Asset_mesh extends Miaoverse.Asset {
     /** 网格几何数据构建器。 */
     creater?: Asset_mesh_creater;
+    /** 网格数据URI（集合了ASSET_MESH_GEOMETRY、ASSET_MESH_UVSET、ASSET_SKIN等数据）。 */
+    meshdata?: string;
 }
 /** 网格几何数据构建器。 */
 export interface Asset_mesh_creater {

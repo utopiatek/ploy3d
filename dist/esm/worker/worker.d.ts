@@ -1,6 +1,7 @@
 import type { PackageReg, GLPrimitiveTopology } from "../mod.js";
 import { Kernel, SharedENV, Internal } from "../kernel.js";
 import { Importer } from "./importer.js";
+import "./jszip.min.js";
 /** 事务处理器。 */
 export declare class Miaoworker {
     /**
@@ -37,7 +38,10 @@ export declare class Miaoworker {
      * @param url GLTF文件路径。
      * @returns 异步对象
      */
-    Import_gltf(worker: number, url: string, progress: (rate: number, msg: string) => void): Promise<PackageReg>;
+    Import_gltf(worker: number, url: string, progress: (rate: number, msg: string) => void): Promise<{
+        pkg: import("../mod.js").Package;
+        files: Record<string, any>;
+    }>;
     /**
      * 导入GLTF文件，返回资源包内容。
      * @param worker 派遣线程索引，0为主线程。
@@ -71,6 +75,16 @@ export declare class Miaoworker {
      * @returns 异步对象。
      */
     Decode_dem(worker: number, url: string): Promise<Uint8Array>;
+    /**
+     * 压缩贴图数据。
+     * @param data_ 原始贴图数据。
+     * @param has_alpha 数据是否包含不透明度。
+     * @returns 返回压缩结果。
+     */
+    EncodeTexture(data_: ArrayBuffer, has_alpha: boolean): Promise<{
+        data: ArrayBuffer;
+        has_alpha: boolean;
+    }>;
     /**
      * 发送事务信息给其它线程。
      * @param info 事务信息。
@@ -117,6 +131,8 @@ export declare class Miaoworker {
     webgl: boolean;
     /** 内核代码。 */
     kernelCode: ArrayBuffer;
+    /** 内核管理器。 */
+    kernel: Kernel;
     /** 共享数据环境。 */
     env: SharedENV;
     /** 内核接口。 */

@@ -10,6 +10,8 @@ type Ploy3D = {
     webgl: boolean;
     /** 内核代码。 */
     kernelCode: ArrayBuffer;
+    /** 内核管理器。 */
+    kernel: Kernel;
     /** 共享数据环境。 */
     env: SharedENV;
     /** 内核接口。 */
@@ -210,6 +212,8 @@ export interface Internal {
     Util_Decompress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, drcSize: io_uint) => io_uint;
     /** 压缩LZMA数据。 */
     Util_Compress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, srcSize: io_uint) => io_uint;
+    /** 创建网格资源文件数据。 */
+    Worker_CreateMeshData: (geo: io_ptr) => [number, io_ptr];
     /** 导出引擎模块对象实现。 */
     Engine_Export: () => number[];
 }

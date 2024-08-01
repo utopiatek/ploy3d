@@ -139,7 +139,7 @@ export class Resources {
         if (pkg.zip) {
             if (!cache.zip) {
                 const blob = await this._global.Fetch(pkg.path, null, "arrayBuffer");
-                cache.zip = await this._global.JSZip.loadAsync(blob);
+                cache.zip = await globalThis.JSZip.loadAsync(blob);
             }
             if (!cache.zip) {
                 pkg.invalid = true;

@@ -46,7 +46,6 @@ async function Main(fs_root) {
     }
 
     const engine = new ploycloud.Ploy3D({
-        JSZip,
         config: {
             web: true
         },

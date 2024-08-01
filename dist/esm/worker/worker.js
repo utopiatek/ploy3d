@@ -1,6 +1,7 @@
 import { Kernel } from "../kernel.js";
 import { Importer } from "./importer.js";
 import pako from "./pako.esm.js";
+import "./jszip.min.js";
 export class Miaoworker {
     constructor(_global) {
         this.workerID = -1;
@@ -26,7 +27,7 @@ export class Miaoworker {
     async Startup(args) {
         if (!args) {
             this.workerID = 0;
-            this.worker = new Worker("/dist/esm/worker/worker.js", { type: 'module' });
+            this.worker = new Worker("./dist/esm/worker/worker.js", { type: 'module' });
             this.worker.onmessage = (ev) => {
                 this.OnMessage(ev.data);
             };
@@ -214,6 +215,9 @@ export class Miaoworker {
             }
         }
         return d;
+    }
+    async EncodeTexture(data_, has_alpha) {
+        return null;
     }
     PostMessage(info) {
         info.id = this.sendTick++;

@@ -231,7 +231,7 @@ export class Resources {
         if (pkg.zip) {
             if (!cache.zip) {
                 const blob = await this._global.Fetch<ArrayBuffer>(pkg.path, null, "arrayBuffer");
-                cache.zip = await this._global.JSZip.loadAsync(blob);
+                cache.zip = await (globalThis as any).JSZip.loadAsync(blob);
             }
 
             if (!cache.zip) {
@@ -620,6 +620,13 @@ export interface Package {
     /** 缩略图文件中每行包含缩略图数量。 */
     thumbnail_per_row?: number;
 
+    /** 内嵌网格资源列表。 */
+    mesh_library?: Miaoverse.Asset_mesh[];
+    /** 内嵌材质资源列表。 */
+    material_library?: Miaoverse.Asset_material[];
+    /** 内嵌预制件资源列表。 */
+    prefab_library?: Miaoverse.Asset_prefab[];
+
     /** 共享资源文件清单（其它包仅能引用注册在该清单中的资源，此举确保UUID能索引到文件）。 */
     list: string[];
 }
@@ -711,7 +718,7 @@ export const enum CLASSID {
     ASSET_MESH_UVSET,
     /** 网格数据（BIN，数据文件）。 */
     ASSET_MESH_DATA,
-    /** 材质资源（JSON，描述文件，引用ASSET_MESH_GEOMETRY、ASSET_MESH_UVSET、ASSET_MESH_DATA、ASSET_SKIN、ASSET_MORPH）。 */
+    /** 网格资源（JSON，描述文件，引用ASSET_MESH_GEOMETRY、ASSET_MESH_UVSET、ASSET_MESH_DATA、ASSET_SKIN、ASSET_MORPH）。 */
     ASSET_MESH,
     /** 动画数据（BIN，数据文件）。 */
     ASSET_ANIMATION_DATA,

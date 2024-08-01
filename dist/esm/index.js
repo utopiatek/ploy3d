@@ -51,9 +51,6 @@ export class Ploy3D {
         if (options.echarts) {
             this.echarts = options.echarts;
         }
-        if (options.JSZip) {
-            this.JSZip = options.JSZip;
-        }
         if (options.config) {
             this.config = {
                 ...this.config,
@@ -242,7 +239,6 @@ export class Ploy3D {
     app;
     sdl2;
     echarts;
-    JSZip;
     internal;
     env;
     kernel;

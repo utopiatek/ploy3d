@@ -259,7 +259,7 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
 }
 
 /** 3D对象内核实现。 */
-export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object_member_index>  {
+export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object_member_index> {
     /**
      * 构造函数。
      * @param _global 引擎实例。

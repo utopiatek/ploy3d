@@ -1,8 +1,8 @@
-
 import type { PackageReg, GLPrimitiveTopology } from "../mod.js"
 import { Kernel, SharedENV, Internal } from "../kernel.js"
 import { Importer } from "./importer.js"
 import pako from "./pako.esm.js"
+import "./jszip.min.js"
 
 /** 事务处理器。 */
 export class Miaoworker {
@@ -49,7 +49,7 @@ export class Miaoworker {
     }) {
         if (!args) {
             this.workerID = 0;
-            this.worker = new Worker("/dist/esm/worker/worker.js", { type: 'module' });
+            this.worker = new Worker("./dist/esm/worker/worker.js", { type: 'module' });
 
             // 监听子线程消息
             this.worker.onmessage = (ev: MessageEvent) => {
@@ -167,8 +167,8 @@ export class Miaoworker {
      * @param url GLTF文件路径。
      * @returns 异步对象
      */
-    public Import_gltf(worker: number, url: string, progress: (rate: number, msg: string) => void): Promise<PackageReg> {
-        return new Promise<PackageReg>((resolve, reject) => {
+    public Import_gltf(worker: number, url: string, progress: (rate: number, msg: string) => void) {
+        return new Promise<Awaited<ReturnType<Importer["Import_gltf"]>>>((resolve, reject) => {
             if (this.closed) {
                 reject("事务处理器已关闭！");
                 return;
