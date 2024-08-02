@@ -14,11 +14,6 @@ export class Importer {
 
     /** 装载GLTF场景数据。 */
     public async Import_gltf(url: string, progress: (rate: number, msg: string) => void) {
-        if (url.startsWith("./") && this._worker["workerID"] != 0) {
-            // TODO: "./"相对子线程脚本路径
-            url = "../../../" + url;
-        }
-
         progress(0.0, "加载文件：" + url);
 
         if (url.endsWith(".zip")) {

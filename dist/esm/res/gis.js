@@ -101,8 +101,9 @@ export class Gis {
                 this["_originLL"][0], this["_originLL"][1],
                 this["_originMC"][0], this["_originMC"][1]
             ]);
-            target[0] = offsetX / scaleMC;
-            target[2] = -offsetZ / scaleMC;
+            const _scaleMC = Math.cos(this._originLL[1] / 180.0 * Math.PI);
+            target[0] = offsetX * _scaleMC;
+            target[2] = -offsetZ * _scaleMC;
             resetOrigin = true;
         }
         const targetMC = [originMC[0] + offsetX, originMC[1] + offsetZ];
@@ -425,6 +426,11 @@ export class Gis {
             url = url.replace(new RegExp("\\{index\\}", "g"), "" + index);
         }
         return url;
+    }
+    LL2WPOS(ll) {
+        const mc = this.LL2MC(ll);
+        const scale = Math.cos(this._originLL[1] / 180.0 * Math.PI);
+        return [(mc[0] - this._originMC[0]) * scale, 0, (this._originMC[1] - mc[1]) * scale];
     }
     get lng() {
         return this._lng;

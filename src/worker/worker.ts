@@ -49,7 +49,7 @@ export class Miaoworker {
     }) {
         if (!args) {
             this.workerID = 0;
-            this.worker = new Worker("./dist/esm/worker/worker.js", { type: 'module' });
+            this.worker = new Worker("./worker.js", { type: 'module' });
 
             // 监听子线程消息
             this.worker.onmessage = (ev: MessageEvent) => {
@@ -602,9 +602,4 @@ export const enum WorkType {
     Import_gltf_file,
     /** 装载矢量地图瓦片。 */
     Import_vtile_bd,
-}
-
-/** 子线程脚本装载后自动实例化事务处理器。 */
-if (!globalThis.document) {
-    new Miaoworker();
 }

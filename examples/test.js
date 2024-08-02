@@ -78,6 +78,11 @@ export class PloyApp_test extends ploycloud.PloyApp {
             }
         });
 
+        // 跳转查看指定地理位置方法（北京天安门经纬度: [116.397459, 39.908796]）
+        const targetLL = this.engine.gis.GCJ02_WGS84([116.397459, 39.908796]);
+        const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
+        this.camera.Set3D(targetWPOS, 1000);
+
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(1);
 

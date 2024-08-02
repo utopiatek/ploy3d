@@ -97,6 +97,15 @@ export declare class Gis {
      * @returns 返回URL。
      */
     ServeUrl(type: Gis_layer["type"], token: string, col: number, row: number, level: number): string;
+    /**
+     * 经纬度转当前世界空间坐标（当前世界空间原点经纬度_originLL）。
+     * 注意：
+     * 我们基于当前世界空间原点纬度_originLL[1]来转换世界距离到墨卡托投影距离；
+     * 两个地理位置点间的世界空间距离不是准确的，特别是在纬度跨度很大时；
+     * @param ll 经纬度。
+     * @returns 当前世界空间坐标。
+     */
+    LL2WPOS(ll: number[]): number[];
     /** 当前中心经度。 */
     get lng(): number;
     /** 当前中心纬度。 */

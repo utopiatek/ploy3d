@@ -27,7 +27,7 @@ export class Miaoworker {
     async Startup(args) {
         if (!args) {
             this.workerID = 0;
-            this.worker = new Worker("./dist/esm/worker/worker.js", { type: 'module' });
+            this.worker = new Worker("./worker.js", { type: 'module' });
             this.worker.onmessage = (ev) => {
                 this.OnMessage(ev.data);
             };
@@ -361,8 +361,5 @@ export class Miaoworker {
     env;
     internal;
     importer;
-}
-if (!globalThis.document) {
-    new Miaoworker();
 }
 //# sourceMappingURL=worker.js.map

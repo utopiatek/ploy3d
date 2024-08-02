@@ -162,8 +162,9 @@ export class Gis {
             );
 
             // 设置新世界空间原点后，重新计算相机观察点世界空间坐标
-            target[0] = offsetX / scaleMC;
-            target[2] = -offsetZ / scaleMC;
+            const _scaleMC = Math.cos(this._originLL[1] / 180.0 * Math.PI);
+            target[0] = offsetX * _scaleMC;
+            target[2] = -offsetZ * _scaleMC;
 
             resetOrigin = true;
         }
@@ -696,6 +697,22 @@ export class Gis {
         }
 
         return url;
+    }
+
+    /**
+     * 经纬度转当前世界空间坐标（当前世界空间原点经纬度_originLL）。
+     * 注意：
+     * 我们基于当前世界空间原点纬度_originLL[1]来转换世界距离到墨卡托投影距离；
+     * 两个地理位置点间的世界空间距离不是准确的，特别是在纬度跨度很大时；
+     * @param ll 经纬度。
+     * @returns 当前世界空间坐标。
+     */
+    public LL2WPOS(ll: number[]): number[] {
+        const mc = this.LL2MC(ll);
+        // 相机在球面世界空间中平移，将墨卡托投影空间的距离转换为地球表面的空间距离
+        const scale = Math.cos(this._originLL[1] / 180.0 * Math.PI);
+
+        return [(mc[0] - this._originMC[0]) * scale, 0, (this._originMC[1] - mc[1]) * scale];
     }
 
     /** 当前中心经度。 */

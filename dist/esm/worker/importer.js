@@ -4,9 +4,6 @@ export class Importer {
         this._worker = worker;
     }
     async Import_gltf(url, progress) {
-        if (url.startsWith("./") && this._worker["workerID"] != 0) {
-            url = "../../../" + url;
-        }
         progress(0.0, "加载文件：" + url);
         if (url.endsWith(".zip")) {
             const blob = await this._worker.Fetch(url, null, "blob");
