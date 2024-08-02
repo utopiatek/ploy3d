@@ -413,7 +413,6 @@ export class PloyApp {
                 if (!this.engine.device.Resize()) {
                     return false;
                 }
-                this.engine.env.Tick(0, [0, 0, 0, 0]);
                 this.Update(flags);
                 if ((++this._steps % 60) == 0) {
                     this.Status();

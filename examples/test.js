@@ -36,7 +36,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         //const gltf_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shader_ball.zip", () => { });
         //console.log("gltf_pkg:", gltf_pkg);
 
-        //this.dior = await resources.Dioramas.Create_3mx(/*"./packages/w3mx/Scene/Production_8.3mx"*/"http://localhost:56558/Production_1.3mx");
+        //this.dior = await resources.Dioramas.Create_3mx("./.git.assets/3mx/Production_8.3mx"/*"http://localhost:56558/Production_1.3mx"*/);
 
         this.mat_cube = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
         this.mat_dior = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json");
@@ -82,6 +82,11 @@ export class PloyApp_test extends ploycloud.PloyApp {
         const targetLL = this.engine.gis.GCJ02_WGS84([116.397459, 39.908796]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
         this.camera.Set3D(targetWPOS, 1000);
+
+        // 将根对象定位在指定经纬度，并指定海拔高度
+        // 请传入GCJ02坐标系（高德地图、腾讯地图）经纬度
+        // 经纬度拾取器：https://lbs.qq.com/getPoint/
+        this.object3d.SetLngLat(116.397459, 39.908796, 0.0);
 
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(1);
@@ -141,6 +146,8 @@ export class PloyApp_test extends ploycloud.PloyApp {
      */
     DrawScene(queue) {
         // 应当为所有帧通道预备好着色器管线
+
+        this.mr_cube.SyncInstanceData(this.object3d);
 
         queue.BindMeshRenderer(this.mr_cube);
         queue.BindMaterial(this.mat_cube);

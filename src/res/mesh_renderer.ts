@@ -13,6 +13,15 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
         this._view = new (this.tuple.view)(this as any);
     }
 
+    /**
+     * 同步3D对象变换组件数据到G1。
+     * @param object3d 3D对象内核实例。
+     * @returns 返回变换时间戳。
+     */
+    public SyncInstanceData(object3d: Miaoverse.Object3D) {
+        return this._impl["_SyncInstanceData"](this._ptr, object3d.internalPtr);
+    }
+
     /** 数据块在缓存中的字节大小（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
     public get size(): number {
         return this._impl.Get<number>(this._ptr, "bufferBlockSize") - 256;
@@ -122,6 +131,14 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
      * @param skeleton 骨架定义数据内核实例。
      */
     protected _Create: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+
+    /**
+     * 同步3D对象变换组件数据到G1。
+     * @param mesh_renderer 网格资源内核实例。
+     * @param object3d 3D对象内核实例。
+     * @returns 返回变换时间戳。
+     */
+    protected _SyncInstanceData: (mesh_renderer: Miaoverse.io_ptr, object3d: Miaoverse.io_ptr) => number;
 
     /** 内置默认网格渲染器组件实例。 */
     public defaultG1: MeshRenderer;

@@ -4,6 +4,9 @@ export class MeshRenderer extends Miaoverse.Uniform {
         super(impl, ptr, id);
         this._view = new (this.tuple.view)(this);
     }
+    SyncInstanceData(object3d) {
+        return this._impl["_SyncInstanceData"](this._ptr, object3d.internalPtr);
+    }
     get size() {
         return this._impl.Get(this._ptr, "bufferBlockSize") - 256;
     }
@@ -62,6 +65,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
         return instance;
     }
     _Create;
+    _SyncInstanceData;
     defaultG1;
 }
 export const MeshRendere_member_index = {

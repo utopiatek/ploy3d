@@ -16,6 +16,15 @@ export declare class Object3D extends Miaoverse.Resource<Object3D> {
     SetParent(parent: Object3D, worldPositionStays?: boolean): void;
     /** 遍历处理每个子对象。 */
     ForEachChild(proc: (index: number, obj: Object3D) => void): void;
+    /**
+     * 设置根对象变换参考的经纬度和海拔高度。
+     * 请传入GCJ02坐标系（高德地图、腾讯地图）经纬度。
+     * 经纬度拾取器：https://lbs.qq.com/getPoint/
+     * @param lng 经度。
+     * @param lat 纬度。
+     * @param altitude 海拔高度。
+     */
+    SetLngLat(lng: number, lat: number, altitude: number): void;
     /** 变换组件更新时间戳。 */
     get writeTS(): number;
     /** 变换组件应用时间戳。 */

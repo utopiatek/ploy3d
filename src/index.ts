@@ -794,7 +794,7 @@ export class PloyApp {
                 }
 
                 // 更新帧时间戳和同步GIS状态到内核
-                this.engine.env.Tick(0, [0, 0, 0, 0]);
+                // this.engine.env.Tick(0, [0, 0, 0, 0]);
 
                 // 调用用户的场景更新方法
                 this.Update(flags);

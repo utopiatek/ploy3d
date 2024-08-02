@@ -19,6 +19,14 @@ export class Object3D extends Miaoverse.Resource {
             index++;
         }
     }
+    SetLngLat(lng, lat, altitude) {
+        const ll = this._global.gis.GCJ02_WGS84([lng, lat]);
+        const mc = this._global.gis.LL2MC(ll);
+        this._impl.Set(this._ptr, "gisTS", 0);
+        this._impl.Set(this._ptr, "altitude", altitude);
+        this._impl.Set(this._ptr, "worldLLMC", [ll[0], ll[1], mc[0], mc[1]]);
+        this._impl["_Flush"](this._ptr, 1);
+    }
     get writeTS() {
         return this._impl.Get(this._ptr, "writeTS");
     }

@@ -37,6 +37,25 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         }
     }
 
+    /**
+     * 设置根对象变换参考的经纬度和海拔高度。
+     * 请传入GCJ02坐标系（高德地图、腾讯地图）经纬度。
+     * 经纬度拾取器：https://lbs.qq.com/getPoint/
+     * @param lng 经度。
+     * @param lat 纬度。
+     * @param altitude 海拔高度。
+     */
+    public SetLngLat(lng: number, lat: number, altitude: number) {
+        const ll = this._global.gis.GCJ02_WGS84([lng, lat]);
+        const mc = this._global.gis.LL2MC(ll);
+
+        this._impl.Set(this._ptr, "gisTS", 0);
+        this._impl.Set(this._ptr, "altitude", altitude);
+        this._impl.Set(this._ptr, "worldLLMC", [ll[0], ll[1], mc[0], mc[1]]);
+
+        this._impl["_Flush"](this._ptr, 1);
+    }
+
     /** 变换组件更新时间戳。 */
     public get writeTS(): number {
         return this._impl.Get(this._ptr, "writeTS");
