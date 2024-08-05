@@ -311,20 +311,6 @@ export class SharedENV {
         }
     }
 
-    /** 生成基于注册用户的UUID。 */
-    public async uuidGet2() {
-        const uid = this._global.uid;
-
-        return new Promise<string>(function (resolve) {
-            setTimeout(function () {
-                // 时间戳，分配时长0.1秒，即1秒内只能分配10个时间戳，4900天内不重复
-                const ts = Math.floor(Date.now() * 0.01) & 0xFFFFFFFF;
-                // uid-ts-ver#type-index
-                resolve(`${uid}-${ts}-1`);
-            }, 100);
-        });
-    }
-
     /** 生成GUID。 */
     public guidGet() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -344,6 +330,20 @@ export class SharedENV {
         }) + "/" + guid;
 
         return { path, guid };
+    }
+
+    /** 生成基于注册用户的UUID。 */
+    public async uuidGen() {
+        const uid = this._global.uid;
+
+        return new Promise<string>(function (resolve) {
+            setTimeout(function () {
+                // 时间戳，分配时长0.1秒，即1秒内只能分配10个时间戳，4900天内不重复
+                const ts = Math.floor(Date.now() * 0.01) & 0xFFFFFFFF;
+                // uid-ts-ver#type-index
+                resolve(`${uid}-${ts}-1`);
+            }, 100);
+        });
     }
 
     /** 写入UUID字符串数据。 */
@@ -649,6 +649,8 @@ export interface Internal {
 
     /** 创建网格资源文件数据。 */
     Worker_CreateMeshData: (geo: io_ptr) => [number, io_ptr];
+    /** 解压CTM网格数据。 */
+    Worker_DecodeCTM: (ctmData: io_ptr) => [number, io_ptr];
 
     /** 导出引擎模块对象实现。 */
     Engine_Export: () => number[];

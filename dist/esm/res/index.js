@@ -120,6 +120,9 @@ export class Resources {
             }
             if (pkg.resid_path) {
                 path = pkg.resid_path[resid];
+                if (typeof path != "string") {
+                    return { pkg, data: path };
+                }
             }
         }
         if (!path) {
@@ -277,11 +280,17 @@ export class Resources {
             return undefined;
         });
     }
-    Register(entry) {
+    Register(entry, files) {
         entry.index = this._pkg_list.length;
         this._pkg_list.push(entry);
         this._pkg_keyLut[entry.key] = entry.index;
         this._pkg_uuidLut[entry.uuid] = entry.index;
+        if (files) {
+            this._pkg_caches[entry.index] = {
+                index: entry.index,
+                files: files
+            };
+        }
         const parts = entry.uuid.split("-");
         const version = parseInt(parts[2]);
         const latest_uuid = `${parts[0]}-${parts[1]}-0`;
@@ -297,14 +306,26 @@ export class Resources {
         }
     }
     async Preview(pkg) {
-        pkg.meta = (await this.Load_file("json", ":/package.json", true, pkg))?.data;
+        if (!pkg.meta) {
+            pkg.meta = (await this.Load_file("json", ":/package.json", true, pkg))?.data;
+        }
         if (pkg.meta) {
             pkg.resid_path = {};
-            for (let path of pkg.meta.list) {
+            for (let path of pkg.meta.file_library) {
                 const splitter = path.lastIndexOf("/");
                 const filename = path.substring(splitter + 1);
                 const resid = filename.substring(0, filename.indexOf("_"));
                 pkg.resid_path[resid] = path;
+            }
+            if (pkg.meta.material_library) {
+                for (let res of pkg.meta.material_library) {
+                    pkg.resid_path[res.uuid] = res;
+                }
+            }
+            if (pkg.meta.mesh_library) {
+                for (let res of pkg.meta.mesh_library) {
+                    pkg.resid_path[res.uuid] = res;
+                }
             }
         }
     }

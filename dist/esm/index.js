@@ -342,6 +342,48 @@ export class PloyApp {
         progress(1.0, "完成场景初始化");
         return true;
     }
+    async CreateAtmosphere(scene) {
+        const resources = this.engine.resources;
+        const mesh = await resources.Mesh.Create({
+            uuid: "",
+            classid: 39,
+            name: "atmosphere",
+            label: "atmosphere",
+            creater: {
+                type: "sphere",
+                sphere: {
+                    radius: 6478137.0,
+                    widthSegments: 180,
+                    heightSegments: 90,
+                    phiStart: 0,
+                    phiLength: Math.PI * 2,
+                    thetaStart: 0,
+                    thetaLength: Math.PI
+                }
+            }
+        });
+        const material = await resources.Material.Create({
+            uuid: "",
+            classid: 32,
+            name: "atmosphere",
+            label: "atmosphere",
+            shader: "1-1-1.miaokit.builtins:/shader/17-5_standard_atmosphere.json",
+            flags: 1 | 16777216,
+            properties: {
+                textures: {},
+                vectors: {}
+            }
+        });
+        const mesh_renderer = await resources.MeshRenderer.Create(mesh, null);
+        const object3d = await resources.Object.Create(scene);
+        this._atmosphere = {
+            mesh,
+            material,
+            mesh_renderer,
+            object3d
+        };
+        return this._atmosphere;
+    }
     async InitEvent() {
         if (!this.engine.config.web) {
             return PloyApp.SDL2_InitEvent(this);
@@ -413,6 +455,10 @@ export class PloyApp {
                 if (!this.engine.device.Resize()) {
                     return false;
                 }
+                this.engine.env.Tick(this.engine.gis.enable_terrain ? 2 : 1, [
+                    this.engine.gis["_originLL"][0], this.engine.gis["_originLL"][1],
+                    this.engine.gis["_originMC"][0], this.engine.gis["_originMC"][1]
+                ]);
                 this.Update(flags);
                 if ((++this._steps % 60) == 0) {
                     this.Status();
@@ -467,6 +513,7 @@ export class PloyApp {
     ui_canvas;
     ui_ctx;
     event_listener = {};
+    _atmosphere;
     _loop2d = 0;
     _loop3d = 0;
     _draw3d = false;

@@ -163,6 +163,24 @@ export class Miaoworker {
             }
         });
     }
+    Load_3mxb_resource(worker, group, progress) {
+        return new Promise((resolve, reject) => {
+            if (this.closed) {
+                reject("事务处理器已关闭！");
+                return;
+            }
+            if (0 === worker) {
+                this.importer.Load_3mxb_resource(group, progress).then(resolve).catch(reject);
+            }
+            else {
+                this.PostMessage({
+                    type: 6,
+                    state: 0,
+                    args: group,
+                }).then(resolve).catch(reject);
+            }
+        });
+    }
     async Decode_dem(worker, url) {
         const buffer = await this.Fetch(url, null, "arrayBuffer");
         if (!buffer) {
@@ -299,6 +317,19 @@ export class Miaoworker {
             }
             else if (info.type === 5) {
                 this.Import_vtile_bd(0, info.args.param, (rate, msg) => { })
+                    .then((data) => {
+                    info.args = data;
+                    info.state = 2;
+                    this.PostMessage(info);
+                })
+                    .catch((reason) => {
+                    info.args = reason;
+                    info.state = -1;
+                    this.PostMessage(info);
+                });
+            }
+            else if (info.type === 6) {
+                this.Load_3mxb_resource(0, info.args, (rate, msg) => { })
                     .then((data) => {
                     info.args = data;
                     info.state = 2;

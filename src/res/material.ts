@@ -228,7 +228,7 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
 }
 
 /** 帧统一资源组实例（G0）。 */
-export class FrameUniforms extends Miaoverse.Uniform<Material_kernel>{
+export class FrameUniforms extends Miaoverse.Uniform<Material_kernel> {
     /**
      * 构造函数。
      * @param impl 内核实现。
@@ -348,8 +348,9 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
 
         desc.data.uuid = uuid;
 
-        desc.data.shader = this._global.resources.ToUUID(desc.data.shader, desc.pkg);
-
+        if (desc.data.shader.startsWith(":/")) {
+            desc.data.shader = desc.pkg.key + desc.data.shader;
+        }
         const textures = desc.data.properties.textures;
 
         for (let key in textures) {
@@ -369,7 +370,8 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
     public async Create(asset: Asset_material) {
         const shader = await this._global.resources.Shader.Load(asset.shader);
         if (!shader) {
-            throw "获取着色器资源失败！";
+            this._global.Track("Material_kernel.Create: 获取着色器资源失败！" + asset.shader, 3);
+            return null;
         }
 
         const ptr = this._Create(shader.uniformSize, this._global.env.ptrZero());

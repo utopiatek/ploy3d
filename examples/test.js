@@ -33,15 +33,22 @@ export class PloyApp_test extends ploycloud.PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
-        //const gltf_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shader_ball.zip", () => { });
-        //console.log("gltf_pkg:", gltf_pkg);
+        // 创建地球大气层对象
+        await this.CreateAtmosphere(this.scene);
 
-        //this.dior = await resources.Dioramas.Create_3mx("./.git.assets/3mx/Production_8.3mx"/*"http://localhost:56558/Production_1.3mx"*/);
+        // 导入GLTF模型为引擎资源包
+        this.gltf_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shader_ball.zip", () => { });
+        // 注册引擎资源包
+        this.engine.resources.Register(this.gltf_pkg.pkg, this.gltf_pkg.files);
+        // 装载GLTF中的某个网格资源
+        this.gltf_mesh_0 = await resources.Mesh.Load("39-0", this.gltf_pkg.pkg);
+
+        //this.dior = await resources.Dioramas.Create_3mx(/*"./.git.assets/3mx/Production_8.3mx"*/"http://localhost:59346/Production_1.3mx");
 
         this.mat_cube = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
         this.mat_dior = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json");
 
-        this.mesh_cube = resources.Mesh.Create({
+        this.mesh_cube = await resources.Mesh.Create({
             uuid: "",
             classid: /*CLASSID.ASSET_MESH*/39,
             name: "cube mesh",
@@ -59,6 +66,8 @@ export class PloyApp_test extends ploycloud.PloyApp {
                 }
             }
         });
+
+        this.mesh_cube = this.gltf_mesh_0;
 
         this.mr_cube = await resources.MeshRenderer.Create(this.mesh_cube, null);
 
@@ -79,14 +88,15 @@ export class PloyApp_test extends ploycloud.PloyApp {
         });
 
         // 跳转查看指定地理位置方法（北京天安门经纬度: [116.397459, 39.908796]）
-        const targetLL = this.engine.gis.GCJ02_WGS84([116.397459, 39.908796]);
+        const targetLL = this.engine.gis.GCJ02_WGS84([120.2824892, 30.4876468]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
         this.camera.Set3D(targetWPOS, 1000);
 
         // 将根对象定位在指定经纬度，并指定海拔高度
         // 请传入GCJ02坐标系（高德地图、腾讯地图）经纬度
         // 经纬度拾取器：https://lbs.qq.com/getPoint/
-        this.object3d.SetLngLat(116.397459, 39.908796, 0.0);
+        const ll_gcj02 = this.engine.gis.WGS84_GCJ02([120.281164, 30.4857535]);
+        this.object3d.SetLngLat(ll_gcj02[0], ll_gcj02[1], 0.0);
 
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(1);
@@ -160,15 +170,21 @@ export class PloyApp_test extends ploycloud.PloyApp {
         });
 
         this.engine.context.SetVertexBuffers(0, this.mesh_cube.vertices, queue.passEncoder);
-        this.engine.context.SetIndexBuffer(this.mesh_cube.ibFormat, this.mesh_cube.triangles[0], queue.passEncoder);
 
-        queue.passEncoder.drawIndexed(
-            this.mesh_cube.iCount,  // indexCount
-            1,                      // instanceCount
-            0,                      // firstIndex
-            0,                      // baseVertex
-            0,                      // firstInstance
-        );
+        for (let i = 0; i < this.mesh_cube.ibCount; i++) {
+            const subMesh = this.mesh_cube.triangles[i];
+            const ibFormat = this.mesh_cube.ibFormat;
+
+            this.engine.context.SetIndexBuffer(ibFormat, subMesh, queue.passEncoder);
+
+            queue.passEncoder.drawIndexed(
+                subMesh.size / ibFormat,// indexCount
+                1,                      // instanceCount
+                0,                      // firstIndex
+                0,                      // baseVertex
+                0,                      // firstInstance
+            );
+        }
 
         if (this.dior) {
             queue.BindMeshRenderer(this.mr_cube);
@@ -191,6 +207,33 @@ export class PloyApp_test extends ploycloud.PloyApp {
         if (this.engine.gis) {
             this.engine.gis.Draw(queue);
         }
+
+        if (this._atmosphere) {
+            const { mesh, material, mesh_renderer, object3d } = this._atmosphere;
+
+            // mesh_renderer.SyncInstanceData(object3d);
+
+            queue.BindMeshRenderer(mesh_renderer);
+            queue.BindMaterial(material);
+
+            queue.BindRenderPipeline({
+                flags: mesh.vbLayout,
+                topology: 3,
+                frontFace: 0,
+                cullMode: 2
+            });
+
+            this.engine.context.SetVertexBuffers(0, mesh.vertices, queue.passEncoder);
+            this.engine.context.SetIndexBuffer(mesh.ibFormat, mesh.triangles[0], queue.passEncoder);
+
+            queue.passEncoder.drawIndexed(
+                mesh.triangles[0].size / mesh.ibFormat, // indexCount
+                1,                      // instanceCount
+                0,                      // firstIndex
+                0,                      // baseVertex
+                0,                      // firstInstance
+            );
+        }
     }
 
     /** @type {ploycloud.Scene} 场景实例。 */
@@ -201,6 +244,11 @@ export class PloyApp_test extends ploycloud.PloyApp {
     camera;
     /** @type {ploycloud.Volume} 体积组件实例。 */
     volume;
+
+    /** GLTF资源包。 */
+    gltf_pkg;
+    /** GLTF资源包网格资源。 */
+    gltf_mesh_0;
 
     /** @type {ploycloud.Dioramas_3mx} 倾斜摄影组件实例。 */
     dior;

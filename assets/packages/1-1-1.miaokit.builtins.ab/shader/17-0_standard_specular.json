@@ -7,6 +7,28 @@
         "type": "shading",
         "settings": {},
         "properties": {
+            "metallicFactor": {
+                "note": "金属度因子。",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "clearcoatFactor": {
+                "note": "清漆层强度因子。",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "clearcoatRoughnessFactor": {
+                "note": "清漆层粗糙度因子。",
+                "sign": "f32",
+                "value": [
+                    0.5
+                ]
+            },
+
             "baseColor": {
                 "note": "非金属表面的漫反射反照率，金属表面的镜面反射颜色。",
                 "sign": "vec4<f32>",
@@ -17,34 +39,6 @@
                     1.0
                 ]
             },
-            "specularScale": {
-                "note": "镜面反射率强度缩放。",
-                "sign": "f32",
-                "value": [
-                    1.0
-                ]
-            },
-            "metallic": {
-                "note": "金属度（0或1）。",
-                "sign": "f32",
-                "value": [
-                    0.0
-                ]
-            },
-            "bumpiness": {
-                "note": "法线贴图强度缩放。",
-                "sign": "f32",
-                "value": [
-                    1.0
-                ]
-            },
-            "glossinessScale": {
-                "note": "光泽度强度缩放。",
-                "sign": "f32",
-                "value": [
-                    1.0
-                ]
-            },
             "alphaBias": {
                 "note": "不透明度偏移。",
                 "sign": "f32",
@@ -52,6 +46,44 @@
                     0.0
                 ]
             },
+            "specularFactor": {
+                "note": "镜面反射率强度因子。",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "glossinessFactor": {
+                "note": "光泽度强度因子。",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "bumpinessFactor": {
+                "note": "法线贴图强度缩放。",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "emissiveFactor": {
+                "note": "自发光颜色因子。",
+                "sign": "vec3<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "emissiveIntensity": {
+                "note": "自发光强度缩放。",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+
             "baseTex": {
                 "note": "贴图：非金属表面的漫反射反照率，金属表面的镜面反射颜色。",
                 "sign": "texture_2d<f32>"
@@ -78,6 +110,10 @@
             },
             "emissiveTex": {
                 "note": "贴图：自发光颜色。",
+                "sign": "texture_2d<f32>"
+            },
+            "sssTex": {
+                "note": "贴图：SSS。",
                 "sign": "texture_2d<f32>"
             }
         },

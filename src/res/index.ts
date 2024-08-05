@@ -208,6 +208,11 @@ export class Resources {
 
             if (pkg.resid_path) {
                 path = pkg.resid_path[resid];
+
+                // 子类资源数据直接保存在描述文件中，直接返回
+                if (typeof path != "string") {
+                    return { pkg, data: path };
+                }
             }
         }
 
@@ -435,12 +440,19 @@ export class Resources {
      * 注册资源包。
      * @param entry 资源包注册信息。
      */
-    public Register(entry: PackageReg) {
+    public Register(entry: PackageReg, files?: Record<string, any>) {
         entry.index = this._pkg_list.length;
 
         this._pkg_list.push(entry);
         this._pkg_keyLut[entry.key] = entry.index;
         this._pkg_uuidLut[entry.uuid] = entry.index;
+
+        if (files) {
+            this._pkg_caches[entry.index] = {
+                index: entry.index,
+                files: files
+            };
+        }
 
         // 设置包最新版本 ================------------------------
 
@@ -466,17 +478,31 @@ export class Resources {
      * @param entry 资源包注册信息。
      */
     public async Preview(pkg: PackageReg) {
-        pkg.meta = (await this.Load_file<any>("json", ":/package.json", true, pkg))?.data;
+        if (!pkg.meta) {
+            pkg.meta = (await this.Load_file<any>("json", ":/package.json", true, pkg))?.data;
+        }
 
         if (pkg.meta) {
             pkg.resid_path = {};
 
-            for (let path of pkg.meta.list) {
+            for (let path of pkg.meta.file_library) {
                 const splitter = path.lastIndexOf("/");
                 const filename = path.substring(splitter + 1);
                 const resid = filename.substring(0, filename.indexOf("_"));
 
                 pkg.resid_path[resid] = path;
+            }
+
+            if (pkg.meta.material_library) {
+                for (let res of pkg.meta.material_library) {
+                    pkg.resid_path[res.uuid] = res;
+                }
+            }
+
+            if (pkg.meta.mesh_library) {
+                for (let res of pkg.meta.mesh_library) {
+                    pkg.resid_path[res.uuid] = res;
+                }
             }
         }
     }
@@ -563,7 +589,7 @@ export class Resource<T> {
 /** 资源包注册项。 */
 export interface PackageReg {
     /** 资源包注册号。 */
-    index: number;
+    index?: number;
     /** 资源包键名（如："1-1-1.miaokit.builtins"）。 */
     key: string;
     /** 资源包UUID（如："1-1-1"）。 */
@@ -578,15 +604,15 @@ export interface PackageReg {
 
     /** 资源包元数据缓存（空表示当前资源包仅已注册但未缓存）。 */
     meta?: Package;
-    /** 资源ID到资源文件路径映射表（通过Package.list构建）。 */
-    resid_path?: Record<string, string>;
+    /** 资源ID到资源文件路径映射表（通过Package.library构建）。 */
+    resid_path?: Record<string, string | any>;
 }
 
 /** 资源包元数据。 */
 export interface Package {
     /** 包GUID（全球唯一）。 */
     guid: string;
-    /** 包UUID（平台唯一）。 */
+    /** 包UUID（平台唯一，uid-pid-ver）。 */
     uuid: string;
     /** 用户ID（UUID第1段）。 */
     uid: number;
@@ -626,9 +652,8 @@ export interface Package {
     material_library?: Miaoverse.Asset_material[];
     /** 内嵌预制件资源列表。 */
     prefab_library?: Miaoverse.Asset_prefab[];
-
     /** 共享资源文件清单（其它包仅能引用注册在该清单中的资源，此举确保UUID能索引到文件）。 */
-    list: string[];
+    file_library?: string[];
 }
 
 /** 资源描述符基类。 */

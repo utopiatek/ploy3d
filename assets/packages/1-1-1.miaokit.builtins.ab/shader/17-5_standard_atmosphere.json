@@ -1,0 +1,47 @@
+{
+    "classid": 17,
+    "name": "standard_atmosphere",
+    "label": "standard_atmosphere",
+    "asset": {
+        "name": "",
+        "type": "shading",
+        "settings": {},
+        "properties": {
+            "baseColor": {
+                "note": "",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "baseTex": {
+                "note": "",
+                "sign": "texture_2d<f32>"
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/wgsl/20-0_common.wgsl",
+                    ":/shader/wgsl/20-1_common.vertex.wgsl",
+                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/wgsl/20-21_standard_atmosphere.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/wgsl/20-0_common.wgsl",
+                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/wgsl/20-22_standard_atmosphere.material.wgsl"
+            },
+            "shading": {
+                "includes": [],
+                "main": ":/shader/wgsl/20-8_standard.shading.wgsl"
+            }
+        }
+    }
+}

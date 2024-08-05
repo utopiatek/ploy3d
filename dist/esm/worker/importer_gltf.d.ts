@@ -11,7 +11,7 @@ export declare class Importer_gltf {
      * 装载GLTF场景数据。
      */
     Load(data: Gltf, progress: (rate: number, msg: string) => void): Promise<{
-        pkg: Miaoverse.Package;
+        pkg: Miaoverse.PackageReg;
         files: Record<string, any>;
     }>;
     /**

@@ -20,23 +20,34 @@ export class Importer_gltf {
         const prefab_library = await this.LoadNodes();
         progress(0.9, "加载动画数据");
         progress(1.0, "资源包解析完成");
+        const uuid = await this._worker.env.uuidGen();
+        const uuid_parts = uuid.split("-");
         const pkg = {
             guid: this._worker.env.guidGet(),
-            uuid: "",
-            uid: this._worker.uid,
-            pid: 0,
-            version: 1,
+            uuid: uuid,
+            uid: parseInt(uuid_parts[0]),
+            pid: parseInt(uuid_parts[1]),
+            version: parseInt(uuid_parts[2]),
             author: "miaokit",
-            name: data.asset.extras.name,
+            name: data.asset.extras.name.replace(".", "_"),
             desc: "",
             engine: 1.0,
             timestrap: Date.now(),
             material_library,
             mesh_library,
             prefab_library,
-            list: Object.keys(this._files_cache)
+            file_library: Object.keys(this._files_cache)
         };
-        return { pkg, files: this._files_cache };
+        const pkg_key = pkg.uuid + "." + pkg.author + "." + pkg.name;
+        const pkg_reg = {
+            key: pkg_key,
+            uuid: pkg.uuid,
+            invalid: false,
+            path: "./assets/packages/" + pkg_key + ".ab",
+            zip: false,
+            meta: pkg
+        };
+        return { pkg: pkg_reg, files: this._files_cache };
     }
     async LoadBuffers() {
         for (let ibuffer of this._data.buffers) {
@@ -70,7 +81,7 @@ export class Importer_gltf {
     }
     LoadMesh(meshIndex) {
         const meshData = this._data.meshes[meshIndex];
-        let channels = 0;
+        let channels = 1;
         let vCount = 0;
         let iCount = 0;
         let ibCount = 0;
@@ -211,6 +222,9 @@ export class Importer_gltf {
                     }
                 }
             }
+            groups[g4 + 0] = 3;
+            groups[g4 + 1] = iindex;
+            groups[g4 + 3] = 0;
             if (primitive.indices) {
                 const iarray = primitive.indices.array;
                 const vertexOffset = primitive.indices.vertexOffset;
@@ -226,9 +240,6 @@ export class Importer_gltf {
                 }
                 groups[g4 + 2] = vcount;
             }
-            groups[g4 + 0] = 3;
-            groups[g4 + 1] = g;
-            groups[g4 + 3] = 0;
         }
         header[0] = channels;
         header[1] = iCount;
@@ -247,11 +258,11 @@ export class Importer_gltf {
         const uri = "mesh/" + name + ".bin";
         this._files_cache[uri] = res_data;
         const asset = {
-            uuid: "",
+            uuid: "" + 39 + "-" + meshIndex,
             classid: 39,
             name: meshData.name || "",
             label: meshData.name || "",
-            meshdata: uri,
+            meshdata: ":/" + uri,
         };
         meshData.extras = asset;
         return asset;
@@ -358,7 +369,7 @@ export class Importer_gltf {
             const texture = textures[i];
             const state = samplers[texture.sampler];
             const wrapper = {
-                uri: images[texture.source]?.uri,
+                uri: ":/" + images[texture.source]?.uri,
                 uvts: [0, 0, 1, 1],
                 color: [255, 255, 255, 255],
                 sampler: {}
@@ -502,7 +513,7 @@ export class Importer_gltf {
         for (let i = 0; i < count; i++) {
             const material = materials[i];
             const asset = {
-                uuid: "",
+                uuid: "" + 32 + "-" + i,
                 classid: 32,
                 name: material.name || "",
                 label: material.name || "",
@@ -539,20 +550,20 @@ export class Importer_gltf {
                     asset.properties.textures["baseTex"] = getTexture(pbr.baseColorTexture.index);
                 }
                 if (undefined !== pbr.metallicFactor) {
-                    asset.properties.vectors["metallic"] = [pbr.metallicFactor];
+                    asset.properties.vectors["metallicFactor"] = [pbr.metallicFactor];
                 }
                 else {
-                    asset.properties.vectors["metallic"] = [1];
+                    asset.properties.vectors["metallicFactor"] = [1];
                 }
                 if (undefined !== pbr.roughnessFactor) {
-                    asset.properties.vectors["roughness"] = [pbr.roughnessFactor];
+                    asset.properties.vectors["glossinessFactor"] = [1.0 - pbr.roughnessFactor];
                 }
                 else {
-                    asset.properties.vectors["roughness"] = [1];
+                    asset.properties.vectors["glossinessFactor"] = [1.0];
                 }
                 if (pbr.metallicRoughnessTexture) {
-                    asset.properties.textures["roughnessTex"] = getTexture(pbr.metallicRoughnessTexture.index);
-                    asset.properties.textures["metallicTex"] = getTexture(pbr.metallicRoughnessTexture.index);
+                    asset.properties.textures["glossinessTex"] = getTexture(pbr.metallicRoughnessTexture.index);
+                    asset.properties.textures["specularTex"] = getTexture(pbr.metallicRoughnessTexture.index);
                 }
             }
             const normal = material.normalTexture;
@@ -561,10 +572,10 @@ export class Importer_gltf {
             }
             const ao = material.occlusionTexture;
             if (ao) {
-                asset.properties.textures["light_aoTex"] = getTexture(ao.index);
+                asset.properties.textures["aoTex"] = getTexture(ao.index);
             }
             if (material.emissiveFactor) {
-                asset.properties.vectors["emissiveColor"] = material.emissiveFactor;
+                asset.properties.vectors["emissiveFactor"] = material.emissiveFactor;
                 asset.properties.vectors["emissiveIntensity"] = [1.0];
             }
             const emissive = material.emissiveTexture;
@@ -576,8 +587,8 @@ export class Importer_gltf {
             if (extensions) {
                 const KHR_materials_clearcoat = extensions.KHR_materials_clearcoat;
                 if (KHR_materials_clearcoat) {
-                    asset.properties.vectors["clearCoat"] = [KHR_materials_clearcoat.clearcoatFactor];
-                    asset.properties.vectors["clearCoatRoughness"] = [KHR_materials_clearcoat.clearcoatRoughnessFactor];
+                    asset.properties.vectors["clearcoatFactor"] = [KHR_materials_clearcoat.clearcoatFactor];
+                    asset.properties.vectors["clearcoatRoughnessFactor"] = [KHR_materials_clearcoat.clearcoatRoughnessFactor];
                 }
                 const KHR_materials_unlit = extensions.KHR_materials_unlit;
                 if (KHR_materials_unlit) {
@@ -593,18 +604,19 @@ export class Importer_gltf {
                         asset.properties.textures["baseTex"] = getTexture(KHR_materials_pbrSpecularGlossiness.diffuseTexture.index);
                     }
                     if (KHR_materials_pbrSpecularGlossiness.specularFactor) {
-                        asset.properties.vectors["specularColor"] = KHR_materials_pbrSpecularGlossiness.specularFactor;
+                        asset.properties.vectors["specularFactor"] = KHR_materials_pbrSpecularGlossiness.specularFactor;
                     }
                     if (KHR_materials_pbrSpecularGlossiness.glossinessFactor) {
-                        asset.properties.vectors["glossiness"] = [KHR_materials_pbrSpecularGlossiness.glossinessFactor];
+                        asset.properties.vectors["glossinessFactor"] = [KHR_materials_pbrSpecularGlossiness.glossinessFactor];
                     }
                     if (KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture) {
-                        asset.properties.textures["metallicTex"] = getTexture(KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture.index);
+                        asset.properties.textures["specularTex"] = getTexture(KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture.index);
+                        asset.properties.textures["glossinessTex"] = getTexture(KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture.index);
                     }
                 }
                 const MV_sssTexture = extensions.MV_sssTexture;
                 if (MV_sssTexture) {
-                    asset.properties.textures["light_sssTex"] = getTexture(MV_sssTexture.index);
+                    asset.properties.textures["sssTex"] = getTexture(MV_sssTexture.index);
                 }
                 const MV_subsurface = extensions.MV_sssTexture;
                 if (MV_subsurface) {

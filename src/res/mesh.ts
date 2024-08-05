@@ -155,13 +155,45 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
     }
 
     /**
+     * 装载网格资源。
+     * @param uri 网格资源URI。
+     * @param pkg 当前资源包注册信息。
+     * @returns 异步返回网格资源实例。
+     */
+    public async Load(uri: string, pkg?: Miaoverse.PackageReg) {
+        const uuid = this._global.resources.ToUUID(uri, pkg);
+        if (!uuid) {
+            return null;
+        }
+
+        if (this._instanceLut[uuid]) {
+            return this._instanceLut[uuid];
+        }
+
+        // 加载装配材质资产 ===============-----------------------
+
+        const desc = await this._global.resources.Load_file<Asset_mesh>("json", uri, true, pkg);
+        if (!desc) {
+            return null;
+        }
+
+        desc.data.uuid = uuid;
+
+        // 创建实例 ===============-----------------------
+
+        return this.Create(desc.data, desc.pkg);
+    }
+
+    /**
      * 运行时创建网格资源实例。
      * @param asset 网格资源描述符。
+     * @param pkg 当前资源包注册信息。
      * @returns 返回网格资源实例。
      */
-    public Create(asset: Asset_mesh) {
-        let type = asset.creater.type;
+    public async Create(asset: Asset_mesh, pkg?: Miaoverse.PackageReg) {
+        let type = asset.creater?.type;
         let data: Parameters<Mesh_kernel["MakeGeometry"]>[0] = null;
+        let res: ReturnType<Mesh_kernel["MakeGeometry"]> = null;
 
         if (type == "grid") {
             data = this.MakeGrid(asset.creater.grid);
@@ -182,13 +214,23 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
             data = this.MakeLodPlane(asset.creater.lod_plane);
         }
 
-        if (!data) {
-            return null;
+        if (data) {
+            res = this.MakeGeometry(data);
+        }
+        else {
+            const meshdata = await this._global.resources.Load_file<ArrayBuffer>("arrayBuffer", asset.meshdata, true, pkg);
+            if (!meshdata.data) {
+                return null;
+            }
+
+            const meshdata_ptr = this._global.internal.System_New(meshdata.data.byteLength);
+
+            this._global.env.bufferSet1(meshdata_ptr, meshdata.data, 0, meshdata.data.byteLength);
+
+            res = [meshdata.data.byteLength, meshdata_ptr];
         }
 
         // ========================-------------------------------
-
-        const res = this.MakeGeometry(data);
 
         const instance = this.Instance(res[1], res[0], asset.uuid);
 

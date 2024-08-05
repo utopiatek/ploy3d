@@ -199,15 +199,6 @@ export class SharedENV {
             this.farraySet(this._ptr, 12, worldLngLat);
         }
     }
-    async uuidGet2() {
-        const uid = this._global.uid;
-        return new Promise(function (resolve) {
-            setTimeout(function () {
-                const ts = Math.floor(Date.now() * 0.01) & 0xFFFFFFFF;
-                resolve(`${uid}-${ts}-1`);
-            }, 100);
-        });
-    }
     guidGet() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
@@ -223,6 +214,15 @@ export class SharedENV {
             day: "2-digit"
         }) + "/" + guid;
         return { path, guid };
+    }
+    async uuidGen() {
+        const uid = this._global.uid;
+        return new Promise(function (resolve) {
+            setTimeout(function () {
+                const ts = Math.floor(Date.now() * 0.01) & 0xFFFFFFFF;
+                resolve(`${uid}-${ts}-1`);
+            }, 100);
+        });
     }
     uuidSet(ptr, intOffset, value) {
         this.uarraySet(ptr, intOffset, this.uuidDec(value));

@@ -4,15 +4,11 @@ export class Gis {
         this._originMC = [12270000, 2910000];
         this._originLL = this.MC2LL(this._originMC);
         this._centerMC = [12270000, 2910000];
-        this._global.env.Tick(1, [
-            this["_originLL"][0], this["_originLL"][1],
-            this["_originMC"][0], this["_originMC"][1]
-        ]);
     }
     async Init() {
         const resources = this._global.resources;
         this._pyramid = new Gis_pyramid(this, 8, 4);
-        this._mesh = resources.Mesh.Create({
+        this._mesh = await resources.Mesh.Create({
             uuid: "",
             classid: 39,
             name: "lod plane",
@@ -97,10 +93,6 @@ export class Gis {
                 originMC[1] += carry;
             }
             this._originLL = this.MC2LL(originMC);
-            this._global.env.Tick(this.enable_terrain ? 2 : 1, [
-                this["_originLL"][0], this["_originLL"][1],
-                this["_originMC"][0], this["_originMC"][1]
-            ]);
             const _scaleMC = Math.cos(this._originLL[1] / 180.0 * Math.PI);
             target[0] = offsetX * _scaleMC;
             target[2] = -offsetZ * _scaleMC;
@@ -792,10 +784,6 @@ export class Gis_pyramid {
         }
     }
     Update(level, lb_col, lb_row, lb_bias_x, lb_bias_z, callback) {
-        this._gis["_global"].env.Tick(this.terrain ? 2 : 1, [
-            this._gis["_originLL"][0], this._gis["_originLL"][1],
-            this._gis["_originMC"][0], this._gis["_originMC"][1]
-        ]);
         const levelCount = this.levelCount;
         const levels = this._pyramid;
         let top = this._pyramidTop;

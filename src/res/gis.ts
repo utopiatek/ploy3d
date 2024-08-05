@@ -12,15 +12,6 @@ export class Gis {
         this._originMC = [12270000, 2910000];
         this._originLL = this.MC2LL(this._originMC);
         this._centerMC = [12270000, 2910000];
-
-        // 将当前世界空间原点经纬度和MC坐标同步到内核
-        this._global.env.Tick(
-            1,
-            [
-                this["_originLL"][0], this["_originLL"][1],
-                this["_originMC"][0], this["_originMC"][1]
-            ]
-        );
     }
 
     /**
@@ -32,7 +23,7 @@ export class Gis {
         this._pyramid = new Gis_pyramid(this, 8, 4);
 
         // 最内层子网格7，大小64 * 4 = 256
-        this._mesh = resources.Mesh.Create({
+        this._mesh = await resources.Mesh.Create({
             uuid: "",
             classid: Miaoverse.CLASSID.ASSET_MESH,
             name: "lod plane",
@@ -151,15 +142,6 @@ export class Gis {
             }
 
             this._originLL = this.MC2LL(originMC);
-
-            // 将当前世界空间原点经纬度和MC坐标同步到内核
-            this._global.env.Tick(
-                this.enable_terrain ? 2 : 1,
-                [
-                    this["_originLL"][0], this["_originLL"][1],
-                    this["_originMC"][0], this["_originMC"][1]
-                ]
-            );
 
             // 设置新世界空间原点后，重新计算相机观察点世界空间坐标
             const _scaleMC = Math.cos(this._originLL[1] / 180.0 * Math.PI);
@@ -1295,15 +1277,6 @@ export class Gis_pyramid {
      * @param callback 刷新完成回调。
      */
     public Update(level: number, lb_col: number, lb_row: number, lb_bias_x: number, lb_bias_z: number, callback: () => void) {
-        // 将当前世界空间原点经纬度和MC坐标同步到内核
-        this._gis["_global"].env.Tick(
-            this.terrain ? 2 : 1,
-            [
-                this._gis["_originLL"][0], this._gis["_originLL"][1],
-                this._gis["_originMC"][0], this._gis["_originMC"][1]
-            ]
-        );
-
         const levelCount = this.levelCount;
         const levels = this._pyramid;
 

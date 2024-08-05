@@ -1,5 +1,6 @@
 
 fn material_fs() {
+    material_baseColor = textureSample(baseTex, sampler_baseTex, inputs_uv).xyz;
     material_baseColor = inputs_geometricNormal;
 
     // ...

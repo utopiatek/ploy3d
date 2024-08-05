@@ -259,6 +259,21 @@ export declare class PloyApp {
      */
     InitScene(progress: Ploy3D["Progress"]): Promise<boolean>;
     /**
+     * 创建地球大气层对象。
+     * @param scene 场景实例。
+     * @returns 返回地球大气层相关资源。
+     */
+    CreateAtmosphere(scene: Miaoverse.Scene): Promise<{
+        /** 网格资源实例。 */
+        mesh: Miaoverse.Mesh;
+        /** 材质资源实例。 */
+        material: Miaoverse.Material;
+        /** 网格渲染器组件实例。 */
+        mesh_renderer: Miaoverse.MeshRenderer;
+        /** 3D对象实例。 */
+        object3d: Miaoverse.Object3D;
+    }>;
+    /**
      * 初始化事件系统。
      * @returns 返回事件协程。
      */
@@ -322,6 +337,17 @@ export declare class PloyApp {
     ui_ctx: CanvasRenderingContext2D;
     /** 事件监听器。 */
     event_listener: Record<string, ((event: any) => Promise<void>)[]>;
+    /** 地球大气层对象。 */
+    protected _atmosphere?: {
+        /** 网格资源实例。 */
+        mesh: Miaoverse.Mesh;
+        /** 材质资源实例。 */
+        material: Miaoverse.Material;
+        /** 网格渲染器组件实例。 */
+        mesh_renderer: Miaoverse.MeshRenderer;
+        /** 3D对象实例。 */
+        object3d: Miaoverse.Object3D;
+    };
     /** 当前2D待循环帧数。 */
     protected _loop2d: number;
     /** 当前3D待循环帧数。 */

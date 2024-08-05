@@ -191,7 +191,9 @@ export class Material_kernel extends Miaoverse.Base_kernel {
             return null;
         }
         desc.data.uuid = uuid;
-        desc.data.shader = this._global.resources.ToUUID(desc.data.shader, desc.pkg);
+        if (desc.data.shader.startsWith(":/")) {
+            desc.data.shader = desc.pkg.key + desc.data.shader;
+        }
         const textures = desc.data.properties.textures;
         for (let key in textures) {
             textures[key].uri = this._global.resources.ToUUID(textures[key].uri, desc.pkg);
@@ -201,7 +203,8 @@ export class Material_kernel extends Miaoverse.Base_kernel {
     async Create(asset) {
         const shader = await this._global.resources.Shader.Load(asset.shader);
         if (!shader) {
-            throw "获取着色器资源失败！";
+            this._global.Track("Material_kernel.Create: 获取着色器资源失败！" + asset.shader, 3);
+            return null;
         }
         const ptr = this._Create(shader.uniformSize, this._global.env.ptrZero());
         const id = this._instanceIdle;

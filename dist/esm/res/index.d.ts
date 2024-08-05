@@ -73,7 +73,7 @@ export declare class Resources {
      * 注册资源包。
      * @param entry 资源包注册信息。
      */
-    Register(entry: PackageReg): void;
+    Register(entry: PackageReg, files?: Record<string, any>): void;
     /**
      * 预览资源包（完成资源包预览后，可以通过RESID访问资源包内的内容）。
      * @param entry 资源包注册信息。
@@ -139,7 +139,7 @@ export declare class Resource<T> {
 /** 资源包注册项。 */
 export interface PackageReg {
     /** 资源包注册号。 */
-    index: number;
+    index?: number;
     /** 资源包键名（如："1-1-1.miaokit.builtins"）。 */
     key: string;
     /** 资源包UUID（如："1-1-1"）。 */
@@ -152,14 +152,14 @@ export interface PackageReg {
     zip: boolean;
     /** 资源包元数据缓存（空表示当前资源包仅已注册但未缓存）。 */
     meta?: Package;
-    /** 资源ID到资源文件路径映射表（通过Package.list构建）。 */
-    resid_path?: Record<string, string>;
+    /** 资源ID到资源文件路径映射表（通过Package.library构建）。 */
+    resid_path?: Record<string, string | any>;
 }
 /** 资源包元数据。 */
 export interface Package {
     /** 包GUID（全球唯一）。 */
     guid: string;
-    /** 包UUID（平台唯一）。 */
+    /** 包UUID（平台唯一，uid-pid-ver）。 */
     uuid: string;
     /** 用户ID（UUID第1段）。 */
     uid: number;
@@ -198,7 +198,7 @@ export interface Package {
     /** 内嵌预制件资源列表。 */
     prefab_library?: Miaoverse.Asset_prefab[];
     /** 共享资源文件清单（其它包仅能引用注册在该清单中的资源，此举确保UUID能索引到文件）。 */
-    list: string[];
+    file_library?: string[];
 }
 /** 资源描述符基类。 */
 export interface Asset {

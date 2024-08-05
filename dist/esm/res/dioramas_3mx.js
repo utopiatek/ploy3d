@@ -48,7 +48,13 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this.GC();
         if (this._subdivCount > 0) {
             (async () => {
-                const list = this._subdivList.slice(0, this._subdivCount).sort((a, b) => b._level - a._level);
+                const list = this._subdivList.slice(0, this._subdivCount).sort((a, b) => {
+                    let w = b._level - a._level;
+                    if (a._level < 3) {
+                        return -w;
+                    }
+                    return;
+                });
                 const ts = this._updateTS;
                 const proc = async (node) => {
                     try {
@@ -174,99 +180,69 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             return;
         }
         group._res_loaded = 1;
-        if (!group._ab) {
-            group._ab = await this._global.Fetch(group._path + group._file, null, "arrayBuffer");
-            if (!group._ab) {
-                group._res_loaded = 3;
-                return;
-            }
-        }
-        const env = this._global.env;
-        const internal = this._global.internal;
+        const res_count = group.resources?.length || 0;
         const Resources = this._global.resources;
-        for (let res of group.resources) {
-            if (res.type == "textureBuffer" && (res.format == "jpg" || res.format == "png")) {
-                const data_ab = group._ab.slice(group._ab_offset + res._offset, group._ab_offset + res._offset + res.size);
-                const data_view = new DataView(data_ab);
-                let width = 0;
-                let height = 0;
-                let type = 'image/jpeg';
-                if ((data_view.getUint16(0, true) & 0xFFFF) == 0xD8FF) {
-                    let read_offset = 2;
-                    while (true) {
-                        let marker = data_view.getUint16(read_offset, true);
-                        read_offset += 2;
-                        if (marker == 0xC0FF || marker == 0xC2FF) {
-                            height = data_view.getUint16(read_offset + 3, false);
-                            width = data_view.getUint16(read_offset + 5, false);
-                            break;
+        if (res_count > 0) {
+            const _group = {
+                _path: group._path,
+                _file: group._file,
+                _ab: group._ab,
+                _ab_offset: group._ab_offset,
+                resources: [],
+            };
+            for (let res of group.resources) {
+                _group.resources.push({
+                    type: res.type,
+                    format: res.format,
+                    size: res.size,
+                    _offset: res._offset,
+                });
+            }
+            const __group = await this._global.worker.Load_3mxb_resource(1, _group, () => { });
+            for (let i = 0; i < res_count; i++) {
+                const res = group.resources[i];
+                const _res = __group.resources[i];
+                if (_res._bitmap) {
+                    const tile = Resources.Texture._CreateTile(_res._bitmap.width, _res._bitmap.height, 0);
+                    Resources.Texture._WriteTile(tile, _res._bitmap);
+                    _res._bitmap.close();
+                    const info = this._global.env.uarrayGet(tile, 12, 8);
+                    const layer = info[1];
+                    const rect = [
+                        info[6] * 64 / 4096,
+                        info[7] * 64 / 4096,
+                        (info[2] - 1) / 4096,
+                        (info[3] - 1) / 4096
+                    ];
+                    res._instance = {
+                        texture: {
+                            tile,
+                            layer,
+                            rect
                         }
-                        else if ((marker & 0xFF) != 0xFF) {
-                            console.error("jpg parse error!");
-                            break;
-                        }
-                        else {
-                            const size = data_view.getUint16(read_offset, false);
-                            read_offset += size;
-                        }
-                    }
-                }
-                else if (data_view.getUint32(0, true) == 0x474E5089 && data_view.getUint32(4, true) == 0x0A1A0A0D) {
-                    type = 'image/png';
-                    console.error("png parse error!");
-                }
-                let option = undefined;
-                if (Math.max(width, height) >= 2048) {
-                    option = {
-                        resizeHeight: height * 0.5,
-                        resizeWidth: width * 0.5
                     };
                 }
-                const blob = new Blob([data_ab], { type: type });
-                const bitmap = await createImageBitmap(blob, option);
-                const tile = Resources.Texture._CreateTile(bitmap.width, bitmap.height, 0);
-                Resources.Texture._WriteTile(tile, bitmap);
-                bitmap.close();
-                const info = this._global.env.uarrayGet(tile, 12, 8);
-                const layer = info[1];
-                const rect = [
-                    info[6] * 64 / 4096,
-                    info[7] * 64 / 4096,
-                    (info[2] - 1) / 4096,
-                    (info[3] - 1) / 4096
-                ];
-                res._instance = {
-                    texture: {
-                        tile,
-                        layer,
-                        rect
+                else if (_res._mesh_data) {
+                    const uarray = new Uint32Array(_res._mesh_data);
+                    const icount = uarray[1];
+                    const vcount = uarray[2];
+                    if (!icount || !vcount) {
+                        console.error(res.size, icount, vcount);
+                        continue;
                     }
-                };
-            }
-            if (res.type == "geometryBuffer" && res.format == "ctm") {
-                const ctm_data_ptr = internal.System_New(res.size);
-                env.bufferSet1(ctm_data_ptr, group._ab, group._ab_offset + res._offset, res.size);
-                const mesh_data_raw = Resources.Mesh["_DecodeCTM"](ctm_data_ptr);
-                const icount = env.uscalarGet(mesh_data_raw[1], 1);
-                const vcount = env.uscalarGet(mesh_data_raw[1], 2);
-                if (!icount || !vcount) {
-                    console.error(res.size, icount, vcount);
-                    continue;
+                    const ibuffer = this._impl.GenBuffer(1, icount);
+                    const vbuffer = this._impl.GenBuffer(0, vcount);
+                    let data_ptr = 8 + 4;
+                    this._global.device.WriteBuffer(ibuffer.buffer, ibuffer.offset, uarray.buffer, data_ptr << 2, 4 * ibuffer.count);
+                    data_ptr += ibuffer.count;
+                    this._global.device.WriteBuffer(vbuffer.buffer, vbuffer.offset, uarray.buffer, data_ptr << 2, 12 * vbuffer.count);
+                    data_ptr += vbuffer.count * 6;
+                    this._global.device.WriteBuffer(vbuffer.buffer, vbuffer.offset + 12 * vbuffer.count, uarray.buffer, data_ptr << 2, 8 * vbuffer.count);
+                    res._instance = {
+                        ibuffer: ibuffer,
+                        vbuffer: vbuffer
+                    };
                 }
-                const ibuffer = this._impl.GenBuffer(1, icount);
-                const vbuffer = this._impl.GenBuffer(0, vcount);
-                let data_ptr = (mesh_data_raw[1] + 8 + 4);
-                this._global.device.WriteBuffer(ibuffer.buffer, ibuffer.offset, env.buffer, data_ptr << 2, ibuffer.size);
-                data_ptr += ibuffer.count;
-                this._global.device.WriteBuffer(vbuffer.buffer, vbuffer.offset, env.buffer, data_ptr << 2, 12 * vbuffer.count);
-                data_ptr += vbuffer.count * 6;
-                this._global.device.WriteBuffer(vbuffer.buffer, vbuffer.offset + 12 * vbuffer.count, env.buffer, data_ptr << 2, 8 * vbuffer.count);
-                internal.System_Delete(ctm_data_ptr);
-                internal.System_Delete(mesh_data_raw[1]);
-                res._instance = {
-                    ibuffer: ibuffer,
-                    vbuffer: vbuffer
-                };
             }
         }
         group._res_loaded = 2;
@@ -372,6 +348,9 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this.For_children(node._children, (child) => {
             this.GC_free(child);
         });
+        if (node._level < 3 && true) {
+            return;
+        }
         node._released = true;
         for (let child_group of node._children) {
             child_group._res_loaded = 0;

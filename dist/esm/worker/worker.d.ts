@@ -39,7 +39,7 @@ export declare class Miaoworker {
      * @returns 异步对象
      */
     Import_gltf(worker: number, url: string, progress: (rate: number, msg: string) => void): Promise<{
-        pkg: import("../mod.js").Package;
+        pkg: PackageReg;
         files: Record<string, any>;
     }>;
     /**
@@ -66,6 +66,26 @@ export declare class Miaoworker {
         groups: {
             topology: GLPrimitiveTopology;
             indices: number[];
+        }[];
+    }>;
+    /**
+     * 加载3MX场景分组资源实例。
+     * @param worker 派遣线程索引，0为主线程。
+     * @param url GLTF文件路径。
+     * @returns 异步对象
+     */
+    Load_3mxb_resource(worker: number, group: Parameters<Importer["Load_3mxb_resource"]>[0], progress: (rate: number, msg: string) => void): Promise<{
+        _path: string;
+        _file: string;
+        _ab?: ArrayBuffer;
+        _ab_offset: number;
+        resources: {
+            type: "textureBuffer" | "geometryBuffer" | "textureFile" | "geometryFile";
+            format: "png" | "jpg" | "ctm" | "obj";
+            size?: number;
+            _offset: number;
+            _bitmap?: ImageBitmap;
+            _mesh_data?: ArrayBuffer;
         }[];
     }>;
     /**
@@ -172,5 +192,7 @@ export declare const enum WorkType {
     /** 导入GLTF文件。 */
     Import_gltf_file = 4,
     /** 装载矢量地图瓦片。 */
-    Import_vtile_bd = 5
+    Import_vtile_bd = 5,
+    /** 装载3MXB文件资源。 */
+    Load_3mxb_resource = 6
 }

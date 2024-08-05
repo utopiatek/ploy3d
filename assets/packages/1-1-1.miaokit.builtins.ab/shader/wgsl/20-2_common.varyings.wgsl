@@ -53,6 +53,9 @@ struct InputFS {
 
 var<private> gl_FrontFacing: bool = false;
 
+var<private> inputs_clipPosition: vec4f = vec4f(0.0);
+var<private> inputs_litPosition: vec4f = vec4f(0.0);
+
 var<private> inputs_depth: f32 = 0.0;
 var<private> inputs_position: vec3f = vec3f(0.0);
 var<private> inputs_uv: vec2f = vec2f(0.0);
@@ -64,6 +67,9 @@ var<private> inputs_custom2: vec4<f32> = vec4<f32>(0.0);
 
 fn varyings_init(frag: InputFS) {
     gl_FrontFacing = frag.gl_FrontFacing;
+    
+    inputs_clipPosition = frag.clipPosition;
+    inputs_litPosition = frag.litPosition;
 
     inputs_depth = frag.viewPosition.w;
     inputs_position = frag.viewPosition.xyz;

@@ -669,6 +669,62 @@ export class PloyApp {
     }
 
     /**
+     * 创建地球大气层对象。
+     * @param scene 场景实例。
+     * @returns 返回地球大气层相关资源。
+     */
+    public async CreateAtmosphere(scene: Miaoverse.Scene) {
+        const resources = this.engine.resources;
+
+        const mesh = await resources.Mesh.Create({
+            uuid: "",
+            classid: Miaoverse.CLASSID.ASSET_MESH,
+            name: "atmosphere",
+            label: "atmosphere",
+
+            creater: {
+                type: "sphere",
+                sphere: {
+                    radius: 6478137.0,
+                    widthSegments: 180,
+                    heightSegments: 90,
+                    phiStart: 0,
+                    phiLength: Math.PI * 2,
+                    thetaStart: 0,
+                    thetaLength: Math.PI
+                }
+            }
+        });
+
+        const material = await resources.Material.Create({
+            uuid: "",
+            classid: Miaoverse.CLASSID.ASSET_MATERIAL,
+            name: "atmosphere",
+            label: "atmosphere",
+
+            shader: "1-1-1.miaokit.builtins:/shader/17-5_standard_atmosphere.json",
+            flags: Miaoverse.RENDER_FLAGS.ATTRIBUTES0 | Miaoverse.RENDER_FLAGS.SHADING_AS_UNLIT,
+            properties: {
+                textures: {},
+                vectors: {}
+            }
+        });
+
+        const mesh_renderer = await resources.MeshRenderer.Create(mesh, null);
+
+        const object3d = await resources.Object.Create(scene);
+
+        this._atmosphere = {
+            mesh,
+            material,
+            mesh_renderer,
+            object3d
+        };
+
+        return this._atmosphere;
+    }
+
+    /**
      * 初始化事件系统。
      * @returns 返回事件协程。
      */
@@ -794,7 +850,13 @@ export class PloyApp {
                 }
 
                 // 更新帧时间戳和同步GIS状态到内核
-                // this.engine.env.Tick(0, [0, 0, 0, 0]);
+                this.engine.env.Tick(
+                    this.engine.gis.enable_terrain ? 2 : 1,
+                    [
+                        this.engine.gis["_originLL"][0], this.engine.gis["_originLL"][1],
+                        this.engine.gis["_originMC"][0], this.engine.gis["_originMC"][1]
+                    ]
+                );
 
                 // 调用用户的场景更新方法
                 this.Update(flags);
@@ -894,6 +956,18 @@ export class PloyApp {
     public ui_ctx: CanvasRenderingContext2D;
     /** 事件监听器。 */
     public event_listener = {} as Record<string, ((event: any) => Promise<void>)[]>;
+
+    /** 地球大气层对象。 */
+    protected _atmosphere?: {
+        /** 网格资源实例。 */
+        mesh: Miaoverse.Mesh;
+        /** 材质资源实例。 */
+        material: Miaoverse.Material;
+        /** 网格渲染器组件实例。 */
+        mesh_renderer: Miaoverse.MeshRenderer;
+        /** 3D对象实例。 */
+        object3d: Miaoverse.Object3D;
+    };
 
     /** 当前2D待循环帧数。 */
     protected _loop2d: number = 0;

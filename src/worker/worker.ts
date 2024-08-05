@@ -258,6 +258,32 @@ export class Miaoworker {
     }
 
     /**
+     * 加载3MX场景分组资源实例。
+     * @param worker 派遣线程索引，0为主线程。
+     * @param url GLTF文件路径。
+     * @returns 异步对象
+     */
+    public Load_3mxb_resource(worker: number, group: Parameters<Importer["Load_3mxb_resource"]>[0], progress: (rate: number, msg: string) => void) {
+        return new Promise<Awaited<ReturnType<Importer["Load_3mxb_resource"]>>>((resolve, reject) => {
+            if (this.closed) {
+                reject("事务处理器已关闭！");
+                return;
+            }
+
+            if (0 === worker) {
+                this.importer.Load_3mxb_resource(group, progress).then(resolve).catch(reject);
+            }
+            else {
+                this.PostMessage({
+                    type: WorkType.Load_3mxb_resource,
+                    state: 0,
+                    args: group,
+                }).then(resolve).catch(reject);
+            }
+        });
+    }
+
+    /**
      * 加载并解码DEM数据。
      * @param worker 派遣线程索引，0为主线程。
      * @param url 数据URL。
@@ -478,6 +504,22 @@ export class Miaoworker {
                         this.PostMessage(info);
                     });
             }
+            // 应要求加载3MX场景分组资源实例
+            else if (info.type === WorkType.Load_3mxb_resource) {
+                this.Load_3mxb_resource(0, info.args, (rate, msg) => { })
+                    .then((data) => {
+                        info.args = data;
+                        info.state = 2;
+
+                        this.PostMessage(info);
+                    })
+                    .catch((reason) => {
+                        info.args = reason;
+                        info.state = -1;
+
+                        this.PostMessage(info);
+                    });
+            }
             // 未知事务类型
             else {
                 info.args = "未知事务类型：" + info.type;
@@ -602,4 +644,6 @@ export const enum WorkType {
     Import_gltf_file,
     /** 装载矢量地图瓦片。 */
     Import_vtile_bd,
+    /** 装载3MXB文件资源。 */
+    Load_3mxb_resource,
 }

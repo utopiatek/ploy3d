@@ -80,9 +80,25 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
         super(_global, Mesh_member_index);
     }
-    Create(asset) {
-        let type = asset.creater.type;
+    async Load(uri, pkg) {
+        const uuid = this._global.resources.ToUUID(uri, pkg);
+        if (!uuid) {
+            return null;
+        }
+        if (this._instanceLut[uuid]) {
+            return this._instanceLut[uuid];
+        }
+        const desc = await this._global.resources.Load_file("json", uri, true, pkg);
+        if (!desc) {
+            return null;
+        }
+        desc.data.uuid = uuid;
+        return this.Create(desc.data, desc.pkg);
+    }
+    async Create(asset, pkg) {
+        let type = asset.creater?.type;
         let data = null;
+        let res = null;
         if (type == "grid") {
             data = this.MakeGrid(asset.creater.grid);
         }
@@ -101,10 +117,18 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
         else if (type == "lod_plane") {
             data = this.MakeLodPlane(asset.creater.lod_plane);
         }
-        if (!data) {
-            return null;
+        if (data) {
+            res = this.MakeGeometry(data);
         }
-        const res = this.MakeGeometry(data);
+        else {
+            const meshdata = await this._global.resources.Load_file("arrayBuffer", asset.meshdata, true, pkg);
+            if (!meshdata.data) {
+                return null;
+            }
+            const meshdata_ptr = this._global.internal.System_New(meshdata.data.byteLength);
+            this._global.env.bufferSet1(meshdata_ptr, meshdata.data, 0, meshdata.data.byteLength);
+            res = [meshdata.data.byteLength, meshdata_ptr];
+        }
         const instance = this.Instance(res[1], res[0], asset.uuid);
         this._global.internal.System_Delete(res[1]);
         return instance;

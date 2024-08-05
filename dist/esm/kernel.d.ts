@@ -63,8 +63,6 @@ export declare class SharedENV {
     Printf(sys: io_uint, bufsize: io_uint, format: io_uint, argv: io_uint): number;
     /** 系统时间滴答。 */
     Tick(gisState: io_uint, worldLngLat: [io_float, io_float, io_float, io_float]): void;
-    /** 生成基于注册用户的UUID。 */
-    uuidGet2(): Promise<string>;
     /** 生成GUID。 */
     guidGet(): string;
     /** 生成日期和GUID构成的路径。 */
@@ -72,6 +70,8 @@ export declare class SharedENV {
         path: string;
         guid: string;
     };
+    /** 生成基于注册用户的UUID。 */
+    uuidGen(): Promise<string>;
     /** 写入UUID字符串数据。 */
     uuidSet(ptr: io_ptr, intOffset: number, value: string): void;
     /** 读取UUID字符串数据。 */
@@ -214,6 +214,8 @@ export interface Internal {
     Util_Compress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, srcSize: io_uint) => io_uint;
     /** 创建网格资源文件数据。 */
     Worker_CreateMeshData: (geo: io_ptr) => [number, io_ptr];
+    /** 解压CTM网格数据。 */
+    Worker_DecodeCTM: (ctmData: io_ptr) => [number, io_ptr];
     /** 导出引擎模块对象实现。 */
     Engine_Export: () => number[];
 }

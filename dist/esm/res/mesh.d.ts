@@ -73,11 +73,19 @@ export declare class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh
      */
     constructor(_global: Miaoverse.Ploy3D);
     /**
+     * 装载网格资源。
+     * @param uri 网格资源URI。
+     * @param pkg 当前资源包注册信息。
+     * @returns 异步返回网格资源实例。
+     */
+    Load(uri: string, pkg?: Miaoverse.PackageReg): Promise<Miaoverse.Mesh>;
+    /**
      * 运行时创建网格资源实例。
      * @param asset 网格资源描述符。
+     * @param pkg 当前资源包注册信息。
      * @returns 返回网格资源实例。
      */
-    Create(asset: Asset_mesh): Miaoverse.Mesh;
+    Create(asset: Asset_mesh, pkg?: Miaoverse.PackageReg): Promise<Miaoverse.Mesh>;
     /**
      * 实例化网格资源。
      * @param data_ptr 网格数据指针。

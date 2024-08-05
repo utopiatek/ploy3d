@@ -1,25 +1,4 @@
 {
-    "list": [
-        "shader/wgsl/20-0_common.wgsl",
-        "shader/wgsl/20-1_common.vertex.wgsl",
-        "shader/wgsl/20-2_common.varyings.wgsl",
-        "shader/wgsl/20-3_common.material.wgsl",
-        "shader/wgsl/20-6_standard.vertex.wgsl",
-        "shader/wgsl/20-7_standard.material.wgsl",
-        "shader/wgsl/20-8_standard.shading.wgsl",
-        "shader/wgsl/20-9_standard_ui.vertex.wgsl",
-        "shader/wgsl/20-10_standard_ui.material.wgsl",
-        "shader/wgsl/20-11_standard_ui.shading.wgsl",
-        "shader/wgsl/20-15_standard_postprocess.vertex.wgsl",
-        "shader/wgsl/20-16_standard_postprocess.material.wgsl",
-        "shader/wgsl/20-17_standard_postprocess.shading.wgsl",
-        "shader/wgsl/20-18_standard_gis.vertex.wgsl",
-        "shader/wgsl/20-19_standard_gis.material.wgsl",
-        "shader/wgsl/20-20_standard_gis.shading.wgsl",
-        "shader/17-0_standard_specular.json",
-        "shader/17-1_standard_ui.json",
-        "shader/17-2_standard_dior.json",
-        "shader/17-3_standard_postprocess.json",
-        "shader/17-4_standard_gis.json"
+    "file_library": [
     ]
 }
