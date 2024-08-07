@@ -24,6 +24,12 @@ export class DrawQueue {
             this._waiting = null;
             this._end = false;
             this._task = 0;
+            this.drawList = {
+                drawCalls: [],
+                drawParts: null,
+                instanceVB: 0,
+                instanceCount: 0
+            };
             this.camera = null;
             this.volume = null;
             this.target = null;
@@ -57,7 +63,7 @@ export class DrawQueue {
     }
     Execute(camera, volume, target, framePassList, draw, callback) {
         const device = this._global.device.device;
-        this.DrawScene = draw;
+        const env = this._global.env;
         this.camera = camera;
         this.volume = volume;
         this.target = target;
@@ -71,6 +77,45 @@ export class DrawQueue {
         };
         this.camera.width = this.target.texture.width;
         this.camera.height = this.target.texture.height;
+        const MeshRenderer = this._global.resources.MeshRenderer;
+        const GetInstanceSlot = MeshRenderer["_GetInstanceSlot"];
+        const VerifyInstance = MeshRenderer["_VerifyInstance"];
+        GetInstanceSlot(1);
+        const drawCalls = this.drawList.drawCalls;
+        const drawParts = this.drawList.drawParts = [];
+        for (let call of drawCalls) {
+            const bbCenter = call.mesh?.center || [0, 0, 0];
+            const bbExtents = call.mesh?.extents || [1, 1, 1];
+            let instanceCount = 0;
+            let firstInstance = 0;
+            for (let i = 0; i < call.instances.length; i++) {
+                const ptr = GetInstanceSlot(0);
+                env.farraySet(ptr, 0, call.instances[i]);
+                env.uscalarSet(ptr, 16, 0);
+                env.uscalarSet(ptr, 17, call.flags);
+                env.uscalarSet(ptr, 18, call.layers);
+                env.uscalarSet(ptr, 19, call.userData);
+                env.farraySet(ptr, 20, bbCenter);
+                env.farraySet(ptr, 23, bbExtents);
+                const slot = VerifyInstance(ptr, camera.internalPtr);
+                if (slot > -1) {
+                    if (0 == instanceCount++) {
+                        firstInstance = slot;
+                    }
+                }
+            }
+            if (instanceCount > 0) {
+                for (let mat of call.materials) {
+                    const part = mat.drawParams;
+                    part[5] = instanceCount;
+                    part[6] = firstInstance;
+                    drawParts.push(part);
+                }
+            }
+        }
+        this.drawList.instanceCount = GetInstanceSlot(4);
+        this.drawList.instanceVB = GetInstanceSlot(8);
+        this.Draw = draw;
         for (let framePass of framePassList.framePass) {
             this.ExecuteFramePass(framePass);
         }
@@ -114,19 +159,99 @@ export class DrawQueue {
         this.activeG2 = material;
     }
     BindRenderPipeline(config) {
-        const pipeline = this._global.context.CreateRenderPipeline({
-            framePass: this.framePass,
-            g0: this.activeG0.layoutID,
+        const id = this._global.context.CreateRenderPipeline({
             g1: this.activeG1.layoutID,
             g2: this.activeG2.layoutID,
             g3: 0,
             ...config
         });
-        if (pipeline) {
-            this.passEncoder.setPipeline(pipeline);
+        this.SetPipeline(id);
+    }
+    SetPipeline(pipelineID) {
+        const activePipeline = this._global.context.GetRenderPipeline(pipelineID, this.framePass);
+        if (this.activePipeline != activePipeline) {
+            this.activePipeline = activePipeline;
+            this.passEncoder.setPipeline(activePipeline);
         }
     }
-    DrawScene;
+    DrawMesh(params) {
+        this.drawList.drawCalls.push(params);
+        const g1 = this._global.resources.MeshRenderer.defaultG1;
+        for (let mat of params.materials) {
+            let flags = mat.material.enableFlags;
+            let topology = 3;
+            if (params.mesh) {
+                flags |= params.mesh.vbLayout;
+                topology = params.mesh.triangles[mat.submesh].topology;
+            }
+            else {
+                flags |= 8;
+                topology = params.topology;
+            }
+            if (params.castShadows) {
+                flags |= 16;
+            }
+            if (params.receiveShadows) {
+                flags |= 32;
+            }
+            const pipeline = this._global.context.CreateRenderPipeline({
+                g1: g1.layoutID,
+                g2: mat.material.layoutID,
+                g3: 0,
+                flags,
+                topology,
+                frontFace: params.frontFace,
+                cullMode: params.cullMode
+            });
+            mat.drawParams = [
+                g1.id,
+                mat.material.id,
+                pipeline,
+                params.mesh?.id,
+                mat.submesh,
+                1,
+                0,
+            ];
+        }
+    }
+    DrawList() {
+        const parts = this.drawList.drawParts;
+        for (let params of parts) {
+            this.DrawPart(params[0], params[1], params[2], params[3], params[4], params[5], params[6]);
+        }
+    }
+    DrawPart(g1, g2, pipeline, mesh, submesh, instanceCount = 1, firstInstance = 0) {
+        const resources = this._global.resources;
+        const context = this._global.context;
+        const activeG1 = resources.MeshRenderer.GetInstanceByID(g1);
+        const activeG2 = resources.Material.GetInstanceByID(g2);
+        const activeMesh = resources.Mesh.GetInstanceByID(mesh);
+        if (this.activeG1 != activeG1) {
+            this.BindMeshRenderer(activeG1);
+        }
+        if (this.activeG2 != activeG2) {
+            this.BindMaterial(activeG2);
+        }
+        this.SetPipeline(pipeline);
+        if (activeMesh) {
+            if (this.activeMesh != activeMesh) {
+                const vertices = activeMesh.vertices;
+                context.SetVertexBuffers(0, vertices, this.passEncoder);
+                context.SetVertexBuffer(vertices.length, this.drawList.instanceVB, 0, 104 * this.drawList.instanceCount, this.passEncoder);
+            }
+            const ibFormat = activeMesh.ibFormat;
+            const subMesh = activeMesh.triangles[submesh];
+            context.SetIndexBuffer(ibFormat, subMesh, this.passEncoder);
+            this.passEncoder.drawIndexed(subMesh.size / ibFormat, instanceCount, 0, 0, firstInstance);
+        }
+        else {
+            const drawCount = activeG2.view.drawCount?.[0];
+            if (drawCount) {
+                this.passEncoder.draw(drawCount, instanceCount, 0, firstInstance);
+            }
+        }
+    }
+    Draw;
     _global;
     _waiting;
     _end;
@@ -135,6 +260,7 @@ export class DrawQueue {
     volume;
     target;
     framePassList;
+    drawList;
     execStat;
     framePass;
     cmdEncoder;
@@ -145,5 +271,6 @@ export class DrawQueue {
     activeG2;
     activeG3;
     activePipeline;
+    activeMesh;
 }
 //# sourceMappingURL=renderer.js.map

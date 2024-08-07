@@ -59,7 +59,7 @@ export class Gis {
 
             this._materials[slot] = {
                 slot: slot,
-                group: i,
+                submesh: i,
                 material: material
             };
         }
@@ -298,7 +298,7 @@ export class Gis {
         this.FlushMaterial({
             centerMC: centerMC,
             movedMC: [0, 0],
-            size: [16384 * this._meshS],
+            size: [/*16384 * */this._meshS],
         });
 
         this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
@@ -424,38 +424,12 @@ export class Gis {
      * @param passEncoder 渲染通道命令编码器。
      */
     public Draw(queue: Miaoverse.DrawQueue) {
-        const resources = this._global.resources;
-        const context = this._global.context;
-        const g1 = resources.MeshRenderer.defaultG1;
-        const triangles = this._mesh.triangles;
-        const ibFormat = this._mesh.ibFormat;
-
-        const pipelineCfg = {
-            flags: 1,
-            topology: 3,
-            frontFace: 0,
-            cullMode: 1
-        };
-
-        queue.BindMeshRenderer(g1);
-
-        context.SetVertexBuffers(0, this._mesh.vertices, queue.passEncoder);
-
         this.FlushMaterial();
 
-        for (let mat of this._materials) {
-            queue.BindMaterial(mat.material);
-            queue.BindRenderPipeline(pipelineCfg);
-            context.SetIndexBuffer(ibFormat, triangles[mat.group], queue.passEncoder);
+        this._drawParams.mesh = this._mesh;
+        this._drawParams.materials = this._materials;
 
-            queue.passEncoder.drawIndexed(
-                triangles[mat.group].size / ibFormat,   // indexCount
-                1,                      // instanceCount
-                0,                      // firstIndex
-                0,                      // baseVertex
-                0,                      // firstInstance
-            );
-        }
+        queue.DrawMesh(this._drawParams);
     }
 
     /**
@@ -792,10 +766,28 @@ export class Gis {
         /** 材质插槽。 */
         slot: number;
         /** 材质所属子网格索引。 */
-        group: number;
+        submesh: number;
         /** 材质资源实例。 */
         material: Miaoverse.Material;
     }[];
+    /** GIS绘制参数。 */
+    private _drawParams = {
+        flags: 0,
+        layers: 0,
+        userData: 0,
+
+        castShadows: false,
+        receiveShadows: false,
+        frontFace: 0,
+        cullMode: 1,
+
+        mesh: null as Gis["_mesh"],
+        materials: null as Gis["_materials"],
+
+        instances: [
+            [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        ]
+    };
 
     /** 当前中心经度。 */
     private _lng: number;

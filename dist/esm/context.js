@@ -1181,18 +1181,17 @@ struct ObjectUniforms {
         return 2;
     }
     CreateRenderPipeline(desc) {
-        const key = `${desc.framePass.index}-${desc.g0}-${desc.g1}-${desc.g2}-${desc.g3}-${desc.topology}-${desc.frontFace}-${desc.cullMode}-` + desc.flags;
-        let pipeline = this._pipelines.lut[key];
-        if (pipeline) {
-            return pipeline;
+        const key = `${desc.g1}-${desc.g2}-${desc.g3}-${desc.topology}-${desc.frontFace}-${desc.cullMode}-` + desc.flags;
+        let id = this._pipelines.lut[key];
+        if (id) {
+            return id;
         }
-        console.log("create pipeline");
-        const g0 = this._shaders.list[desc.g0];
+        const g0 = this._shaders.list[1];
         const g1 = this._shaders.list[desc.g1];
         const g2 = this._shaders.list[desc.g2];
         const g3 = this._shaders.list[desc.g3];
         const pipelineLDesc = {
-            label: `pll:${desc.g0}-${desc.g1}-${desc.g2}-${desc.g3}`,
+            label: `pll:${desc.g1}-${desc.g2}-${desc.g3}`,
             bindGroupLayouts: [],
         };
         if (g0 && g0.layout) {
@@ -1208,7 +1207,7 @@ struct ObjectUniforms {
             pipelineLDesc.bindGroupLayouts.push(g3.layout);
         }
         const pipelineLayout = this._global.device.device.createPipelineLayout(pipelineLDesc);
-        const shaderAsset = g2.asset;
+        const shaderModules = this.CompileShaderModule(g2, g0, g1, g3);
         const blendMode = desc.flags >> 28;
         const constants = {
             "SHADING_AS_UNLIT": (desc.flags & 16777216) ? 1 : 0,
@@ -1228,7 +1227,6 @@ struct ObjectUniforms {
         };
         let vsmain = "vsmain_0";
         let fsmain = "fsmain_shading";
-        const shaderModule = this.CompileShaderModule(g2, g0, g1, g3);
         let vbLayout = [];
         if ((desc.flags & 1) == 1) {
             vbLayout.push({
@@ -1277,22 +1275,75 @@ struct ObjectUniforms {
             vbLayout = undefined;
             vsmain = "vsmain_0";
         }
-        if (shaderAsset.vertex_buffers) {
-            vbLayout = shaderAsset.vertex_buffers;
+        else if (vbLayout.length > 0) {
+            vbLayout.push(this._global.resources.MeshRenderer.instanceVBL);
+        }
+        if (g2.asset.vertex_buffers) {
+            vbLayout = g2.asset.vertex_buffers;
             vsmain = "vsmain_X";
-            console.error("使用自定义顶点缓存布局！");
+        }
+        const pipelineDesc = {
+            label: key,
+            layout: pipelineLayout,
+            vertex: {
+                buffers: vbLayout,
+                module: shaderModules[0],
+                entryPoint: vsmain,
+                constants: constants
+            },
+            fragment: {
+                targets: [],
+                module: shaderModules[1],
+                entryPoint: fsmain,
+                constants: constants
+            },
+            depthStencil: g2.asset.depth_stencil,
+            primitive: {
+                topology: this._topologyLut[desc.topology],
+                frontFace: desc.frontFace ? "cw" : "ccw"
+            }
+        };
+        id = this._pipelines.freeId;
+        if (this._pipelines.list[id]) {
+            this._pipelines.freeId = this._pipelines.list[id].id;
+        }
+        else {
+            this._pipelines.freeId++;
+        }
+        this._pipelines.list[id] = {
+            key,
+            id,
+            params: desc,
+            shaderModules,
+            pipelineLayout,
+            pipelineDesc,
+            pipelines: []
+        };
+        this._pipelines.lut[key] = id;
+        this._pipelines.usedCount += 1;
+        return id;
+    }
+    GetRenderPipeline(id, framePass) {
+        const entry = this._pipelines.list[id];
+        if (!entry) {
+            return null;
+        }
+        let pipeline = entry.pipelines[framePass.index];
+        if (pipeline) {
+            return pipeline;
         }
         let cullMode = "none";
-        if (desc.cullMode) {
-            if (desc.framePass.invertCull) {
-                cullMode = desc.cullMode == 1 ? "front" : "back";
+        if (entry.params.cullMode) {
+            if (framePass.invertCull) {
+                cullMode = entry.params.cullMode == 1 ? "front" : "back";
             }
             else {
-                cullMode = desc.cullMode == 1 ? "back" : "front";
+                cullMode = entry.params.cullMode == 1 ? "back" : "front";
             }
         }
         const targets = [];
-        if (desc.framePass.colorAttachments) {
+        const blendMode = entry.params.flags >> 28;
+        if (framePass.colorAttachments) {
             let blend = undefined;
             switch (blendMode) {
                 case 2:
@@ -1329,7 +1380,7 @@ struct ObjectUniforms {
                 default:
                     break;
             }
-            for (let target of desc.framePass.colorAttachments) {
+            for (let target of framePass.colorAttachments) {
                 targets.push({
                     format: target.format,
                     writeMask: target.writeMask,
@@ -1337,34 +1388,35 @@ struct ObjectUniforms {
                 });
             }
         }
+        const pipelineDesc_ = entry.pipelineDesc;
         const pipelineDesc = {
-            label: "",
-            layout: pipelineLayout,
-            vertex: {
-                buffers: vbLayout,
-                module: shaderModule[0],
-                entryPoint: vsmain,
-                constants: constants
-            },
-            fragment: !desc.framePass.colorAttachments ? undefined : {
-                targets: targets,
-                module: shaderModule[1],
-                entryPoint: fsmain,
-                constants: constants
-            },
-            depthStencil: !desc.framePass.depthStencilAttachment ? undefined : {
-                ...desc.framePass.depthStencilAttachment,
-                ...shaderAsset.depth_stencil
-            },
+            label: framePass.label + ":" + pipelineDesc_.label,
+            layout: pipelineDesc_.layout,
+            vertex: pipelineDesc_.vertex,
             primitive: {
-                topology: this._topologyLut[desc.topology],
-                frontFace: desc.frontFace ? "cw" : "ccw",
+                topology: pipelineDesc_.primitive.topology,
+                frontFace: pipelineDesc_.primitive.frontFace,
                 cullMode: cullMode,
-                unclippedDepth: desc.framePass.unclippedDepth
+                unclippedDepth: framePass.unclippedDepth
             },
-            multisample: desc.framePass.multisample
+            multisample: framePass.multisample
         };
-        this._pipelines.lut[key] = pipeline = this._global.device.device.createRenderPipeline(pipelineDesc);
+        if (framePass.colorAttachments) {
+            pipelineDesc.fragment = {
+                targets: targets,
+                module: pipelineDesc_.fragment.module,
+                entryPoint: pipelineDesc_.fragment.entryPoint,
+                constants: pipelineDesc_.fragment.constants
+            };
+        }
+        if (framePass.depthStencilAttachment) {
+            pipelineDesc.depthStencil = {
+                ...framePass.depthStencilAttachment,
+                ...pipelineDesc_.depthStencil
+            };
+        }
+        pipeline = entry.pipelines[framePass.index] = this._global.device.device.createRenderPipeline(pipelineDesc);
+        console.info("create new pipeline");
         return pipeline;
     }
     CompileShaderModule(shader, g0, g1, g3) {
@@ -1603,6 +1655,10 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
         list: [null],
     };
     _pipelines = {
+        freeId: 1,
+        usedCount: 0,
+        usedSize: 0,
+        list: [null],
         lut: {},
     };
 }

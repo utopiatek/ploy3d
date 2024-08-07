@@ -1488,53 +1488,27 @@ struct ObjectUniforms {
     }
 
     /**
-     * 创建渲染管线实例（材质分支实例）。
-     * @param desc 渲染管线描述符。
-     * @returns 。
+     * 创建着色器管线实例。
+     * @param desc 着色器管线描述符。
+     * @returns 返回着色器管线实例ID。
      */
-    public CreateRenderPipeline(desc: {
-        /** 帧通道配置。 */
-        framePass: Miaoverse.GLFramePass;
-        /** 资源绑定组布局0的ID（shaderID）。 */
-        g0: number;
-        /** 资源绑定组布局1的ID（shaderID）。 */
-        g1: number;
-        /** 资源绑定组布局2的ID（shaderID）。 */
-        g2: number;
-        /** 资源绑定组布局3的ID（shaderID）。 */
-        g3: number;
-        /** 渲染设置标记集。 */
-        flags: number;
-        /** 图元类型。 */
-        topology: number;
-        /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0。网格渲染器设置）。*/
-        frontFace: number;
-        /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1。网格渲染器设置）。*/
-        cullMode: number;
-    }) {
+    public CreateRenderPipeline(desc: Context["_pipelines"]["list"][0]["params"]) {
+        const key = `${desc.g1}-${desc.g2}-${desc.g3}-${desc.topology}-${desc.frontFace}-${desc.cullMode}-` + desc.flags;
 
-        const key = `${desc.framePass.index}-${desc.g0}-${desc.g1}-${desc.g2}-${desc.g3}-${desc.topology}-${desc.frontFace}-${desc.cullMode}-` + desc.flags;
-
-        let pipeline = this._pipelines.lut[key];
-        if (pipeline) {
-            return pipeline;
+        let id = this._pipelines.lut[key];
+        if (id) {
+            return id;
         }
-
-        console.log("create pipeline");
 
         // ==========================---------------------------------------------
 
-        // GPUBindGroupLayout
-        // GPUPipelineLayout
-        // GPURenderPipelineDescriptor
-
-        const g0 = this._shaders.list[desc.g0];
+        const g0 = this._shaders.list[1]; // TODO: 我们约束了G0的定义
         const g1 = this._shaders.list[desc.g1];
         const g2 = this._shaders.list[desc.g2];
         const g3 = this._shaders.list[desc.g3];
 
         const pipelineLDesc = {
-            label: `pll:${desc.g0}-${desc.g1}-${desc.g2}-${desc.g3}`,
+            label: `pll:${desc.g1}-${desc.g2}-${desc.g3}`,
             bindGroupLayouts: [] as GPUBindGroupLayout[],
         };
 
@@ -1556,7 +1530,9 @@ struct ObjectUniforms {
 
         const pipelineLayout = this._global.device.device.createPipelineLayout(pipelineLDesc);
 
-        const shaderAsset = g2.asset;
+        // ==========================---------------------------------------------
+
+        const shaderModules = this.CompileShaderModule(g2, g0, g1, g3);
 
         // ==========================---------------------------------------------
 
@@ -1582,13 +1558,10 @@ struct ObjectUniforms {
             "MATERIAL_HAS_ANISOTROPY": (desc.flags & RENDER_FLAGS.HAS_ANISOTROPY) ? 1 : 0
         };
 
-        let vsmain = "vsmain_0";
-        let fsmain = "fsmain_shading";
-
-        const shaderModule = this.CompileShaderModule(g2, g0, g1, g3);
-
         // ==========================---------------------------------------------
 
+        let vsmain = "vsmain_0";
+        let fsmain = "fsmain_shading";
         let vbLayout: GPUVertexBufferLayout[] = [];
 
         if ((desc.flags & RENDER_FLAGS.ATTRIBUTES0) == RENDER_FLAGS.ATTRIBUTES0) {
@@ -1647,27 +1620,109 @@ struct ObjectUniforms {
             vbLayout = undefined;
             vsmain = "vsmain_0";
         }
-
-        if (shaderAsset.vertex_buffers) {
-            vbLayout = shaderAsset.vertex_buffers;
-            vsmain = "vsmain_X";
-            console.error("使用自定义顶点缓存布局！");
+        else if (vbLayout.length > 0) {
+            // 内置顶点布局始终包含实例数据
+            vbLayout.push(this._global.resources.MeshRenderer.instanceVBL);
         }
+
+        if (g2.asset.vertex_buffers) {
+            // 使用自定义顶点缓存布局
+            vbLayout = g2.asset.vertex_buffers;
+            vsmain = "vsmain_X";
+        }
+
+        // ==========================---------------------------------------------
+
+        const pipelineDesc: GPURenderPipelineDescriptor = {
+            label: key,
+            layout: pipelineLayout,
+            vertex: {
+                buffers: vbLayout,
+
+                module: shaderModules[0],
+                entryPoint: vsmain,
+                constants: constants
+            },
+            fragment: {
+                targets: [],
+
+                module: shaderModules[1],
+                entryPoint: fsmain,
+                constants: constants
+            },
+            depthStencil: g2.asset.depth_stencil as any,
+            primitive: {
+                topology: this._topologyLut[desc.topology],
+                frontFace: desc.frontFace ? "cw" : "ccw"
+            }
+        };
+
+        // ==========================---------------------------------------------
+
+        id = this._pipelines.freeId;
+
+        if (this._pipelines.list[id]) {
+            this._pipelines.freeId = this._pipelines.list[id].id;
+        }
+        else {
+            this._pipelines.freeId++;
+        }
+
+        this._pipelines.list[id] = {
+            key,
+            id,
+            params: desc,
+            shaderModules,
+            pipelineLayout,
+            pipelineDesc,
+            pipelines: []
+        };
+
+        this._pipelines.lut[key] = id;
+
+        this._pipelines.usedCount += 1;
+
+        // ==========================---------------------------------------------
+
+        return id;
+    }
+
+    /**
+     * 获取对应帧通道使用的GPU着色器管线实例。
+     * @param id 着色器管线实例ID。
+     * @param framePass 帧通道配置。
+     * @returns 返回GPU着色器管线实例。
+     */
+    public GetRenderPipeline(id: number, framePass: Miaoverse.GLFramePass) {
+        const entry = this._pipelines.list[id];
+        if (!entry) {
+            return null;
+        }
+
+        let pipeline = entry.pipelines[framePass.index];
+        if (pipeline) {
+            return pipeline;
+        }
+
+        // ==========================---------------------------------------------
 
         let cullMode: GPUCullMode = "none";
 
-        if (desc.cullMode) {
-            if (desc.framePass.invertCull) {
-                cullMode = desc.cullMode == 1 ? "front" : "back";
+        if (entry.params.cullMode) {
+            if (framePass.invertCull) {
+                cullMode = entry.params.cullMode == 1 ? "front" : "back";
             }
             else {
-                cullMode = desc.cullMode == 1 ? "back" : "front";
+                cullMode = entry.params.cullMode == 1 ? "back" : "front";
             }
         }
 
-        const targets: GPUColorTargetState[] = [];
+        // ==========================---------------------------------------------
 
-        if (desc.framePass.colorAttachments) {
+        const targets: GPUColorTargetState[] = [];
+        const blendMode = entry.params.flags >> RENDER_FLAGS.BLEND_MODE_INDEX;
+
+        if (framePass.colorAttachments) {
             let blend: GPUBlendState = undefined;
 
             switch (blendMode) {
@@ -1706,7 +1761,7 @@ struct ObjectUniforms {
                     break;
             }
 
-            for (let target of desc.framePass.colorAttachments) {
+            for (let target of framePass.colorAttachments) {
                 targets.push({
                     format: target.format,
                     writeMask: target.writeMask,
@@ -1715,39 +1770,45 @@ struct ObjectUniforms {
             }
         }
 
+        // ==========================---------------------------------------------
+
+        const pipelineDesc_ = entry.pipelineDesc;
+
         const pipelineDesc: GPURenderPipelineDescriptor = {
-            label: "",
-            layout: pipelineLayout,
-            vertex: {
-                buffers: vbLayout,
-
-                module: shaderModule[0],
-                entryPoint: vsmain,
-                constants: constants
-            },
-            fragment: !desc.framePass.colorAttachments ? undefined : {
-                targets: targets,
-
-                module: shaderModule[1],
-                entryPoint: fsmain,
-                constants: constants
-            },
-            depthStencil: !desc.framePass.depthStencilAttachment ? undefined : {
-                ...desc.framePass.depthStencilAttachment,
-                ...shaderAsset.depth_stencil
-            },
+            label: framePass.label + ":" + pipelineDesc_.label,
+            layout: pipelineDesc_.layout,
+            vertex: pipelineDesc_.vertex,
             primitive: {
-                topology: this._topologyLut[desc.topology],
-                frontFace: desc.frontFace ? "cw" : "ccw",
+                topology: pipelineDesc_.primitive.topology,
+                frontFace: pipelineDesc_.primitive.frontFace,
                 cullMode: cullMode,
-                unclippedDepth: desc.framePass.unclippedDepth
+                unclippedDepth: framePass.unclippedDepth
             },
-            multisample: desc.framePass.multisample
+            multisample: framePass.multisample
         };
 
-        this._pipelines.lut[key] = pipeline = this._global.device.device.createRenderPipeline(pipelineDesc);
+        if (framePass.colorAttachments) {
+            pipelineDesc.fragment = {
+                targets: targets,
+
+                module: pipelineDesc_.fragment.module,
+                entryPoint: pipelineDesc_.fragment.entryPoint,
+                constants: pipelineDesc_.fragment.constants
+            };
+        }
+
+        if (framePass.depthStencilAttachment) {
+            pipelineDesc.depthStencil = {
+                ...framePass.depthStencilAttachment,
+                ...pipelineDesc_.depthStencil
+            };
+        }
+
+        pipeline = entry.pipelines[framePass.index] = this._global.device.device.createRenderPipeline(pipelineDesc);
 
         // ==========================---------------------------------------------
+
+        console.info("create new pipeline");
 
         return pipeline;
     }
@@ -2097,8 +2158,48 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
     };
     /** 着色器管线实例容器。 */
     private _pipelines = {
+        /** 当前可分配ID。 */
+        freeId: 1,
+        /** 当前实例数量。 */
+        usedCount: 0,
+        /** 当前实例总大小。 */
+        usedSize: 0,
+        /** 着色器管线实例容器。 */
+        list: [null] as {
+            /** 着色器管线键。 */
+            key: string;
+            /** 着色器管线ID。 */
+            id: number;
+            /** 着色器管线创建参数。 */
+            params: {
+                /** 资源绑定组布局1的ID（shaderID）。 */
+                g1: number;
+                /** 资源绑定组布局2的ID（shaderID）。 */
+                g2: number;
+                /** 资源绑定组布局3的ID（shaderID）。 */
+                g3: number;
+
+                /** 渲染设置标记集（材质与网格渲染器共同设置）。 */
+                flags: number;
+                /** 图元类型（子网格设置）。 */
+                topology: number;
+
+                /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0。网格渲染器设置）。*/
+                frontFace: number;
+                /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1。网格渲染器设置）。*/
+                cullMode: number;
+            };
+            /** 着色器实例列表。 */
+            shaderModules: GPUShaderModule[];
+            /** 着色器管线资源布局实例。 */
+            pipelineLayout: GPUPipelineLayout;
+            /** 着色器管线描述符。 */
+            pipelineDesc: GPURenderPipelineDescriptor;
+            /** GPU着色器管线实例列表（每个帧通道对应使用一个实例）。 */
+            pipelines: GPURenderPipeline[];
+        }[],
         /** 着色器管线实例查找表。 */
-        lut: {} as Record<string, GPURenderPipeline>,
+        lut: {} as Record<string, number>,
     };
 }
 

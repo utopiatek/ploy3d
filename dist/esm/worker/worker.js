@@ -52,6 +52,10 @@ export class Miaoworker {
             this.webgl = args.webgl;
             this.kernelCode = args.kernelCode;
             this.kernel = await (new Kernel(this)).Init({
+                CompileBranches: (g1, g2, g3, flags, topology, frontFace, cullMode) => {
+                    this.Track("Miaoworker内核不应调用CompileBranches方法！");
+                    return 0;
+                },
                 CreateBuffer: (type, size, offset) => {
                     this.Track("Miaoworker内核不应调用CreateBuffer方法！");
                     return 0;

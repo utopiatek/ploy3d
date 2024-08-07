@@ -89,7 +89,7 @@ export class Assembly {
                 queue.BindFrameUniforms(frameUniforms);
 
                 if (queue.framePass.mode == "shading") {
-                    queue.DrawScene(queue);
+                    queue.Draw(queue);
                 }
                 else if (queue.framePass.mode == "postprocess") {
                     if (queue.framePass.materialSpec) {
@@ -170,6 +170,15 @@ export class Assembly {
      */
     public GetFramePassList(key: string) {
         return this._config.pipelines[key];
+    }
+
+    /**
+     * 获取帧绘制资源组G0实例。
+     * @param key 实例键。
+     * @returns 返回帧绘制资源组G0实例。
+     */
+    public GetFrameUniforms(key: string) {
+        return this._config.frameUniforms.lut[key]?.g0;
     }
 
     /** 模块实例对象。 */

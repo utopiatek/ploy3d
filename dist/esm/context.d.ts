@@ -52,30 +52,18 @@ export declare class Context {
      */
     private GenerateGroupLayout_G1;
     /**
-     * 创建渲染管线实例（材质分支实例）。
-     * @param desc 渲染管线描述符。
-     * @returns 。
+     * 创建着色器管线实例。
+     * @param desc 着色器管线描述符。
+     * @returns 返回着色器管线实例ID。
      */
-    CreateRenderPipeline(desc: {
-        /** 帧通道配置。 */
-        framePass: Miaoverse.GLFramePass;
-        /** 资源绑定组布局0的ID（shaderID）。 */
-        g0: number;
-        /** 资源绑定组布局1的ID（shaderID）。 */
-        g1: number;
-        /** 资源绑定组布局2的ID（shaderID）。 */
-        g2: number;
-        /** 资源绑定组布局3的ID（shaderID）。 */
-        g3: number;
-        /** 渲染设置标记集。 */
-        flags: number;
-        /** 图元类型。 */
-        topology: number;
-        /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0。网格渲染器设置）。*/
-        frontFace: number;
-        /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1。网格渲染器设置）。*/
-        cullMode: number;
-    }): GPURenderPipeline;
+    CreateRenderPipeline(desc: Context["_pipelines"]["list"][0]["params"]): number;
+    /**
+     * 获取对应帧通道使用的GPU着色器管线实例。
+     * @param id 着色器管线实例ID。
+     * @param framePass 帧通道配置。
+     * @returns 返回GPU着色器管线实例。
+     */
+    GetRenderPipeline(id: number, framePass: Miaoverse.GLFramePass): GPURenderPipeline;
     /**
      * 编译着色器分支实例。
      * @param shader 着色器实例。

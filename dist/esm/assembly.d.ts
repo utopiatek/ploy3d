@@ -26,6 +26,12 @@ export declare class Assembly {
         /** 渲染管线使用的帧通道列表。 */
         framePass?: Miaoverse.GLFramePass[];
     };
+    /**
+     * 获取帧绘制资源组G0实例。
+     * @param key 实例键。
+     * @returns 返回帧绘制资源组G0实例。
+     */
+    GetFrameUniforms(key: string): Miaoverse.FrameUniforms;
     /** 模块实例对象。 */
     private _global;
     /** 渲染管线装配器配置。 */

@@ -1,3 +1,4 @@
+/// <reference types="dist" />
 import * as Miaoverse from "../mod.js";
 /** 网格渲染器组件（G1）。 */
 export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
@@ -8,6 +9,19 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
      * @param id 实例ID。
      */
     constructor(impl: MeshRenderer_kernel, ptr: Miaoverse.io_ptr, id: number);
+    /**
+     * 设置材质节点。
+     * @param slot 材质插槽。
+     * @param submesh 材质应用到子网格索引。
+     * @param material 材质资源实例。
+     */
+    SetMaterial(slot: number, submesh: number, material: Miaoverse.Material): void;
+    /**
+     * 获取网格渲染器指定材质槽位绘制参数。
+     * @param slot 指定材质槽位。
+     * @returns 返回材质绘制参数。
+     */
+    GetDrawParams(slot: number): number[];
     /**
      * 同步3D对象变换组件数据到G1。
      * @param object3d 3D对象内核实例。
@@ -24,6 +38,12 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
     /** 是否需要刷新渲染设置（刷新将重新编译着色器分支）。 */
     get flush(): boolean;
     set flush(b: boolean);
+    /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0）。 */
+    get frontFace(): number;
+    set frontFace(value: number);
+    /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1）。 */
+    get cullMode(): number;
+    set cullMode(value: number);
     /** 顶点数组对象缓存（WebGL中使用）。 */
     get vertexArray(): number;
     set vertexArray(value: number);
@@ -65,13 +85,46 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
      * @param skeleton 骨架定义数据内核实例指针。
      * @returns 返回网格渲染器组件实例。
      */
-    Create(mesh: Miaoverse.Mesh, skeleton: any): Promise<Miaoverse.MeshRenderer>;
+    Create(mesh: Miaoverse.Mesh, skeleton: any, materials?: {
+        /** 材质插槽索引（默认等同子网格索引）。 */
+        slot?: number;
+        /** 材质应用到子网格索引（相同子网格可绑定多个材质进行多次重叠渲染）。*/
+        group: number;
+        /** 材质资源实例。 */
+        material: Miaoverse.Material;
+    }[]): Promise<Miaoverse.MeshRenderer>;
     /**
      * 实例化网格渲染器组件内核实例。
      * @param mesh 网格资源内核实例。
      * @param skeleton 骨架定义数据内核实例。
      */
     protected _Create: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    /**
+     * 设置材质节点。
+     * @param mesh_renderer 网格渲染器组件实例指针。
+     * @param slot 材质插槽。
+     * @param submesh 材质应用到子网格索引。
+     * @param material 材质实例指针。。
+     * @returns 。
+     */
+    protected _SetMaterial: (mesh_renderer: Miaoverse.io_ptr, slot: number, submesh: number, material: Miaoverse.io_ptr) => void;
+    /**
+     * 获取动态实例绘制数据槽。
+     * @param flags 操作标志集（BIT1-清除列表，BIT2-不在后续验证数据有效性，直接占用数据槽，BIT4-获取当前实例数量，BIT8-提交到GPU顶点缓存）。
+     * @returns 返回数据空间指针。
+     */
+    protected _GetInstanceSlot: (flags: number) => Miaoverse.io_ptr;
+    /**
+     * 验证绘制实例在指定相机视锥内可见（入不可见将不保留绘制实例数据）。
+     * @returns 返回有效数据槽。
+     */
+    protected _VerifyInstance: (data: Miaoverse.io_ptr, camera: Miaoverse.io_ptr) => number;
+    /**
+     * 获取材质节点绘制参数。
+     * @param material_node 材质节点指针。
+     * @returns 返回材质节点绘制参数。
+     */
+    protected _GetDrawParams: (material_node: Miaoverse.io_ptr) => number[];
     /**
      * 同步3D对象变换组件数据到G1。
      * @param mesh_renderer 网格资源内核实例。
@@ -81,6 +134,8 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
     protected _SyncInstanceData: (mesh_renderer: Miaoverse.io_ptr, object3d: Miaoverse.io_ptr) => number;
     /** 内置默认网格渲染器组件实例。 */
     defaultG1: MeshRenderer;
+    /** 实例绘制数据顶点缓存布局。 */
+    instanceVBL: GPUVertexBufferLayout;
 }
 /** 网格渲染器组件内核实现的数据结构成员列表。 */
 export declare const MeshRendere_member_index: {
@@ -91,8 +146,8 @@ export declare const MeshRendere_member_index: {
     readonly meshUUID: Miaoverse.Kernel_member;
     readonly enabled: Miaoverse.Kernel_member;
     readonly flush: Miaoverse.Kernel_member;
-    readonly lastSib: Miaoverse.Kernel_member;
-    readonly nextSib: Miaoverse.Kernel_member;
+    readonly frontFace: Miaoverse.Kernel_member;
+    readonly cullMode: Miaoverse.Kernel_member;
     readonly g1_instanceList: Miaoverse.Kernel_member;
     readonly g1_boneList: Miaoverse.Kernel_member;
     readonly g1_morphTargets: Miaoverse.Kernel_member;
@@ -104,7 +159,7 @@ export declare const MeshRendere_member_index: {
     readonly center: Miaoverse.Kernel_member;
     readonly renderFlags: Miaoverse.Kernel_member;
     readonly extents: Miaoverse.Kernel_member;
-    readonly instanceCount: Miaoverse.Kernel_member;
+    readonly drawInstanceCount: Miaoverse.Kernel_member;
     readonly morphSampler: Miaoverse.Kernel_member;
     readonly morphTargetsWeight: Miaoverse.Kernel_member;
     readonly buffer_bufferID: Miaoverse.Kernel_member;
@@ -125,7 +180,11 @@ export declare const MeshRendere_member_index: {
     readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
-    readonly byteSize: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member; /**
+     * 获取网格渲染器指定材质槽位绘制参数。
+     * @param slot 指定材质槽位。
+     * @returns 返回材质绘制参数。
+     */
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
     readonly uuid: Miaoverse.Kernel_member;
@@ -147,4 +206,14 @@ export declare const MaterialNode_member_index: {
     readonly last: Miaoverse.Kernel_member;
     readonly next: Miaoverse.Kernel_member;
     readonly reserved: Miaoverse.Kernel_member;
+};
+/** 绘制实例数据内核实现的数据结构成员列表。 */
+export declare const DrawInstance_member_index: {
+    readonly wfmMat: Miaoverse.Kernel_member;
+    readonly object: Miaoverse.Kernel_member;
+    readonly flags: Miaoverse.Kernel_member;
+    readonly layers: Miaoverse.Kernel_member;
+    readonly userData: Miaoverse.Kernel_member;
+    readonly bbCenter: Miaoverse.Kernel_member;
+    readonly bbExtents: Miaoverse.Kernel_member;
 };

@@ -175,7 +175,7 @@ export declare class Gis {
         /** 材质插槽。 */
         slot: number;
         /** 材质所属子网格索引。 */
-        group: number;
+        submesh: number;
         /** 材质资源实例。 */
         material: Miaoverse.Material;
     }[];
@@ -200,6 +200,8 @@ export declare class Gis {
     private _mesh;
     /** GIS各层级材质数组。 */
     private _materials;
+    /** GIS绘制参数。 */
+    private _drawParams;
     /** 当前中心经度。 */
     private _lng;
     /** 当前中心纬度。 */

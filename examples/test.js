@@ -33,8 +33,12 @@ export class PloyApp_test extends ploycloud.PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
-        // 创建地球大气层对象
-        await this.CreateAtmosphere(this.scene);
+        // 定位倾斜摄影模型在指定经纬度，并指定海拔高度
+        // 请使用GCJ02坐标系（高德地图、腾讯地图）经纬度
+        // 经纬度拾取器：https://lbs.qq.com/getPoint/
+        const dior_lnglat = this.engine.gis.WGS84_GCJ02([120.281164, 30.4857535]);
+        // 创建倾斜摄影模型实例
+        // this.dior = await resources.Dioramas.Create_3mx(this.scene, "http://localhost:55204/Production_1.3mx", [dior_lnglat[0], dior_lnglat[1], 0.0]);
 
         // 导入GLTF模型为引擎资源包
         this.gltf_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shader_ball.zip", () => { });
@@ -43,12 +47,10 @@ export class PloyApp_test extends ploycloud.PloyApp {
         // 装载GLTF中的某个网格资源
         this.gltf_mesh_0 = await resources.Mesh.Load("39-0", this.gltf_pkg.pkg);
 
-        //this.dior = await resources.Dioramas.Create_3mx(/*"./.git.assets/3mx/Production_8.3mx"*/"http://localhost:59346/Production_1.3mx");
-
-        this.mat_cube = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
-        this.mat_dior = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json");
-
-        this.mesh_cube = await resources.Mesh.Create({
+        // 创建立方体网格绘制材质
+        const mat_cube = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
+        // 创建立方体网格
+        const mesh_cube = await resources.Mesh.Create({
             uuid: "",
             classid: /*CLASSID.ASSET_MESH*/39,
             name: "cube mesh",
@@ -66,10 +68,57 @@ export class PloyApp_test extends ploycloud.PloyApp {
                 }
             }
         });
+        // 设置立方体网格绘制参数集
+        this.draw_cube = {
+            flags: 0,
+            layers: 0,
+            userData: 0,
 
-        this.mesh_cube = this.gltf_mesh_0;
+            castShadows: false,
+            receiveShadows: false,
+            frontFace: 0,
+            cullMode: 1,
 
-        this.mr_cube = await resources.MeshRenderer.Create(this.mesh_cube, null);
+            mesh: this.gltf_mesh_0,
+            materials: [
+                {
+                    submesh: 0,
+                    material: mat_cube
+                },
+                {
+                    submesh: 1,
+                    material: mat_cube
+                },
+                {
+                    submesh: 2,
+                    material: mat_cube
+                }
+            ],
+
+            instances: [
+            ]
+        };
+
+        // 实例化900各立方体网格
+        for (let r = 0; r < 30; r++) {
+            const z = -500 * 15 + 500 * r;
+
+            for (let c = 0; c < 30; c++) {
+                const x = -500 * 15 + 500 * c;
+
+                const wfmMat = [
+                    100, 0, 0, 0,
+                    0, 100, 0, 0,
+                    0, 0, 100, 0,
+                    x, 0, z, 1
+                ];
+
+                this.draw_cube.instances.push(wfmMat);
+            }
+        }
+
+        // 创建地球大气层对象
+        await this.CreateAtmosphere(this.scene);
 
         this.AddEventListener("wheel", (e) => {
             this.camera.Scale(e.wheelDelta, this.engine.width, this.engine.height);
@@ -91,12 +140,6 @@ export class PloyApp_test extends ploycloud.PloyApp {
         const targetLL = this.engine.gis.GCJ02_WGS84([120.2824892, 30.4876468]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
         this.camera.Set3D(targetWPOS, 1000);
-
-        // 将根对象定位在指定经纬度，并指定海拔高度
-        // 请传入GCJ02坐标系（高德地图、腾讯地图）经纬度
-        // 经纬度拾取器：https://lbs.qq.com/getPoint/
-        const ll_gcj02 = this.engine.gis.WGS84_GCJ02([120.281164, 30.4857535]);
-        this.object3d.SetLngLat(ll_gcj02[0], ll_gcj02[1], 0.0);
 
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(1);
@@ -126,6 +169,18 @@ export class PloyApp_test extends ploycloud.PloyApp {
      * 绘制场景3D画面。
      */
     Draw3D() {
+        if (this.engine.gis) {
+            this.engine.gis.Draw(this._drawQueue);
+        }
+
+        if (this._atmosphere) {
+            this._drawQueue.DrawMesh(this._atmosphere.draw_params);
+        }
+
+        this._drawQueue.DrawMesh(this.draw_cube);
+
+        // ========================----------------------------------------
+
         const framePassList = this.engine.assembly.GetFramePassList("low");
         const texture = this.engine.device._swapchain.getCurrentTexture();
         const target = {
@@ -155,112 +210,30 @@ export class PloyApp_test extends ploycloud.PloyApp {
      * @param {ploycloud.DrawQueue} queue 渲染队列。
      */
     DrawScene(queue) {
-        // 应当为所有帧通道预备好着色器管线
-
-        this.mr_cube.SyncInstanceData(this.object3d);
-
-        queue.BindMeshRenderer(this.mr_cube);
-        queue.BindMaterial(this.mat_cube);
-
-        queue.BindRenderPipeline({
-            flags: this.mesh_cube.vbLayout,
-            topology: this.mesh_cube.triangles[0].topology,
-            frontFace: 0,
-            cullMode: 1
-        });
-
-        this.engine.context.SetVertexBuffers(0, this.mesh_cube.vertices, queue.passEncoder);
-
-        for (let i = 0; i < this.mesh_cube.ibCount; i++) {
-            const subMesh = this.mesh_cube.triangles[i];
-            const ibFormat = this.mesh_cube.ibFormat;
-
-            this.engine.context.SetIndexBuffer(ibFormat, subMesh, queue.passEncoder);
-
-            queue.passEncoder.drawIndexed(
-                subMesh.size / ibFormat,// indexCount
-                1,                      // instanceCount
-                0,                      // firstIndex
-                0,                      // baseVertex
-                0,                      // firstInstance
-            );
-        }
+        queue.DrawList();
 
         if (this.dior) {
-            queue.BindMeshRenderer(this.mr_cube);
-            queue.BindMaterial(this.mat_dior);
-
-            queue.BindRenderPipeline({
-                flags: 0,
-                topology: 3,
-                frontFace: 0,
-                cullMode: 2
-            });
-
-            if (queue.framePass.label == "opaque") {
-                this.dior.Update(this.object3d, queue.activeG0, this.camera);
-            }
-
-            this.dior.Draw(this.mat_dior, queue.passEncoder);
-        }
-
-        if (this.engine.gis) {
-            this.engine.gis.Draw(queue);
-        }
-
-        if (this._atmosphere) {
-            const { mesh, material, mesh_renderer, object3d } = this._atmosphere;
-
-            // mesh_renderer.SyncInstanceData(object3d);
-
-            queue.BindMeshRenderer(mesh_renderer);
-            queue.BindMaterial(material);
-
-            queue.BindRenderPipeline({
-                flags: mesh.vbLayout,
-                topology: 3,
-                frontFace: 0,
-                cullMode: 2
-            });
-
-            this.engine.context.SetVertexBuffers(0, mesh.vertices, queue.passEncoder);
-            this.engine.context.SetIndexBuffer(mesh.ibFormat, mesh.triangles[0], queue.passEncoder);
-
-            queue.passEncoder.drawIndexed(
-                mesh.triangles[0].size / mesh.ibFormat, // indexCount
-                1,                      // instanceCount
-                0,                      // firstIndex
-                0,                      // baseVertex
-                0,                      // firstInstance
-            );
+            this.dior.Draw(queue, queue.framePass.label == "opaque");
         }
     }
 
     /** @type {ploycloud.Scene} 场景实例。 */
     scene;
-    /** @type {ploycloud.Object3D} 3D对象实例。 */
+    /** @type {ploycloud.Object3D} 承载相机组件和体积组件的3D对象实例。 */
     object3d;
     /** @type {ploycloud.Camera} 相机组件实例。 */
     camera;
     /** @type {ploycloud.Volume} 体积组件实例。 */
     volume;
 
+    /** @type {ploycloud.Dioramas_3mx} 倾斜摄影组件实例。 */
+    dior;
+
+    /** @type {Parameters<ploycloud.DrawQueue["DrawMesh"]>[0]} 立方体网格绘制参数。 */
+    draw_cube;
+
     /** GLTF资源包。 */
     gltf_pkg;
     /** GLTF资源包网格资源。 */
     gltf_mesh_0;
-
-    /** @type {ploycloud.Dioramas_3mx} 倾斜摄影组件实例。 */
-    dior;
-
-    /** @type {ploycloud.Material} 材质资源实例。 */
-    mat_cube;
-    /** @type {ploycloud.Material} 材质资源实例。 */
-    mat_dior;
-
-    /** @type {ploycloud.Mesh} 网格资源实例。 */
-    mesh_cube;
-
-    /** @type {ploycloud.MeshRenderer} 网格渲染器组件实例。 */
-    mr_cube;
 }

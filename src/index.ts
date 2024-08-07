@@ -313,6 +313,22 @@ export class Ploy3D {
         progress(0.3, "开始启动引擎");
 
         this.kernel = await (new Miaoverse.Kernel(this)).Init({
+            CompileBranches: (g1: number, g2: number, g3: number, flags: number, topology: number, frontFace: number, cullMode: number) => {
+                g1 = this.resources.MeshRenderer.GetInstanceByID(g1).layoutID;
+                g2 = this.resources.Material.GetInstanceByID(g2).layoutID;
+
+                return this.context.CreateRenderPipeline({
+                    g1,
+                    g2,
+                    g3,
+
+                    flags,
+                    topology,
+
+                    frontFace,
+                    cullMode
+                });
+            },
             CreateBuffer: (type: Miaoverse.CLASSID, size: number, offset: number) => {
                 return this.device.CreateBuffer(type, size, offset, null);
             },
@@ -710,15 +726,31 @@ export class PloyApp {
             }
         });
 
-        const mesh_renderer = await resources.MeshRenderer.Create(mesh, null);
-
-        const object3d = await resources.Object.Create(scene);
-
         this._atmosphere = {
             mesh,
             material,
-            mesh_renderer,
-            object3d
+            draw_params: {
+                flags: 0,
+                layers: 0,
+                userData: 0,
+
+                castShadows: false,
+                receiveShadows: false,
+                frontFace: 0,
+                cullMode: 2,
+
+                mesh: mesh,
+                materials: [
+                    {
+                        submesh: 0,
+                        material: material
+                    }
+                ],
+
+                instances: [
+                    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+                ]
+            }
         };
 
         return this._atmosphere;
@@ -963,10 +995,8 @@ export class PloyApp {
         mesh: Miaoverse.Mesh;
         /** 材质资源实例。 */
         material: Miaoverse.Material;
-        /** 网格渲染器组件实例。 */
-        mesh_renderer: Miaoverse.MeshRenderer;
-        /** 3D对象实例。 */
-        object3d: Miaoverse.Object3D;
+        /** 网格绘制参数对象。 */
+        draw_params: Parameters<Miaoverse.DrawQueue["DrawMesh"]>[0];
     };
 
     /** 当前2D待循环帧数。 */

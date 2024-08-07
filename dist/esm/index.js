@@ -158,6 +158,19 @@ export class Ploy3D {
         await this.preloader;
         progress(0.3, "开始启动引擎");
         this.kernel = await (new Miaoverse.Kernel(this)).Init({
+            CompileBranches: (g1, g2, g3, flags, topology, frontFace, cullMode) => {
+                g1 = this.resources.MeshRenderer.GetInstanceByID(g1).layoutID;
+                g2 = this.resources.Material.GetInstanceByID(g2).layoutID;
+                return this.context.CreateRenderPipeline({
+                    g1,
+                    g2,
+                    g3,
+                    flags,
+                    topology,
+                    frontFace,
+                    cullMode
+                });
+            },
             CreateBuffer: (type, size, offset) => {
                 return this.device.CreateBuffer(type, size, offset, null);
             },
@@ -374,13 +387,28 @@ export class PloyApp {
                 vectors: {}
             }
         });
-        const mesh_renderer = await resources.MeshRenderer.Create(mesh, null);
-        const object3d = await resources.Object.Create(scene);
         this._atmosphere = {
             mesh,
             material,
-            mesh_renderer,
-            object3d
+            draw_params: {
+                flags: 0,
+                layers: 0,
+                userData: 0,
+                castShadows: false,
+                receiveShadows: false,
+                frontFace: 0,
+                cullMode: 2,
+                mesh: mesh,
+                materials: [
+                    {
+                        submesh: 0,
+                        material: material
+                    }
+                ],
+                instances: [
+                    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+                ]
+            }
         };
         return this._atmosphere;
     }

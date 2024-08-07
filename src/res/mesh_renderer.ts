@@ -14,6 +14,32 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
     }
 
     /**
+     * 设置材质节点。
+     * @param slot 材质插槽。
+     * @param submesh 材质应用到子网格索引。
+     * @param material 材质资源实例。
+     */
+    public SetMaterial(slot: number, submesh: number, material: Miaoverse.Material): void {
+        this._impl["_SetMaterial"](this._ptr, slot, submesh, material.internalPtr);
+    }
+
+    /**
+     * 获取网格渲染器指定材质槽位绘制参数。
+     * @param slot 指定材质槽位。
+     * @returns 返回材质绘制参数。
+     */
+    public GetDrawParams(slot: number) {
+        if (slot < this.materialCount) {
+            const materials = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "materials");
+            const node_ptr = this._global.env.ptrMove(materials, slot * 16);
+
+            return this._impl["_GetDrawParams"](node_ptr);
+        }
+
+        return null;
+    }
+
+    /**
      * 同步3D对象变换组件数据到G1。
      * @param object3d 3D对象内核实例。
      * @returns 返回变换时间戳。
@@ -46,6 +72,22 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
     }
     public set flush(b: boolean) {
         this._impl.Set(this._ptr, "flush", b ? 1 : 0);
+    }
+
+    /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0）。 */
+    public get frontFace(): number {
+        return this._impl.Get(this._ptr, "frontFace");
+    }
+    public set frontFace(value: number) {
+        this._impl.Set(this._ptr, "frontFace", value);
+    }
+
+    /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1）。 */
+    public get cullMode(): number {
+        return this._impl.Get(this._ptr, "cullMode");
+    }
+    public set cullMode(value: number) {
+        this._impl.Set(this._ptr, "cullMode", value);
     }
 
     /** 顶点数组对象缓存（WebGL中使用）。 */
@@ -106,7 +148,14 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
      * @param skeleton 骨架定义数据内核实例指针。
      * @returns 返回网格渲染器组件实例。
      */
-    public async Create(mesh: Miaoverse.Mesh, skeleton: any) {
+    public async Create(mesh: Miaoverse.Mesh, skeleton: any, materials?: {
+        /** 材质插槽索引（默认等同子网格索引）。 */
+        slot?: number;
+        /** 材质应用到子网格索引（相同子网格可绑定多个材质进行多次重叠渲染）。*/
+        group: number;
+        /** 材质资源实例。 */
+        material: Miaoverse.Material;
+    }[]) {
         const ptr = this._Create(mesh?.internalPtr || 0, skeleton?.internalPtr as never || 0);
         const id = this._instanceIdle;
 
@@ -117,6 +166,12 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
         const instance = this._instanceList[id] = new MeshRenderer(this, ptr, id);
 
         this._instanceCount++;
+
+        if (materials) {
+            for (let mat of materials) {
+                instance.SetMaterial(mat.slot == undefined ? mat.group : mat.slot, mat.group, mat.material);
+            }
+        }
 
         // 注册垃圾回收 ===============-----------------------
 
@@ -133,6 +188,36 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
     protected _Create: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 
     /**
+     * 设置材质节点。
+     * @param mesh_renderer 网格渲染器组件实例指针。
+     * @param slot 材质插槽。
+     * @param submesh 材质应用到子网格索引。
+     * @param material 材质实例指针。。
+     * @returns 。
+     */
+    protected _SetMaterial: (mesh_renderer: Miaoverse.io_ptr, slot: number, submesh: number, material: Miaoverse.io_ptr) => void;
+
+    /**
+     * 获取动态实例绘制数据槽。
+     * @param flags 操作标志集（BIT1-清除列表，BIT2-不在后续验证数据有效性，直接占用数据槽，BIT4-获取当前实例数量，BIT8-提交到GPU顶点缓存）。
+     * @returns 返回数据空间指针。
+     */
+    protected _GetInstanceSlot: (flags: number) => Miaoverse.io_ptr;
+
+    /**
+     * 验证绘制实例在指定相机视锥内可见（入不可见将不保留绘制实例数据）。
+     * @returns 返回有效数据槽。
+     */
+    protected _VerifyInstance: (data: Miaoverse.io_ptr, camera: Miaoverse.io_ptr) => number;
+
+    /**
+     * 获取材质节点绘制参数。
+     * @param material_node 材质节点指针。
+     * @returns 返回材质节点绘制参数。
+     */
+    protected _GetDrawParams: (material_node: Miaoverse.io_ptr) => number[];
+
+    /**
      * 同步3D对象变换组件数据到G1。
      * @param mesh_renderer 网格资源内核实例。
      * @param object3d 3D对象内核实例。
@@ -142,6 +227,50 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
 
     /** 内置默认网格渲染器组件实例。 */
     public defaultG1: MeshRenderer;
+    /** 实例绘制数据顶点缓存布局。 */
+    public instanceVBL: GPUVertexBufferLayout = {
+        arrayStride: 104,
+        stepMode: "instance",
+        attributes: [
+            {
+                shaderLocation: 9,
+                offset: 0,
+                format: "float32x4"
+            },
+            {
+                shaderLocation: 10,
+                offset: 16,
+                format: "float32x4"
+            },
+            {
+                shaderLocation: 11,
+                offset: 32,
+                format: "float32x4"
+            },
+            {
+                shaderLocation: 12,
+                offset: 48,
+                format: "float32x4"
+            },
+
+            {
+                shaderLocation: 13,
+                offset: 64,
+                format: "uint32x4"
+            },
+
+            {
+                shaderLocation: 14,
+                offset: 80,
+                format: "float32x3"
+            },
+            {
+                shaderLocation: 15,
+                offset: 92,
+                format: "float32x3"
+            }
+        ]
+    }
 }
 
 /** 网格渲染器组件内核实现的数据结构成员列表。 */
@@ -158,8 +287,8 @@ export const MeshRendere_member_index = {
 
     enabled: ["uscalarGet", "uscalarSet", 1, 36] as Miaoverse.Kernel_member,
     flush: ["uscalarGet", "uscalarSet", 1, 37] as Miaoverse.Kernel_member,
-    lastSib: ["ptrGet", "ptrSet", 1, 38] as Miaoverse.Kernel_member,
-    nextSib: ["ptrGet", "ptrSet", 1, 39] as Miaoverse.Kernel_member,
+    frontFace: ["uscalarGet", "uscalarSet", 1, 38] as Miaoverse.Kernel_member,
+    cullMode: ["uscalarGet", "uscalarSet", 1, 39] as Miaoverse.Kernel_member,
 
     g1_instanceList: ["ptrGet", "ptrSet", 1, 40] as Miaoverse.Kernel_member,
     g1_boneList: ["ptrGet", "ptrSet", 1, 41] as Miaoverse.Kernel_member,
@@ -174,7 +303,7 @@ export const MeshRendere_member_index = {
     center: ["farrayGet", "farraySet", 3, 96] as Miaoverse.Kernel_member,
     renderFlags: ["uscalarGet", "uscalarSet", 1, 99] as Miaoverse.Kernel_member,
     extents: ["farrayGet", "farraySet", 3, 100] as Miaoverse.Kernel_member,
-    instanceCount: ["uscalarGet", "uscalarSet", 1, 103] as Miaoverse.Kernel_member,
+    drawInstanceCount: ["fscalarGet", "fscalarSet", 1, 103] as Miaoverse.Kernel_member,
 
     morphSampler: ["uarrayGet", "uarraySet", 4, 108] as Miaoverse.Kernel_member,
 
@@ -197,4 +326,17 @@ export const MaterialNode_member_index = {
     next: ["ptrGet", "ptrSet", 1, 11] as Miaoverse.Kernel_member,
 
     reserved: ["uarrayGet", "uarraySet", 4, 12] as Miaoverse.Kernel_member,
+} as const;
+
+/** 绘制实例数据内核实现的数据结构成员列表。 */
+export const DrawInstance_member_index = {
+    wfmMat: ["farrayGet", "farraySet", 16, 0] as Miaoverse.Kernel_member,
+
+    object: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
+    flags: ["uscalarGet", "uscalarSet", 1, 17] as Miaoverse.Kernel_member,
+    layers: ["uscalarGet", "uscalarSet", 1, 18] as Miaoverse.Kernel_member,
+    userData: ["uscalarGet", "uscalarSet", 1, 19] as Miaoverse.Kernel_member,
+
+    bbCenter: ["farrayGet", "farraySet", 3, 20] as Miaoverse.Kernel_member,
+    bbExtents: ["farrayGet", "farraySet", 3, 23] as Miaoverse.Kernel_member,
 } as const;

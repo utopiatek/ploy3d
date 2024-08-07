@@ -15,9 +15,11 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
 
     /**
      * 初始化倾斜摄影组件。
+     * @param scene 模型所属场景实例。
      * @param url 场景根文件路径。
+     * @param lnglat_alt 模型经纬度和海拔高度（请传入GCJ02坐标系（高德地图、腾讯地图）经纬度）。
      */
-    public async Init(url: string) {
+    public async Init(scene: Miaoverse.Scene, url: string, lnglat_alt?: number[]) {
         this._3mx = await this._global.Fetch(url, null, "json");
         this._3mx._path = url.substring(0, (url.lastIndexOf("/") + 1));
         this._root = [];
@@ -35,6 +37,26 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         this._subdivCount = 0;
         this._updateTS = this._global.env.frameTS;
         this._intervalGC = 1000;
+
+        this._material = await this._global.resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json") as Miaoverse.Material;
+        this._meshRenderer = await this._global.resources.MeshRenderer.Create(null, null);
+        this._object3d = await this._global.resources.Object.Create(scene);
+
+        this._pipeline = this._global.context.CreateRenderPipeline({
+            g1: this._meshRenderer.layoutID,
+            g2: this._material.layoutID,
+            g3: 0,
+
+            flags: 0,
+            topology: 3,
+
+            frontFace: 0,
+            cullMode: 2
+        });
+
+        if (lnglat_alt) {
+            this._object3d.SetLngLat(lnglat_alt[0], lnglat_alt[1], lnglat_alt[2]);
+        }
     }
 
     /**
@@ -154,10 +176,22 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
 
     /**
      * 绘制场景。
-     * @param material 绘制材质。
-     * @param passEncoder 渲染通道命令编码器。
+     * @param queue 绘制队列。
+     * @param update 是否基于当前相机刷新模型显示。
      */
-    public Draw(material: Miaoverse.Material, passEncoder: GPURenderPassEncoder) {
+    public Draw(queue: Miaoverse.DrawQueue, update: boolean) {
+        this._meshRenderer.SyncInstanceData(this._object3d);
+
+        if (update) {
+            this.Update(this._object3d, queue.activeG0, queue.camera);
+        }
+
+        const passEncoder = queue.passEncoder;
+
+        queue.BindMeshRenderer(this._meshRenderer);
+        queue.BindMaterial(this._material);
+        queue.SetPipeline(this._pipeline);
+
         for (let i = 0; i < this._drawCount; i++) {
             const instance = this._drawList[i];
             const vbuffer = instance.vbuffer;
@@ -167,6 +201,7 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
             this._global.context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 12 * vbuffer.count, passEncoder);
             this._global.context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + 12 * vbuffer.count, 8 * vbuffer.count, passEncoder);
             this._global.context.SetVertexBuffer(2, dbuffer.buffer, dbuffer.offset + 20 * i, 20, passEncoder);
+
             this._global.context.SetIndexBuffer(4, ibuffer, passEncoder);
 
             passEncoder.drawIndexed(
@@ -654,6 +689,15 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         /** 实例缓存节点。 */
         buffer: ReturnType<Dioramas_kernel["GenBuffer"]>;
     };
+
+    /** 材质资源实例。 */
+    private _material: Miaoverse.Material;
+    /** 网格渲染器组件实例（用于提供绘制所需的G1数据）。 */
+    private _meshRenderer: Miaoverse.MeshRenderer;
+    /** 3D对象实例（用于定位模型位置）。 */
+    private _object3d: Miaoverse.Object3D;
+    /** 着色器管线实例ID。 */
+    private _pipeline: number;
 }
 
 /** 倾斜摄影组件内核实现。 */
@@ -685,10 +729,12 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {
 
     /**
      * 创建倾斜摄影组件（3MX）。
+     * @param scene 模型所属场景实例。
      * @param url 场景根文件路径。
+     * @param lnglat_alt 模型经纬度和海拔高度（请传入GCJ02坐标系（高德地图、腾讯地图）经纬度）。
      * @returns 异步返回倾斜摄影组件实例。
      */
-    public async Create_3mx(url: string) {
+    public async Create_3mx(scene: Miaoverse.Scene, url: string, lnglat_alt?: number[]) {
         const id = this._instanceIdle;
 
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
@@ -697,7 +743,7 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {
 
         this._instanceCount++;
 
-        await instance.Init(url);
+        await instance.Init(scene, url, lnglat_alt);
 
         // 注册垃圾回收 ===============-----------------------
 

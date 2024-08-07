@@ -4,7 +4,7 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         super(impl["_global"], ptr, id);
         this._impl = impl;
     }
-    async Init(url) {
+    async Init(scene, url, lnglat_alt) {
         this._3mx = await this._global.Fetch(url, null, "json");
         this._3mx._path = url.substring(0, (url.lastIndexOf("/") + 1));
         this._root = [];
@@ -20,6 +20,21 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this._subdivCount = 0;
         this._updateTS = this._global.env.frameTS;
         this._intervalGC = 1000;
+        this._material = await this._global.resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json");
+        this._meshRenderer = await this._global.resources.MeshRenderer.Create(null, null);
+        this._object3d = await this._global.resources.Object.Create(scene);
+        this._pipeline = this._global.context.CreateRenderPipeline({
+            g1: this._meshRenderer.layoutID,
+            g2: this._material.layoutID,
+            g3: 0,
+            flags: 0,
+            topology: 3,
+            frontFace: 0,
+            cullMode: 2
+        });
+        if (lnglat_alt) {
+            this._object3d.SetLngLat(lnglat_alt[0], lnglat_alt[1], lnglat_alt[2]);
+        }
     }
     Update(object3d, frameUniforms, camera) {
         const env = this._global.env;
@@ -102,7 +117,15 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             })();
         }
     }
-    Draw(material, passEncoder) {
+    Draw(queue, update) {
+        this._meshRenderer.SyncInstanceData(this._object3d);
+        if (update) {
+            this.Update(this._object3d, queue.activeG0, queue.camera);
+        }
+        const passEncoder = queue.passEncoder;
+        queue.BindMeshRenderer(this._meshRenderer);
+        queue.BindMaterial(this._material);
+        queue.SetPipeline(this._pipeline);
         for (let i = 0; i < this._drawCount; i++) {
             const instance = this._drawList[i];
             const vbuffer = instance.vbuffer;
@@ -385,6 +408,10 @@ export class Dioramas_3mx extends Miaoverse.Resource {
     _updateTS;
     _intervalGC;
     _drawBuffer;
+    _material;
+    _meshRenderer;
+    _object3d;
+    _pipeline;
 }
 export class Dioramas_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
@@ -404,12 +431,12 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel {
             }
         }
     }
-    async Create_3mx(url) {
+    async Create_3mx(scene, url, lnglat_alt) {
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new Dioramas_3mx(this, 0, id);
         this._instanceCount++;
-        await instance.Init(url);
+        await instance.Init(scene, url, lnglat_alt);
         return instance;
     }
     GenBuffer(type, count) {

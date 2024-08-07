@@ -268,10 +268,24 @@ export declare class PloyApp {
         mesh: Miaoverse.Mesh;
         /** 材质资源实例。 */
         material: Miaoverse.Material;
-        /** 网格渲染器组件实例。 */
-        mesh_renderer: Miaoverse.MeshRenderer;
-        /** 3D对象实例。 */
-        object3d: Miaoverse.Object3D;
+        /** 网格绘制参数对象。 */
+        draw_params: {
+            flags: number; /** 是否使用WebGL。 */
+            layers: number;
+            userData: number;
+            castShadows?: boolean;
+            receiveShadows?: boolean;
+            frontFace: number;
+            cullMode: number;
+            topology?: Miaoverse.GLPrimitiveTopology;
+            mesh: Miaoverse.Mesh;
+            materials: {
+                submesh: number;
+                material: Miaoverse.Material;
+                drawParams?: number[];
+            }[];
+            instances: number[][];
+        };
     }>;
     /**
      * 初始化事件系统。
@@ -343,10 +357,8 @@ export declare class PloyApp {
         mesh: Miaoverse.Mesh;
         /** 材质资源实例。 */
         material: Miaoverse.Material;
-        /** 网格渲染器组件实例。 */
-        mesh_renderer: Miaoverse.MeshRenderer;
-        /** 3D对象实例。 */
-        object3d: Miaoverse.Object3D;
+        /** 网格绘制参数对象。 */
+        draw_params: Parameters<Miaoverse.DrawQueue["DrawMesh"]>[0];
     };
     /** 当前2D待循环帧数。 */
     protected _loop2d: number;

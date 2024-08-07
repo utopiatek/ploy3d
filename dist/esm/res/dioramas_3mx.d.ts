@@ -1,4 +1,3 @@
-/// <reference types="dist" />
 import * as Miaoverse from "../mod.js";
 /** 倾斜摄影组件（3MX）。 */
 export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
@@ -11,9 +10,11 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     constructor(impl: any, ptr: Miaoverse.io_ptr, id: number);
     /**
      * 初始化倾斜摄影组件。
+     * @param scene 模型所属场景实例。
      * @param url 场景根文件路径。
+     * @param lnglat_alt 模型经纬度和海拔高度（请传入GCJ02坐标系（高德地图、腾讯地图）经纬度）。
      */
-    Init(url: string): Promise<void>;
+    Init(scene: Miaoverse.Scene, url: string, lnglat_alt?: number[]): Promise<void>;
     /**
      * 更新绘制场景。
      * @param object3d 3D对象实例（用于获得模型空间到世界空间变换矩阵）。
@@ -23,10 +24,10 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     Update(object3d: Miaoverse.Object3D, frameUniforms: Miaoverse.FrameUniforms, camera: Miaoverse.Camera): void;
     /**
      * 绘制场景。
-     * @param material 绘制材质。
-     * @param passEncoder 渲染通道命令编码器。
+     * @param queue 绘制队列。
+     * @param update 是否基于当前相机刷新模型显示。
      */
-    Draw(material: Miaoverse.Material, passEncoder: GPURenderPassEncoder): void;
+    Draw(queue: Miaoverse.DrawQueue, update: boolean): void;
     /**
      * 加载场景分组（3MXB文件）。
      * @param url 文件路径。
@@ -88,6 +89,14 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     private _intervalGC;
     /** 绘制实例缓存。 */
     private _drawBuffer;
+    /** 材质资源实例。 */
+    private _material;
+    /** 网格渲染器组件实例（用于提供绘制所需的G1数据）。 */
+    private _meshRenderer;
+    /** 3D对象实例（用于定位模型位置）。 */
+    private _object3d;
+    /** 着色器管线实例ID。 */
+    private _pipeline;
 }
 /** 倾斜摄影组件内核实现。 */
 export declare class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {
@@ -98,10 +107,12 @@ export declare class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx,
     constructor(_global: Miaoverse.Ploy3D);
     /**
      * 创建倾斜摄影组件（3MX）。
+     * @param scene 模型所属场景实例。
      * @param url 场景根文件路径。
+     * @param lnglat_alt 模型经纬度和海拔高度（请传入GCJ02坐标系（高德地图、腾讯地图）经纬度）。
      * @returns 异步返回倾斜摄影组件实例。
      */
-    Create_3mx(url: string): Promise<Miaoverse.Dioramas_3mx>;
+    Create_3mx(scene: Miaoverse.Scene, url: string, lnglat_alt?: number[]): Promise<Miaoverse.Dioramas_3mx>;
     /**
      * 分配GPU缓存节点。
      * @param type 缓存类型（0：顶点缓存，1：索引缓存）。

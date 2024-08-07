@@ -38,7 +38,7 @@ export class Gis {
             const slot = this._pyramid.levelCount - i - 1;
             this._materials[slot] = {
                 slot: slot,
-                group: i,
+                submesh: i,
                 material: material
             };
         }
@@ -177,7 +177,7 @@ export class Gis {
         this.FlushMaterial({
             centerMC: centerMC,
             movedMC: [0, 0],
-            size: [16384 * this._meshS],
+            size: [this._meshS],
         });
         this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
             if (timestamp != this._timestamp) {
@@ -262,26 +262,10 @@ export class Gis {
         }
     }
     Draw(queue) {
-        const resources = this._global.resources;
-        const context = this._global.context;
-        const g1 = resources.MeshRenderer.defaultG1;
-        const triangles = this._mesh.triangles;
-        const ibFormat = this._mesh.ibFormat;
-        const pipelineCfg = {
-            flags: 1,
-            topology: 3,
-            frontFace: 0,
-            cullMode: 1
-        };
-        queue.BindMeshRenderer(g1);
-        context.SetVertexBuffers(0, this._mesh.vertices, queue.passEncoder);
         this.FlushMaterial();
-        for (let mat of this._materials) {
-            queue.BindMaterial(mat.material);
-            queue.BindRenderPipeline(pipelineCfg);
-            context.SetIndexBuffer(ibFormat, triangles[mat.group], queue.passEncoder);
-            queue.passEncoder.drawIndexed(triangles[mat.group].size / ibFormat, 1, 0, 0, 0);
-        }
+        this._drawParams.mesh = this._mesh;
+        this._drawParams.materials = this._materials;
+        queue.DrawMesh(this._drawParams);
     }
     CalSunlight(params) {
         if (params.lng == undefined) {
@@ -479,6 +463,20 @@ export class Gis {
     _pyramid;
     _mesh;
     _materials;
+    _drawParams = {
+        flags: 0,
+        layers: 0,
+        userData: 0,
+        castShadows: false,
+        receiveShadows: false,
+        frontFace: 0,
+        cullMode: 1,
+        mesh: null,
+        materials: null,
+        instances: [
+            [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        ]
+    };
     _lng;
     _lat;
     _level;

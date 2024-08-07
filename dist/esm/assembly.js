@@ -57,7 +57,7 @@ export class Assembly {
                 queue.passEncoder.setViewport(vp[0], vp[1], vp[2], vp[3], vp[4], vp[5]);
                 queue.BindFrameUniforms(frameUniforms);
                 if (queue.framePass.mode == "shading") {
-                    queue.DrawScene(queue);
+                    queue.Draw(queue);
                 }
                 else if (queue.framePass.mode == "postprocess") {
                     if (queue.framePass.materialSpec) {
@@ -118,6 +118,9 @@ export class Assembly {
     }
     GetFramePassList(key) {
         return this._config.pipelines[key];
+    }
+    GetFrameUniforms(key) {
+        return this._config.frameUniforms.lut[key]?.g0;
     }
     _global;
     _config = {

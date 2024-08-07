@@ -75,20 +75,45 @@ export declare class DrawQueue {
      */
     BindMaterial(material: Miaoverse.Material): void;
     /**
-     * 绑定着色器管线（需要先调用BindFrameUniforms、BindMeshRenderer、BindMaterial）。
+     * 基于当前资源绑定设置着色器管线（需要先调用BindFrameUniforms、BindMeshRenderer、BindMaterial）。
      */
     BindRenderPipeline(config: {
-        /** 渲染设置标记集。 */
+        /** 渲染设置标记集（材质与网格渲染器共同设置）。 */
         flags: number;
-        /** 图元类型。 */
+        /** 图元类型（子网格设置）。 */
         topology: number;
         /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0。网格渲染器设置）。*/
         frontFace: number;
         /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1。网格渲染器设置）。*/
         cullMode: number;
     }): void;
+    /**
+     * 绑定对应当前帧通道设置的GPU着色器管线实例。
+     * @param pipelineID 着色器管线实例ID。
+     */
+    SetPipeline(pipelineID: number): void;
+    /**
+     * 动态绘制网格。
+     * @param params 动态绘制参数。
+     */
+    DrawMesh(params: DrawQueue["drawList"]["drawCalls"][0]): void;
+    /**
+     * 绘制当前绘制列表。
+     */
+    DrawList(): void;
+    /**
+     * 子网格绘制方法。
+     * @param g1 网格渲染器实例ID。
+     * @param g2 材质实例ID。
+     * @param pipeline 着色器管线实例ID。
+     * @param mesh 网格资源ID。
+     * @param submesh 子网格索引。
+     * @param instanceCount 绘制实例数量。
+     * @param firstInstance 起始绘制实例索引。
+     */
+    DrawPart(g1: number, g2: number, pipeline: number, mesh: number, submesh: number, instanceCount?: number, firstInstance?: number): void;
     /** 当前场景绘制方法。 */
-    DrawScene?: (queue: DrawQueue) => void;
+    Draw?: (queue: DrawQueue) => void;
     /** 模块实例对象。 */
     private _global;
     /** 等待当前所有任务完成后响应。 */
@@ -112,6 +137,47 @@ export declare class DrawQueue {
     };
     /** 当前帧通道配置列表。 */
     framePassList: Miaoverse.Assembly_config["pipelines"][""];
+    /** 当前绘制列表。 */
+    drawList: {
+        /** 当前动态绘制命令列表。 */
+        drawCalls: {
+            /** 3D对象渲染标志集。 */
+            flags: number;
+            /** 3D对象层标记。 */
+            layers: number;
+            /** 用户数据。 */
+            userData: number;
+            /** 是否投射阴影。 */
+            castShadows?: boolean;
+            /** 是否接收阴影。 */
+            receiveShadows?: boolean;
+            /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0）。 */
+            frontFace: number;
+            /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1）。 */
+            cullMode: number;
+            /** 图元类型（网格资源为空时需指定该参数）。 */
+            topology?: Miaoverse.GLPrimitiveTopology;
+            /** 网格资源实例（可为空）。 */
+            mesh: Miaoverse.Mesh;
+            /** 绘制材质列表。 */
+            materials: {
+                /** 子网格索引（网格资源实例为空时不使用该字段）。 */
+                submesh: number;
+                /** 材质资源实例。 */
+                material: Miaoverse.Material;
+                /** 绘制参数集（[g1, g2, pipeline, mesh, submesh, instanceCount, firstInstance]）。 */
+                drawParams?: number[];
+            }[];
+            /** 实例数据列表（模型空间到世界空间转换矩阵）。 */
+            instances: number[][];
+        }[];
+        /** 材质绘制参数集列表。 */
+        drawParts: number[][];
+        /** 实例绘制数据缓存。 */
+        instanceVB: number;
+        /** 实例绘制数据数量（每个104字节）。 */
+        instanceCount: number;
+    };
     /** 当前相机渲染执行统计。 */
     execStat: ExecuteStat;
     /** 当前活动帧通道。 */
@@ -132,6 +198,8 @@ export declare class DrawQueue {
     activeG3: any;
     /** 当前活动着色管线。 */
     activePipeline: GPURenderPipeline;
+    /** 当前活动网格顶点缓存。 */
+    activeMesh: Miaoverse.Mesh;
 }
 /** 帧通道配置。 */
 export interface GLFramePass extends GPURenderPassDescriptor {

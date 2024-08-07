@@ -172,20 +172,6 @@ fn init_instance() {
         objectUniforms.normal_wfmMat[2].xyz,
     );
 
-    if(0 < gl_InstanceID) {
-        instance_wfmMat = instanceUniforms.data[gl_InstanceID].wfmMat;
-        instance_normal_wfmMat = mat3x3<f32>(
-            instanceUniforms.data[gl_InstanceID].normal_wfmMat[0].xyz,
-            instanceUniforms.data[gl_InstanceID].normal_wfmMat[1].xyz,
-            instanceUniforms.data[gl_InstanceID].normal_wfmMat[2].xyz,
-        );
-
-        instance_id = instanceUniforms.data[gl_InstanceID].id;
-        instance_flags = instanceUniforms.data[gl_InstanceID].flags;
-        instance_layers = instanceUniforms.data[gl_InstanceID].layers;
-        instance_user = instanceUniforms.data[gl_InstanceID].user;
-    }
-
     instance_vfwMat = frameUniforms.vfgMat * frameUniforms.gfwMat;
 }
 
@@ -205,6 +191,14 @@ struct InputVS_1 {
     @location(0) position: vec4f,
     @location(1) qtbn: vec4f,
     @location(2) uv: vec2f,
+
+    @location(9)  wfmMat0: vec4f,
+    @location(10) wfmMat1: vec4f,
+    @location(11) wfmMat2: vec4f,
+    @location(12) wfmMat3: vec4f,
+    @location(13) id_flags_layers_user: vec4<u32>,
+    @location(14) bbCenter: vec3f,
+    @location(15) bbExtents: vec3f,
 };
 
 // 包含第1、2顶点缓存的顶点属性结构
@@ -218,6 +212,14 @@ struct InputVS_3 {
 
     @location(3) bones: vec4<u32>,
     @location(4) weights: vec4f,
+
+    @location(9)  wfmMat0: vec4f,
+    @location(10) wfmMat1: vec4f,
+    @location(11) wfmMat2: vec4f,
+    @location(12) wfmMat3: vec4f,
+    @location(13) id_flags_layers_user: vec4<u32>,
+    @location(14) bbCenter: vec3f,
+    @location(15) bbExtents: vec3f,
 };
 
 // 进行网格变形和骨骼蒙皮后的模型空间顶点坐标
@@ -244,7 +246,24 @@ fn init_vertex_1(vertex: InputVS_1) {
     gl_InstanceID = vertex.gl_InstanceID;
     gl_VertexID = vertex.gl_VertexID;
 
-    init_instance();
+    // 实例化绘制情况下实例数据从顶点缓存读取
+    if (objectUniforms.bbExtents.w != 1.0) {
+        instance_wfmMat = mat4x4<f32>(vertex.wfmMat0, vertex.wfmMat1, vertex.wfmMat2, vertex.wfmMat3);
+        instance_normal_wfmMat = cofactor(instance_wfmMat);
+
+        instance_id = vertex.id_flags_layers_user.x;
+        instance_flags = vertex.id_flags_layers_user.y;
+        instance_layers = vertex.id_flags_layers_user.z;
+        instance_user = vertex.id_flags_layers_user.w;
+
+        instance_bbCenter = vertex.bbCenter;
+        instance_bbExtents = vertex.bbExtents;
+
+        instance_vfwMat = frameUniforms.vfgMat * frameUniforms.gfwMat;
+    }
+    else {
+        init_instance();
+    }
 
     // 顶点缓存中的坐标基于网格中心和网格大小进行归一化压缩
     mesh_position = vertex.position.xyz * instance_bbExtents + instance_bbCenter;
@@ -284,7 +303,24 @@ fn init_vertex_3(vertex: InputVS_3) {
     gl_InstanceID = vertex.gl_InstanceID;
     gl_VertexID = vertex.gl_VertexID;
 
-    init_instance();
+    // 实例化绘制情况下实例数据从顶点缓存读取
+    if (objectUniforms.bbExtents.w != 1.0) {
+        instance_wfmMat = mat4x4<f32>(vertex.wfmMat0, vertex.wfmMat1, vertex.wfmMat2, vertex.wfmMat3);
+        instance_normal_wfmMat = cofactor(instance_wfmMat);
+
+        instance_id = vertex.id_flags_layers_user.x;
+        instance_flags = vertex.id_flags_layers_user.y;
+        instance_layers = vertex.id_flags_layers_user.z;
+        instance_user = vertex.id_flags_layers_user.w;
+
+        instance_bbCenter = vertex.bbCenter;
+        instance_bbExtents = vertex.bbExtents;
+
+        instance_vfwMat = frameUniforms.vfgMat * frameUniforms.gfwMat;
+    }
+    else {
+        init_instance();
+    }
 
     // 顶点缓存中的坐标基于网格中心和网格大小进行归一化压缩
     mesh_position = vertex.position.xyz * instance_bbExtents + instance_bbCenter;

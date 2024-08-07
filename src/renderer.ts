@@ -56,6 +56,12 @@ export class DrawQueue {
             this._waiting = null;
             this._end = false;
             this._task = 0;
+            this.drawList = {
+                drawCalls: [],
+                drawParts: null,
+                instanceVB: 0,
+                instanceCount: 0
+            };
 
             this.camera = null;
             this.volume = null;
@@ -121,8 +127,7 @@ export class DrawQueue {
         callback: (e: any) => void) {
 
         const device = this._global.device.device;
-
-        this.DrawScene = draw;
+        const env = this._global.env;
 
         this.camera = camera;
         this.volume = volume;
@@ -139,6 +144,67 @@ export class DrawQueue {
 
         this.camera.width = this.target.texture.width;
         this.camera.height = this.target.texture.height;
+
+        // ===================-------------------------
+
+        const MeshRenderer = this._global.resources.MeshRenderer;
+        const GetInstanceSlot = MeshRenderer["_GetInstanceSlot"];
+        const VerifyInstance = MeshRenderer["_VerifyInstance"];
+
+        // 清空实例数据数组
+        GetInstanceSlot(1);
+
+        const drawCalls = this.drawList.drawCalls;
+        const drawParts = this.drawList.drawParts = [] as number[][];
+
+        for (let call of drawCalls) {
+            const bbCenter = call.mesh?.center || [0, 0, 0];
+            const bbExtents = call.mesh?.extents || [1, 1, 1];
+
+            let instanceCount = 0;
+            let firstInstance = 0;
+
+            for (let i = 0; i < call.instances.length; i++) {
+                const ptr = GetInstanceSlot(0);
+
+                env.farraySet(ptr, 0, call.instances[i]);   // wfmMat
+
+                env.uscalarSet(ptr, 16, 0);                 // object
+                env.uscalarSet(ptr, 17, call.flags);        // flags
+                env.uscalarSet(ptr, 18, call.layers);       // layers
+                env.uscalarSet(ptr, 19, call.userData);     // userData
+
+                env.farraySet(ptr, 20, bbCenter);           // bbCenter
+                env.farraySet(ptr, 23, bbExtents);          // bbExtents
+
+                // 实例可见性检测、层掩码检测
+                const slot = VerifyInstance(ptr, camera.internalPtr);
+
+                if (slot > -1) {
+                    if (0 == instanceCount++) {
+                        firstInstance = slot;
+                    }
+                }
+            }
+
+            if (instanceCount > 0) {
+                for (let mat of call.materials) {
+                    const part = mat.drawParams;
+
+                    part[5] = instanceCount;
+                    part[6] = firstInstance;
+
+                    drawParts.push(part);
+                }
+            }
+        }
+
+        this.drawList.instanceCount = GetInstanceSlot(4);
+        this.drawList.instanceVB = GetInstanceSlot(8);
+
+        // ===================-------------------------
+
+        this.Draw = draw;
 
         for (let framePass of framePassList.framePass) {
             this.ExecuteFramePass(framePass);
@@ -222,34 +288,179 @@ export class DrawQueue {
     }
 
     /**
-     * 绑定着色器管线（需要先调用BindFrameUniforms、BindMeshRenderer、BindMaterial）。
+     * 基于当前资源绑定设置着色器管线（需要先调用BindFrameUniforms、BindMeshRenderer、BindMaterial）。
      */
     public BindRenderPipeline(config: {
-        /** 渲染设置标记集。 */
+        /** 渲染设置标记集（材质与网格渲染器共同设置）。 */
         flags: number;
-        /** 图元类型。 */
+        /** 图元类型（子网格设置）。 */
         topology: number;
+
         /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0。网格渲染器设置）。*/
         frontFace: number;
         /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1。网格渲染器设置）。*/
         cullMode: number;
     }) {
-        const pipeline = this._global.context.CreateRenderPipeline({
-            framePass: this.framePass,
-            g0: this.activeG0.layoutID,
+        const id = this._global.context.CreateRenderPipeline({
             g1: this.activeG1.layoutID,
             g2: this.activeG2.layoutID,
             g3: 0,
             ...config
         });
 
-        if (pipeline) {
-            this.passEncoder.setPipeline(pipeline);
+        this.SetPipeline(id);
+    }
+
+    /**
+     * 绑定对应当前帧通道设置的GPU着色器管线实例。
+     * @param pipelineID 着色器管线实例ID。
+     */
+    public SetPipeline(pipelineID: number) {
+        const activePipeline = this._global.context.GetRenderPipeline(pipelineID, this.framePass);
+
+        if (this.activePipeline != activePipeline) {
+            this.activePipeline = activePipeline;
+            this.passEncoder.setPipeline(activePipeline);
+        }
+    }
+
+    /**
+     * 动态绘制网格。
+     * @param params 动态绘制参数。
+     */
+    public DrawMesh(params: DrawQueue["drawList"]["drawCalls"][0]) {
+        this.drawList.drawCalls.push(params);
+
+        const g1 = this._global.resources.MeshRenderer.defaultG1;
+
+        for (let mat of params.materials) {
+            let flags = mat.material.enableFlags;
+            let topology = 3;
+
+            if (params.mesh) {
+                flags |= params.mesh.vbLayout;
+                topology = params.mesh.triangles[mat.submesh].topology;
+            }
+            else {
+                flags |= Miaoverse.RENDER_FLAGS.DRAW_ARRAYS;
+                topology = params.topology;
+            }
+
+            if (params.castShadows) {
+                flags |= Miaoverse.RENDER_FLAGS.CAST_SHADOWS;
+            }
+
+            if (params.receiveShadows) {
+                flags |= Miaoverse.RENDER_FLAGS.RECEIVE_SHADOWS;
+            }
+
+            const pipeline = this._global.context.CreateRenderPipeline({
+                g1: g1.layoutID,
+                g2: mat.material.layoutID,
+                g3: 0,
+
+                flags,
+                topology,
+
+                frontFace: params.frontFace,
+                cullMode: params.cullMode
+            });
+
+            mat.drawParams = [
+                g1.id,              // g1
+                mat.material.id,    // g2
+                pipeline,           // pipeline
+                params.mesh?.id,    // mesh
+                mat.submesh,        // submesh
+                1,                  // instanceCount
+                0,                  // firstInstance
+            ];
+        }
+    }
+
+    /** 
+     * 绘制当前绘制列表。
+     */
+    public DrawList() {
+        const parts = this.drawList.drawParts;
+
+        for (let params of parts) {
+            this.DrawPart(
+                params[0],  // g1
+                params[1],  // g2
+                params[2],  // pipeline
+                params[3],  // mesh
+                params[4],  // submesh
+                params[5],  // instanceCount
+                params[6],  // firstInstance
+            );
+        }
+
+        //console.error(parts);
+    }
+
+    /**
+     * 子网格绘制方法。
+     * @param g1 网格渲染器实例ID。
+     * @param g2 材质实例ID。
+     * @param pipeline 着色器管线实例ID。
+     * @param mesh 网格资源ID。
+     * @param submesh 子网格索引。
+     * @param instanceCount 绘制实例数量。
+     * @param firstInstance 起始绘制实例索引。
+     */
+    public DrawPart(g1: number, g2: number, pipeline: number, mesh: number, submesh: number, instanceCount = 1, firstInstance = 0) {
+        const resources = this._global.resources;
+        const context = this._global.context;
+        const activeG1 = resources.MeshRenderer.GetInstanceByID(g1);
+        const activeG2 = resources.Material.GetInstanceByID(g2) as Miaoverse.Material;
+        const activeMesh = resources.Mesh.GetInstanceByID(mesh);
+
+        if (this.activeG1 != activeG1) {
+            this.BindMeshRenderer(activeG1);
+        }
+
+        if (this.activeG2 != activeG2) {
+            this.BindMaterial(activeG2);
+        }
+
+        this.SetPipeline(pipeline);
+
+        if (activeMesh) {
+            if (this.activeMesh != activeMesh) {
+                const vertices = activeMesh.vertices;
+                context.SetVertexBuffers(0, vertices, this.passEncoder);
+                context.SetVertexBuffer(vertices.length, this.drawList.instanceVB, 0, 104 * this.drawList.instanceCount, this.passEncoder);
+            }
+
+            const ibFormat = activeMesh.ibFormat;
+            const subMesh = activeMesh.triangles[submesh];
+
+            context.SetIndexBuffer(ibFormat, subMesh, this.passEncoder);
+
+            this.passEncoder.drawIndexed(
+                subMesh.size / ibFormat,// indexCount
+                instanceCount,          // instanceCount
+                0,                      // firstIndex
+                0,                      // baseVertex
+                firstInstance,          // firstInstance
+            );
+        }
+        else {
+            const drawCount = activeG2.view.drawCount?.[0];
+            if (drawCount) {
+                this.passEncoder.draw(
+                    drawCount,              // vertexCount
+                    instanceCount,          // instanceCount
+                    0,                      // firstVertex
+                    firstInstance,          // firstInstance
+                );
+            }
         }
     }
 
     /** 当前场景绘制方法。 */
-    public DrawScene?: (queue: DrawQueue) => void;
+    public Draw?: (queue: DrawQueue) => void;
 
     /** 模块实例对象。 */
     private _global: Miaoverse.Ploy3D;
@@ -276,6 +487,51 @@ export class DrawQueue {
     };
     /** 当前帧通道配置列表。 */
     public framePassList: Miaoverse.Assembly_config["pipelines"][""];
+    /** 当前绘制列表。 */
+    public drawList: {
+        /** 当前动态绘制命令列表。 */
+        drawCalls: {
+            /** 3D对象渲染标志集。 */
+            flags: number;
+            /** 3D对象层标记。 */
+            layers: number;
+            /** 用户数据。 */
+            userData: number;
+
+            /** 是否投射阴影。 */
+            castShadows?: boolean;
+            /** 是否接收阴影。 */
+            receiveShadows?: boolean;
+            /** 正面的定义顺序（0-CCW逆时针、1-CW顺时针、默认0）。 */
+            frontFace: number;
+            /** 多边形裁剪模式（0-不裁剪、1-裁剪背面、2-裁剪正面、默认1）。 */
+            cullMode: number;
+            /** 图元类型（网格资源为空时需指定该参数）。 */
+            topology?: Miaoverse.GLPrimitiveTopology;
+
+            /** 网格资源实例（可为空）。 */
+            mesh: Miaoverse.Mesh;
+            /** 绘制材质列表。 */
+            materials: {
+                /** 子网格索引（网格资源实例为空时不使用该字段）。 */
+                submesh: number;
+                /** 材质资源实例。 */
+                material: Miaoverse.Material;
+
+                /** 绘制参数集（[g1, g2, pipeline, mesh, submesh, instanceCount, firstInstance]）。 */
+                drawParams?: number[];
+            }[];
+
+            /** 实例数据列表（模型空间到世界空间转换矩阵）。 */
+            instances: number[][];
+        }[];
+        /** 材质绘制参数集列表。 */
+        drawParts: number[][];
+        /** 实例绘制数据缓存。 */
+        instanceVB: number;
+        /** 实例绘制数据数量（每个104字节）。 */
+        instanceCount: number;
+    };
     /** 当前相机渲染执行统计。 */
     public execStat: ExecuteStat;
 
@@ -299,6 +555,8 @@ export class DrawQueue {
 
     /** 当前活动着色管线。 */
     public activePipeline: GPURenderPipeline;
+    /** 当前活动网格顶点缓存。 */
+    public activeMesh: Miaoverse.Mesh;
 }
 
 /** 帧通道配置。 */
