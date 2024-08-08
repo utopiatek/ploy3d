@@ -61,11 +61,9 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
 
     /**
      * 更新绘制场景。
-     * @param object3d 3D对象实例（用于获得模型空间到世界空间变换矩阵）。
-     * @param frameUniforms 着色器资源组G0实例（用户获得世界空间到全局空间变换矩阵）。
      * @param camera 相机组件实例（用于获取全局空间到相机空间变换矩阵）。
      */
-    public Update(object3d: Miaoverse.Object3D, frameUniforms: Miaoverse.FrameUniforms, camera: Miaoverse.Camera) {
+    public Update(camera: Miaoverse.Camera) {
         const env = this._global.env;
         const updateTS = env.frameTS;
         const elapsed = updateTS - this._updateTS;
@@ -79,8 +77,8 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
 
         env.AllocaCall(128, (checker) => {
             env.uscalarSet(checker, 0, 0);
-            env.ptrSet(checker, 1, object3d.internalPtr);
-            env.ptrSet(checker, 2, frameUniforms.internalPtr);
+            env.ptrSet(checker, 1, this._object3d.internalPtr);
+            env.ptrSet(checker, 2, 0 as never);
             env.ptrSet(checker, 3, camera.internalPtr);
 
             const frustumCheck = (bbMin: number[], bbMax: number[]) => {
@@ -179,12 +177,8 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      * @param queue 绘制队列。
      * @param update 是否基于当前相机刷新模型显示。
      */
-    public Draw(queue: Miaoverse.DrawQueue, update: boolean) {
-        this._meshRenderer.SyncInstanceData(this._object3d);
-
-        if (update) {
-            this.Update(this._object3d, queue.activeG0, queue.camera);
-        }
+    public Draw(queue: Miaoverse.DrawQueue) {
+        this._meshRenderer.UpdateG1(this._object3d);
 
         const passEncoder = queue.passEncoder;
 

@@ -423,7 +423,7 @@ export class Gis {
      * 绘制场景。
      * @param passEncoder 渲染通道命令编码器。
      */
-    public Draw(queue: Miaoverse.DrawQueue) {
+    public DrawMesh(queue: Miaoverse.DrawQueue) {
         this.FlushMaterial();
 
         this._drawParams.mesh = this._mesh;

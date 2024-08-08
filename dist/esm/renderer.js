@@ -113,6 +113,7 @@ export class DrawQueue {
                 }
             }
         }
+        this.drawList.drawParts2 = this._global.resources.Scene.Culling(this.camera, 0xFFFFFFFF);
         this.drawList.instanceCount = GetInstanceSlot(4);
         this.drawList.instanceVB = GetInstanceSlot(8);
         this.Draw = draw;
@@ -218,6 +219,20 @@ export class DrawQueue {
         const parts = this.drawList.drawParts;
         for (let params of parts) {
             this.DrawPart(params[0], params[1], params[2], params[3], params[4], params[5], params[6]);
+        }
+        const parts2 = this.drawList.drawParts2;
+        if (parts2) {
+            const count = parts2.count;
+            const params = parts2.params;
+            const indices = parts2.indices;
+            if (indices) {
+            }
+            else {
+                for (let i = 0; i < count; i++) {
+                    const i7 = i * 7;
+                    this.DrawPart(params[i7 + 0], params[i7 + 1], params[i7 + 2], params[i7 + 3], params[i7 + 4], params[i7 + 5], params[i7 + 6]);
+                }
+            }
         }
     }
     DrawPart(g1, g2, pipeline, mesh, submesh, instanceCount = 1, firstInstance = 0) {

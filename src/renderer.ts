@@ -187,6 +187,8 @@ export class DrawQueue {
                 }
             }
 
+            //console.error("instances culling:", call.instances.length, instanceCount);
+
             if (instanceCount > 0) {
                 for (let mat of call.materials) {
                     const part = mat.drawParams;
@@ -198,6 +200,8 @@ export class DrawQueue {
                 }
             }
         }
+
+        this.drawList.drawParts2 = this._global.resources.Scene.Culling(this.camera, 0xFFFFFFFF);
 
         this.drawList.instanceCount = GetInstanceSlot(4);
         this.drawList.instanceVB = GetInstanceSlot(8);
@@ -396,6 +400,33 @@ export class DrawQueue {
             );
         }
 
+        const parts2 = this.drawList.drawParts2;
+
+        if (parts2) {
+            const count = parts2.count;
+            const params = parts2.params;
+            const indices = parts2.indices;
+
+            if (indices) {
+                // TODO: 使用索引数组编排绘制顺序以提高性能
+            }
+            else {
+                for (let i = 0; i < count; i++) {
+                    const i7 = i * 7;
+
+                    this.DrawPart(
+                        params[i7 + 0],  // g1
+                        params[i7 + 1],  // g2
+                        params[i7 + 2],  // pipeline
+                        params[i7 + 3],  // mesh
+                        params[i7 + 4],  // submesh
+                        params[i7 + 5],  // instanceCount
+                        params[i7 + 6],  // firstInstance
+                    );
+                }
+            }
+        }
+
         //console.error(parts);
     }
 
@@ -527,6 +558,8 @@ export class DrawQueue {
         }[];
         /** 材质绘制参数集列表。 */
         drawParts: number[][];
+        /** 场景材质绘制参数集列表。 */
+        drawParts2?: { count: number, params: ArrayLike<number>; indices?: number[]; };
         /** 实例绘制数据缓存。 */
         instanceVB: number;
         /** 实例绘制数据数量（每个104字节）。 */

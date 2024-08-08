@@ -24,6 +24,16 @@ export declare class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Sc
      */
     Create(): Promise<Miaoverse.Scene>;
     /**
+     * 基于相机视锥裁剪场景绘制对象。
+     * @param camera 相机组件实例。
+     * @param layerMask 3D对象层掩码。
+     * @returns 返回绘制列表。
+     */
+    Culling(camera: Miaoverse.Camera, layerMask: number): {
+        count: number;
+        params: Uint32Array;
+    };
+    /**
      * 创建场景内核实例。
      * 同一预制件可重复实例化出多个场景，场景通过销毁方法销毁。
      * @returns 返回场景内核实例指针。
@@ -34,6 +44,13 @@ export declare class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Sc
      * @param scene 场景内核实例指针。
      */
     protected _Destroy: (scene: Miaoverse.io_ptr) => void;
+    /**
+     * 基于相机视锥裁剪场景绘制对象。
+     * @param camera 相机组件内核实例指针。
+     * @param layerMask 3D对象层掩码。
+     * @returns 返回绘制列表长度和指针。
+     */
+    protected _Culling: (camera: Miaoverse.io_ptr, layerMask: number) => [number, Miaoverse.io_ptr];
 }
 /** 场景内核实现的数据结构成员列表。 */
 export declare const Scene_member_index: {
@@ -150,7 +167,7 @@ export interface Asset_prefab extends Miaoverse.Asset {
          */
         deactive?: boolean;
         /**
-         * 对象自定义层标记（默认0）。
+         * 对象层标识（用于过滤筛选对象，默认1）。
          */
         layers?: number;
         /**

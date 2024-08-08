@@ -185,6 +185,9 @@ export class Object3D extends Miaoverse.Resource {
         }
         return root;
     }
+    set meshRenderer(component) {
+        this._impl["_SetMeshRenderer"](this._ptr, component?.internalPtr || 0);
+    }
     _impl;
 }
 export class Object_kernel extends Miaoverse.Base_kernel {
@@ -206,6 +209,7 @@ export class Object_kernel extends Miaoverse.Base_kernel {
     _SetPosition;
     _SetRotation;
     _SetParent;
+    _SetMeshRenderer;
 }
 export const Node_member_index = {
     ...Miaoverse.Binary_member_index,

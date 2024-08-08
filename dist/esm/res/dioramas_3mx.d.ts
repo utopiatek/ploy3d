@@ -17,17 +17,15 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     Init(scene: Miaoverse.Scene, url: string, lnglat_alt?: number[]): Promise<void>;
     /**
      * 更新绘制场景。
-     * @param object3d 3D对象实例（用于获得模型空间到世界空间变换矩阵）。
-     * @param frameUniforms 着色器资源组G0实例（用户获得世界空间到全局空间变换矩阵）。
      * @param camera 相机组件实例（用于获取全局空间到相机空间变换矩阵）。
      */
-    Update(object3d: Miaoverse.Object3D, frameUniforms: Miaoverse.FrameUniforms, camera: Miaoverse.Camera): void;
+    Update(camera: Miaoverse.Camera): void;
     /**
      * 绘制场景。
      * @param queue 绘制队列。
      * @param update 是否基于当前相机刷新模型显示。
      */
-    Draw(queue: Miaoverse.DrawQueue, update: boolean): void;
+    Draw(queue: Miaoverse.DrawQueue): void;
     /**
      * 加载场景分组（3MXB文件）。
      * @param url 文件路径。

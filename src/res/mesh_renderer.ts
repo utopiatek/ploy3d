@@ -19,33 +19,16 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
      * @param submesh 材质应用到子网格索引。
      * @param material 材质资源实例。
      */
-    public SetMaterial(slot: number, submesh: number, material: Miaoverse.Material): void {
+    public SetMaterial(slot: number, submesh: number, material: Miaoverse.Material) {
         this._impl["_SetMaterial"](this._ptr, slot, submesh, material.internalPtr);
     }
 
     /**
-     * 获取网格渲染器指定材质槽位绘制参数。
-     * @param slot 指定材质槽位。
-     * @returns 返回材质绘制参数。
+     * 基于指定3D对象更新G1相关数据。
+     * @param object3d 3D对象内核实例指针。
      */
-    public GetDrawParams(slot: number) {
-        if (slot < this.materialCount) {
-            const materials = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "materials");
-            const node_ptr = this._global.env.ptrMove(materials, slot * 16);
-
-            return this._impl["_GetDrawParams"](node_ptr);
-        }
-
-        return null;
-    }
-
-    /**
-     * 同步3D对象变换组件数据到G1。
-     * @param object3d 3D对象内核实例。
-     * @returns 返回变换时间戳。
-     */
-    public SyncInstanceData(object3d: Miaoverse.Object3D) {
-        return this._impl["_SyncInstanceData"](this._ptr, object3d.internalPtr);
+    public UpdateG1(object3d: Miaoverse.Object3D) {
+        this._impl["_UpdateG1"](this._ptr, object3d.internalPtr);
     }
 
     /** 数据块在缓存中的字节大小（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
@@ -152,7 +135,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
         /** 材质插槽索引（默认等同子网格索引）。 */
         slot?: number;
         /** 材质应用到子网格索引（相同子网格可绑定多个材质进行多次重叠渲染）。*/
-        group: number;
+        submesh: number;
         /** 材质资源实例。 */
         material: Miaoverse.Material;
     }[]) {
@@ -169,7 +152,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
 
         if (materials) {
             for (let mat of materials) {
-                instance.SetMaterial(mat.slot == undefined ? mat.group : mat.slot, mat.group, mat.material);
+                instance.SetMaterial(mat.slot == undefined ? mat.submesh : mat.slot, mat.submesh, mat.material);
             }
         }
 
@@ -211,19 +194,11 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
     protected _VerifyInstance: (data: Miaoverse.io_ptr, camera: Miaoverse.io_ptr) => number;
 
     /**
-     * 获取材质节点绘制参数。
-     * @param material_node 材质节点指针。
-     * @returns 返回材质节点绘制参数。
-     */
-    protected _GetDrawParams: (material_node: Miaoverse.io_ptr) => number[];
-
-    /**
-     * 同步3D对象变换组件数据到G1。
+     * 基于指定3D对象更新G1相关数据。
      * @param mesh_renderer 网格资源内核实例。
      * @param object3d 3D对象内核实例。
-     * @returns 返回变换时间戳。
      */
-    protected _SyncInstanceData: (mesh_renderer: Miaoverse.io_ptr, object3d: Miaoverse.io_ptr) => number;
+    protected _UpdateG1: (mesh_renderer: Miaoverse.io_ptr, object3d: Miaoverse.io_ptr) => void;
 
     /** 内置默认网格渲染器组件实例。 */
     public defaultG1: MeshRenderer;

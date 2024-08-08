@@ -273,6 +273,11 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         return root;
     }
 
+    /** 网格渲染器组件。 */
+    public set meshRenderer(component: Miaoverse.MeshRenderer) {
+        this._impl["_SetMeshRenderer"](this._ptr, component?.internalPtr || 0);
+    }
+
     /** 内核实现。 */
     private _impl: Object_kernel;
 }
@@ -331,7 +336,7 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
     /**
      * 计算模型空间到指定相机空间变换矩阵。
      * @param object3d 3D对象实例指针（用于获得模型空间到世界空间变换矩阵）。
-     * @param frameUniforms 着色器资源组G0指针（用户获得世界空间到全局空间变换矩阵）。
+     * @param frameUniforms 着色器资源组G0指针（用于获得世界空间到全局空间变换矩阵，可为空）。
      * @param camera 相机组件指针（用于获取全局空间到相机空间变换矩阵）。
      * @returns 返回模型到相机空间变换矩阵数据。
      */
@@ -356,6 +361,13 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
      * @param staysWorld 是否维持世界空间坐标。
      */
     protected _SetParent: (object3d: Miaoverse.io_ptr, parent: Miaoverse.io_ptr, staysWorld: Miaoverse.io_uint) => void;
+
+    /**
+     * 设置网格渲染器组件。
+     * @param object3d 3D对象内核实例指针。
+     * @param meshRenderer 网格渲染器组件内核实例指针。
+     */
+    protected _SetMeshRenderer: (object3d: Miaoverse.io_ptr, meshRenderer: Miaoverse.io_ptr) => void;
 }
 
 /** 场景节点内核实现的数据结构成员列表。 */

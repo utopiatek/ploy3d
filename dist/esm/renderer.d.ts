@@ -173,6 +173,12 @@ export declare class DrawQueue {
         }[];
         /** 材质绘制参数集列表。 */
         drawParts: number[][];
+        /** 场景材质绘制参数集列表。 */
+        drawParts2?: {
+            count: number;
+            params: ArrayLike<number>;
+            indices?: number[];
+        };
         /** 实例绘制数据缓存。 */
         instanceVB: number;
         /** 实例绘制数据数量（每个104字节）。 */

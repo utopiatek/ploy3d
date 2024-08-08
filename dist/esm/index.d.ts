@@ -270,7 +270,7 @@ export declare class PloyApp {
         material: Miaoverse.Material;
         /** 网格绘制参数对象。 */
         draw_params: {
-            flags: number; /** 是否使用WebGL。 */
+            flags: number;
             layers: number;
             userData: number;
             castShadows?: boolean;

@@ -17,17 +17,10 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
      */
     SetMaterial(slot: number, submesh: number, material: Miaoverse.Material): void;
     /**
-     * 获取网格渲染器指定材质槽位绘制参数。
-     * @param slot 指定材质槽位。
-     * @returns 返回材质绘制参数。
+     * 基于指定3D对象更新G1相关数据。
+     * @param object3d 3D对象内核实例指针。
      */
-    GetDrawParams(slot: number): number[];
-    /**
-     * 同步3D对象变换组件数据到G1。
-     * @param object3d 3D对象内核实例。
-     * @returns 返回变换时间戳。
-     */
-    SyncInstanceData(object3d: Miaoverse.Object3D): number;
+    UpdateG1(object3d: Miaoverse.Object3D): void;
     /** 数据块在缓存中的字节大小（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
     get size(): number;
     /** 数据块在缓存中的字节偏移（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
@@ -55,6 +48,7 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
     get g1_instanceList(): {
         buffer: never;
         bufferID: number;
+        /** 材质数量。 */
         offset: number;
         size: number;
     };
@@ -62,6 +56,7 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
     get g1_boneList(): {
         buffer: never;
         bufferID: number;
+        /** 材质数量。 */
         offset: number;
         size: number;
     };
@@ -89,7 +84,7 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
         /** 材质插槽索引（默认等同子网格索引）。 */
         slot?: number;
         /** 材质应用到子网格索引（相同子网格可绑定多个材质进行多次重叠渲染）。*/
-        group: number;
+        submesh: number;
         /** 材质资源实例。 */
         material: Miaoverse.Material;
     }[]): Promise<Miaoverse.MeshRenderer>;
@@ -120,18 +115,11 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
      */
     protected _VerifyInstance: (data: Miaoverse.io_ptr, camera: Miaoverse.io_ptr) => number;
     /**
-     * 获取材质节点绘制参数。
-     * @param material_node 材质节点指针。
-     * @returns 返回材质节点绘制参数。
-     */
-    protected _GetDrawParams: (material_node: Miaoverse.io_ptr) => number[];
-    /**
-     * 同步3D对象变换组件数据到G1。
+     * 基于指定3D对象更新G1相关数据。
      * @param mesh_renderer 网格资源内核实例。
      * @param object3d 3D对象内核实例。
-     * @returns 返回变换时间戳。
      */
-    protected _SyncInstanceData: (mesh_renderer: Miaoverse.io_ptr, object3d: Miaoverse.io_ptr) => number;
+    protected _UpdateG1: (mesh_renderer: Miaoverse.io_ptr, object3d: Miaoverse.io_ptr) => void;
     /** 内置默认网格渲染器组件实例。 */
     defaultG1: MeshRenderer;
     /** 实例绘制数据顶点缓存布局。 */
@@ -180,11 +168,7 @@ export declare const MeshRendere_member_index: {
     readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
-    readonly byteSize: Miaoverse.Kernel_member; /**
-     * 获取网格渲染器指定材质槽位绘制参数。
-     * @param slot 指定材质槽位。
-     * @returns 返回材质绘制参数。
-     */
+    readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
     readonly uuid: Miaoverse.Kernel_member;

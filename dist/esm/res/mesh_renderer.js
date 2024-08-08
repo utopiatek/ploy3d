@@ -7,16 +7,8 @@ export class MeshRenderer extends Miaoverse.Uniform {
     SetMaterial(slot, submesh, material) {
         this._impl["_SetMaterial"](this._ptr, slot, submesh, material.internalPtr);
     }
-    GetDrawParams(slot) {
-        if (slot < this.materialCount) {
-            const materials = this._impl.Get(this._ptr, "materials");
-            const node_ptr = this._global.env.ptrMove(materials, slot * 16);
-            return this._impl["_GetDrawParams"](node_ptr);
-        }
-        return null;
-    }
-    SyncInstanceData(object3d) {
-        return this._impl["_SyncInstanceData"](this._ptr, object3d.internalPtr);
+    UpdateG1(object3d) {
+        this._impl["_UpdateG1"](this._ptr, object3d.internalPtr);
     }
     get size() {
         return this._impl.Get(this._ptr, "bufferBlockSize") - 256;
@@ -86,7 +78,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
         this._instanceCount++;
         if (materials) {
             for (let mat of materials) {
-                instance.SetMaterial(mat.slot == undefined ? mat.group : mat.slot, mat.group, mat.material);
+                instance.SetMaterial(mat.slot == undefined ? mat.submesh : mat.slot, mat.submesh, mat.material);
             }
         }
         this._gcList.push(instance);
@@ -96,8 +88,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
     _SetMaterial;
     _GetInstanceSlot;
     _VerifyInstance;
-    _GetDrawParams;
-    _SyncInstanceData;
+    _UpdateG1;
     defaultG1;
     instanceVBL = {
         arrayStride: 104,

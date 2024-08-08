@@ -261,7 +261,7 @@ export class Gis {
             material.material.view["layers_uvst3"] = layers_uvst[3];
         }
     }
-    Draw(queue) {
+    DrawMesh(queue) {
         this.FlushMaterial();
         this._drawParams.mesh = this._mesh;
         this._drawParams.materials = this._materials;

@@ -38,19 +38,51 @@ export class PloyApp_test extends ploycloud.PloyApp {
         // 经纬度拾取器：https://lbs.qq.com/getPoint/
         const dior_lnglat = this.engine.gis.WGS84_GCJ02([120.281164, 30.4857535]);
         // 创建倾斜摄影模型实例
-        // this.dior = await resources.Dioramas.Create_3mx(this.scene, "http://localhost:55204/Production_1.3mx", [dior_lnglat[0], dior_lnglat[1], 0.0]);
+        // this.dior = await resources.Dioramas.Create_3mx(this.scene, "./.git.assets/3mx/Production_8.3mx", [dior_lnglat[0], dior_lnglat[1], 0.0]);
 
         // 导入GLTF模型为引擎资源包
         this.gltf_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shader_ball.zip", () => { });
         // 注册引擎资源包
         this.engine.resources.Register(this.gltf_pkg.pkg, this.gltf_pkg.files);
         // 装载GLTF中的某个网格资源
-        this.gltf_mesh_0 = await resources.Mesh.Load("39-0", this.gltf_pkg.pkg);
+        this.gltf_mesh = await resources.Mesh.Load("39-0", this.gltf_pkg.pkg);
+        // 装载GLTF中的某个材质资源
+        this.gltf_material = await resources.Material.Load("32-0", this.gltf_pkg.pkg);
+        // 创建承载GLTF资源包网格资源绘制的网格渲染器组件
+        this.gltf_meshRenderer = await resources.MeshRenderer.Create(this.gltf_mesh, null, [
+            {
+                slot: 0,
+                submesh: 0,
+                material: this.gltf_material
+            },
+            {
+                slot: 1,
+                submesh: 1,
+                material: this.gltf_material
+            },
+            {
+                slot: 2,
+                submesh: 2,
+                material: this.gltf_material
+            }
+        ]);
+        // 创建2个3D对象来在场景中添加GLTF资源包网格资源绘制
+        this.gltf_obj1 = await resources.Object.Create(this.scene);
+        this.gltf_obj2 = await resources.Object.Create(this.scene);
+        // 添加网格渲染器组件到2个3D对象上，引擎自动处理为实例化绘制
+        this.gltf_obj1.meshRenderer = this.gltf_meshRenderer;
+        this.gltf_obj2.meshRenderer = this.gltf_meshRenderer;
+        // 分别设置2个3D对象的地理空间位置
+        this.gltf_obj1.SetLngLat(dior_lnglat[0], dior_lnglat[1], 0.0);
+        this.gltf_obj2.SetLngLat(dior_lnglat[0] + 0.005, dior_lnglat[1], 0.0);
+        // 分别设置2个3D对象不同缩放大小
+        this.gltf_obj1.localScale = this.engine.Vector3([20, 20, 20]);
+        this.gltf_obj2.localScale = this.engine.Vector3([50, 50, 50]);
 
         // 创建立方体网格绘制材质
-        const mat_cube = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
+        const cube_material = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
         // 创建立方体网格
-        const mesh_cube = await resources.Mesh.Create({
+        const cube_mesh = await resources.Mesh.Create({
             uuid: "",
             classid: /*CLASSID.ASSET_MESH*/39,
             name: "cube mesh",
@@ -59,16 +91,16 @@ export class PloyApp_test extends ploycloud.PloyApp {
             creater: {
                 type: "box",
                 box: {
-                    width: 231.486,//256,
-                    height: 1,
-                    depth: 231.486,//256,
+                    width: 10,
+                    height: 100,
+                    depth: 10,
                     widthSegments: 2,
                     heightSegments: 2,
                     depthSegments: 2
                 }
             }
         });
-        // 设置立方体网格绘制参数集
+        // 设置立方体网格动态绘制参数
         this.draw_cube = {
             flags: 0,
             layers: 0,
@@ -79,37 +111,28 @@ export class PloyApp_test extends ploycloud.PloyApp {
             frontFace: 0,
             cullMode: 1,
 
-            mesh: this.gltf_mesh_0,
+            mesh: cube_mesh,
             materials: [
                 {
                     submesh: 0,
-                    material: mat_cube
-                },
-                {
-                    submesh: 1,
-                    material: mat_cube
-                },
-                {
-                    submesh: 2,
-                    material: mat_cube
+                    material: cube_material
                 }
             ],
 
             instances: [
             ]
         };
-
-        // 实例化900各立方体网格
+        // 动态绘制900个立方体网格实例，此处计算每个实例的变换矩阵
         for (let r = 0; r < 30; r++) {
-            const z = -500 * 15 + 500 * r;
+            const z = -50 * 15 + 50 * r - 5000;
 
             for (let c = 0; c < 30; c++) {
-                const x = -500 * 15 + 500 * c;
+                const x = -50 * 15 + 50 * c + 7000;
 
                 const wfmMat = [
-                    100, 0, 0, 0,
-                    0, 100, 0, 0,
-                    0, 0, 100, 0,
+                    1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
                     x, 0, z, 1
                 ];
 
@@ -120,11 +143,13 @@ export class PloyApp_test extends ploycloud.PloyApp {
         // 创建地球大气层对象
         await this.CreateAtmosphere(this.scene);
 
+        // 注册鼠标滚轮事件监听器
         this.AddEventListener("wheel", (e) => {
             this.camera.Scale(e.wheelDelta, this.engine.width, this.engine.height);
             this.DrawFrame(1);
         });
 
+        // 注册鼠标滑动事件监听器
         this.AddEventListener("pointermove", (e) => {
             if ((e.buttons & 1) == 1) {
                 this.camera.Move(e.movementX, e.movementY, this.engine.width, this.engine.height);
@@ -156,6 +181,10 @@ export class PloyApp_test extends ploycloud.PloyApp {
         if (target) {
             this.camera.target = target;
         }
+
+        if (this.dior) {
+            this.dior.Update(this.camera);
+        }
     }
 
     /**
@@ -169,15 +198,29 @@ export class PloyApp_test extends ploycloud.PloyApp {
      * 绘制场景3D画面。
      */
     Draw3D() {
+        // 将GIS网格添加到绘制列表
         if (this.engine.gis) {
-            this.engine.gis.Draw(this._drawQueue);
+            this.engine.gis.DrawMesh(this._drawQueue);
         }
 
+        // 将地球大气层网格添加到绘制列表
         if (this._atmosphere) {
             this._drawQueue.DrawMesh(this._atmosphere.draw_params);
         }
 
+        // 将立方体网格添加到绘制列表
         this._drawQueue.DrawMesh(this.draw_cube);
+
+        // 自定义场景绘制方法
+        const drawScene = (queue) => {
+            // 绘制当前绘制列表内容
+            queue.DrawList();
+
+            // 绘制倾斜摄影模型
+            if (this.dior) {
+                this.dior.Draw(queue);
+            }
+        };
 
         // ========================----------------------------------------
 
@@ -189,32 +232,16 @@ export class PloyApp_test extends ploycloud.PloyApp {
             viewport: [0, 0, texture.width, texture.height]
         };
 
-        this._drawQueue.Execute(this.camera, this.volume, target, framePassList,
-            (queue) => {
-                this.DrawScene(queue);
-            },
-            (err) => {
-                if (err) {
-                    console.error(err);
+        this._drawQueue.Execute(this.camera, this.volume, target, framePassList, drawScene, (err) => {
+            if (err) {
+                console.error(err);
+            }
+            else {
+                if (Deno) {
+                    this.engine.config.surface.present();
                 }
-                else {
-                    if (Deno) {
-                        this.engine.config.surface.present();
-                    }
-                }
-            });
-    }
-
-    /**
-     * 自定义场景绘制方法。
-     * @param {ploycloud.DrawQueue} queue 渲染队列。
-     */
-    DrawScene(queue) {
-        queue.DrawList();
-
-        if (this.dior) {
-            this.dior.Draw(queue, queue.framePass.label == "opaque");
-        }
+            }
+        });
     }
 
     /** @type {ploycloud.Scene} 场景实例。 */
@@ -235,5 +262,13 @@ export class PloyApp_test extends ploycloud.PloyApp {
     /** GLTF资源包。 */
     gltf_pkg;
     /** GLTF资源包网格资源。 */
-    gltf_mesh_0;
+    gltf_mesh;
+    /** GLTF资源包材质资源。 */
+    gltf_material;
+    /** 承载GLTF资源包网格资源绘制的网格渲染器组件。 */
+    gltf_meshRenderer;
+    /** 承载GLTF资源包网格资源绘制的3D对象1。 */
+    gltf_obj1;
+    /** 承载GLTF资源包网格资源绘制的3D对象2。 */
+    gltf_obj2;
 }

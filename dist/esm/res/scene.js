@@ -19,8 +19,20 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
         this._instanceCount++;
         return instance;
     }
+    Culling(camera, layerMask) {
+        const info = this._Culling(camera.internalPtr, layerMask);
+        if (info[0] == 0) {
+            return null;
+        }
+        const params = this._global.env.uarrayRef(info[1], 0, info[0] * 7);
+        return {
+            count: info[0],
+            params
+        };
+    }
     _Create;
     _Destroy;
+    _Culling;
 }
 export const Scene_member_index = {
     ...Miaoverse.Binary_member_index,

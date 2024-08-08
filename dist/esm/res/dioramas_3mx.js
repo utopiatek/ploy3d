@@ -36,7 +36,7 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             this._object3d.SetLngLat(lnglat_alt[0], lnglat_alt[1], lnglat_alt[2]);
         }
     }
-    Update(object3d, frameUniforms, camera) {
+    Update(camera) {
         const env = this._global.env;
         const updateTS = env.frameTS;
         const elapsed = updateTS - this._updateTS;
@@ -46,8 +46,8 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this._updateTS = updateTS;
         env.AllocaCall(128, (checker) => {
             env.uscalarSet(checker, 0, 0);
-            env.ptrSet(checker, 1, object3d.internalPtr);
-            env.ptrSet(checker, 2, frameUniforms.internalPtr);
+            env.ptrSet(checker, 1, this._object3d.internalPtr);
+            env.ptrSet(checker, 2, 0);
             env.ptrSet(checker, 3, camera.internalPtr);
             const frustumCheck = (bbMin, bbMax) => {
                 env.fscalarSet(checker, 4, bbMin[0]);
@@ -117,11 +117,8 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             })();
         }
     }
-    Draw(queue, update) {
-        this._meshRenderer.SyncInstanceData(this._object3d);
-        if (update) {
-            this.Update(this._object3d, queue.activeG0, queue.camera);
-        }
+    Draw(queue) {
+        this._meshRenderer.UpdateG1(this._object3d);
         const passEncoder = queue.passEncoder;
         queue.BindMeshRenderer(this._meshRenderer);
         queue.BindMaterial(this._material);

@@ -45,7 +45,7 @@ export declare class Gis {
      * 绘制场景。
      * @param passEncoder 渲染通道命令编码器。
      */
-    Draw(queue: Miaoverse.DrawQueue): void;
+    DrawMesh(queue: Miaoverse.DrawQueue): void;
     /**
      * 计算太阳方位角和高度角。
      * 方位角：单位度，正北为0，顺时针增加，[0, 360]；
