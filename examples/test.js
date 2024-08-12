@@ -79,6 +79,13 @@ export class PloyApp_test extends ploycloud.PloyApp {
         this.gltf_obj1.localScale = this.engine.Vector3([20, 20, 20]);
         this.gltf_obj2.localScale = this.engine.Vector3([50, 50, 50]);
 
+        // 实例化资源包中预制件
+        // const prefab_pkg = await this.engine.worker.Import_gltf(1, "./.git.assets/model/临平2.gltf", () => { });
+        // this.engine.resources.Register(prefab_pkg.pkg, prefab_pkg.files);
+        // const prefab = await this.engine.resources.Scene.InstancePrefab(this.scene, "65-0", prefab_pkg.pkg);
+        // prefab.root.SetLngLat(dior_lnglat[0] + 0.0125, dior_lnglat[1] + 0.0025, 0.0);
+        // prefab.root.localPosition = this.engine.Vector3([0, 1, 0]);
+
         // 创建立方体网格绘制材质
         const cube_material = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
         // 创建立方体网格

@@ -153,7 +153,10 @@ interface Gltf {
         /** 扩展信息。 */
         extensions?: never;
         /** 特定于应用程序的数据。 */
-        extras?: Miaoverse.Asset_prefab["nodes"][0];
+        extras?: {
+            node: Miaoverse.Asset_prefab["nodes"][0];
+            mesh_renderer?: Miaoverse.Asset_meshrenderer;
+        };
     }[];
     /** 网格数组。 */
     meshes?: {

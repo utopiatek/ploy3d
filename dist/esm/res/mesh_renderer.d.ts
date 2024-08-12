@@ -75,6 +75,13 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
      */
     constructor(_global: Miaoverse.Ploy3D);
     /**
+     * 装载网格渲染器组件资源。
+     * @param uri 网格渲染器组件资源URI。
+     * @param pkg 当前资源包注册信息。
+     * @returns 异步返回网格渲染器组件资源实例。
+     */
+    Load(uri: string, pkg?: Miaoverse.PackageReg): Promise<Miaoverse.MeshRenderer>;
+    /**
      * 创建网格渲染器组件实例。
      * @param mesh 网格资源内核实例指针。
      * @param skeleton 骨架定义数据内核实例指针。
@@ -164,7 +171,7 @@ export declare const MeshRendere_member_index: {
     readonly bufferBlockSize: Miaoverse.Kernel_member;
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
-    readonly updated: Miaoverse.Kernel_member;
+    readonly updated: Miaoverse.Kernel_member; /** 实例绘制数据顶点缓存布局。 */
     readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
@@ -201,3 +208,21 @@ export declare const DrawInstance_member_index: {
     readonly bbCenter: Miaoverse.Kernel_member;
     readonly bbExtents: Miaoverse.Kernel_member;
 };
+/** 网格渲染器资源。 */
+export interface Asset_meshrenderer extends Miaoverse.Asset {
+    /** 网格资源URI。 */
+    mesh: string;
+    /** 骨架定义资源URI。 */
+    skeleton_skin?: string;
+    /** 材质节点设置数组。 */
+    materials: {
+        /** 材质插槽索引（默认等同子网格索引）。 */
+        slot?: number;
+        /** 绑定到网格的材质组（子网格，相同子网格可绑定多个材质进行多次重叠渲染）。*/
+        submesh: number;
+        /** 材质资源URI。 */
+        material: string;
+        /** 材质实例属性（不设置则使用共享材质）。 */
+        properties?: Miaoverse.Asset_material["properties"];
+    }[];
+}

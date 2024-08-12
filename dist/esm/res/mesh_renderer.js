@@ -70,6 +70,32 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
         super(_global, MeshRendere_member_index);
     }
+    async Load(uri, pkg) {
+        const uuid = this._global.resources.ToUUID(uri, pkg);
+        if (!uuid) {
+            return null;
+        }
+        const desc = await this._global.resources.Load_file("json", uri, true, pkg);
+        if (!desc) {
+            return null;
+        }
+        desc.data.uuid = uuid;
+        if (this._instanceLut[uuid] && !desc.data.skeleton_skin) {
+            return this._instanceLut[uuid];
+        }
+        const mesh = await this._global.resources.Mesh.Load(desc.data.mesh, desc.pkg);
+        const skeleton = null;
+        const materials = [];
+        for (let mat of desc.data.materials) {
+            const material = await this._global.resources.Material.Load(mat.material, desc.pkg);
+            materials.push({
+                slot: mat.slot,
+                submesh: mat.submesh,
+                material
+            });
+        }
+        return this.Create(mesh, skeleton, materials);
+    }
     async Create(mesh, skeleton, materials) {
         const ptr = this._Create(mesh?.internalPtr || 0, skeleton?.internalPtr || 0);
         const id = this._instanceIdle;

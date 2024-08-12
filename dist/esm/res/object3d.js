@@ -121,6 +121,13 @@ export class Object3D extends Miaoverse.Resource {
         this._impl.Set(this._ptr, "localRotation", value.values);
         this._impl["_Flush"](this._ptr, 1);
     }
+    set localMatrix(value) {
+        this._global.env.AllocaCall(64, (ptr) => {
+            this._global.env.farraySet(ptr, 0, value.values);
+            this._impl["_SetLocalMatrix"](this._ptr, ptr);
+            this._impl["_Flush"](this._ptr, 1);
+        });
+    }
     get position() {
         return this.wfmMat.MultiplyVector3(1, this._global.Vector3([0, 0, 0]));
     }
@@ -206,6 +213,7 @@ export class Object_kernel extends Miaoverse.Base_kernel {
     _Destroy;
     _Flush;
     _vfmMat;
+    _SetLocalMatrix;
     _SetPosition;
     _SetRotation;
     _SetParent;
@@ -253,4 +261,5 @@ export const Object_member_index = {
     wfmMat: ["farrayGet", "farraySet", 16, 96],
     mfwMat: ["farrayGet", "farraySet", 16, 112],
 };
+;
 //# sourceMappingURL=object3d.js.map

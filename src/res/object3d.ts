@@ -180,6 +180,16 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         this._impl["_Flush"](this._ptr, 1);
     }
 
+    /** 本地矩阵（模型空间到父级空间）。 */
+    public set localMatrix(value: Miaoverse.Matrix4x4) {
+        this._global.env.AllocaCall(64, (ptr) => {
+            this._global.env.farraySet(ptr, 0, value.values);
+
+            this._impl["_SetLocalMatrix"](this._ptr, ptr);
+            this._impl["_Flush"](this._ptr, 1);
+        });
+    }
+
     /** 世界空间坐标。 */
     public get position(): Miaoverse.Vector3 {
         return this.wfmMat.MultiplyVector3(1, this._global.Vector3([0, 0, 0]));
@@ -343,6 +353,12 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
     protected _vfmMat: (object3d: Miaoverse.io_ptr, frameUniforms: Miaoverse.io_ptr, camera: Miaoverse.io_ptr) => number;
 
     /**
+     * 设置本地变换矩阵（模型->父级）。
+     * @param object3d 3D对象内核实例指针。
+     */
+    protected _SetLocalMatrix: (object3d: Miaoverse.io_ptr, localMat: Miaoverse.io_ptr) => void;
+
+    /**
      * 设置世界空间坐标。
      * @param object3d 3D对象内核实例指针。
      */
@@ -430,3 +446,19 @@ export const Object_member_index = {
     wfmMat: ["farrayGet", "farraySet", 16, 96] as Miaoverse.Kernel_member,
     mfwMat: ["farrayGet", "farraySet", 16, 112] as Miaoverse.Kernel_member,
 } as const;
+
+/** 3D对象层标识（用于过滤筛选对象，默认1）。 */
+export const enum Object_layers_flag {
+    /** 普通节点。 */
+    DEFAULT = 0x1,
+    /** 骨骼节点。 */
+    BONE = 0x2,
+    /** 角色根节点。 */
+    FIGURE = 0x4,
+    /** 相机节点（包含相机组件）。 */
+    CAMERA = 0x8,
+    /** 灯光节点（包含光源组件）。 */
+    LIGHT = 0x10,
+    /** 预制件实例化源节点。 */
+    PREFAB = 0x20,
+};

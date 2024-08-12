@@ -60,6 +60,8 @@ export declare class Object3D extends Miaoverse.Resource<Object3D> {
     /** 本地旋转（父级空间）。 */
     get localRotation(): Miaoverse.Quaternion;
     set localRotation(value: Miaoverse.Quaternion);
+    /** 本地矩阵（模型空间到父级空间）。 */
+    set localMatrix(value: Miaoverse.Matrix4x4);
     /** 世界空间坐标。 */
     get position(): Miaoverse.Vector3;
     set position(pos: Miaoverse.Vector3);
@@ -133,6 +135,11 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      * @returns 返回模型到相机空间变换矩阵数据。
      */
     protected _vfmMat: (object3d: Miaoverse.io_ptr, frameUniforms: Miaoverse.io_ptr, camera: Miaoverse.io_ptr) => number;
+    /**
+     * 设置本地变换矩阵（模型->父级）。
+     * @param object3d 3D对象内核实例指针。
+     */
+    protected _SetLocalMatrix: (object3d: Miaoverse.io_ptr, localMat: Miaoverse.io_ptr) => void;
     /**
      * 设置世界空间坐标。
      * @param object3d 3D对象内核实例指针。
@@ -239,3 +246,18 @@ export declare const Object_member_index: {
     readonly last: Miaoverse.Kernel_member;
     readonly next: Miaoverse.Kernel_member;
 };
+/** 3D对象层标识（用于过滤筛选对象，默认1）。 */
+export declare const enum Object_layers_flag {
+    /** 普通节点。 */
+    DEFAULT = 1,
+    /** 骨骼节点。 */
+    BONE = 2,
+    /** 角色根节点。 */
+    FIGURE = 4,
+    /** 相机节点（包含相机组件）。 */
+    CAMERA = 8,
+    /** 灯光节点（包含光源组件）。 */
+    LIGHT = 16,
+    /** 预制件实例化源节点。 */
+    PREFAB = 32
+}

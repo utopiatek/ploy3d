@@ -195,6 +195,8 @@ export interface Package {
     mesh_library?: Miaoverse.Asset_mesh[];
     /** 内嵌材质资源列表。 */
     material_library?: Miaoverse.Asset_material[];
+    /** 内嵌网格网格渲染器组件列表。 */
+    mesh_renderer_library?: Miaoverse.Asset_meshrenderer[];
     /** 内嵌预制件资源列表。 */
     prefab_library?: Miaoverse.Asset_prefab[];
     /** 共享资源文件清单（其它包仅能引用注册在该清单中的资源，此举确保UUID能索引到文件）。 */

@@ -41,7 +41,7 @@ export class Importer_gltf {
 
         progress(0.8, "解析对象结构");
 
-        const prefab_library = await this.LoadNodes();
+        const [prefab_library, mesh_renderer_library] = await this.LoadNodes();
 
         progress(0.9, "加载动画数据");
 
@@ -66,7 +66,8 @@ export class Importer_gltf {
 
             material_library,
             mesh_library,
-            prefab_library,
+            mesh_renderer_library: mesh_renderer_library as Miaoverse.Asset_meshrenderer[],
+            prefab_library: prefab_library as Miaoverse.Asset_prefab[],
 
             file_library: Object.keys(this._files_cache)
         };
@@ -263,15 +264,15 @@ export class Importer_gltf {
                 const vert2 = vindex * 2;
                 const vert3 = vindex * 3;
 
-                vertices[vert3 + 0] = varray[index3 + 0];
-                vertices[vert3 + 1] = varray[index3 + 1];
-                vertices[vert3 + 2] = varray[index3 + 2];
+                vertices[vert3 + 0] = varray.get(index3 + 0);
+                vertices[vert3 + 1] = varray.get(index3 + 1);
+                vertices[vert3 + 2] = varray.get(index3 + 2);
 
                 if (normals) {
                     if (narray) {
-                        normals[vert3 + 0] = narray[index3 + 0];
-                        normals[vert3 + 1] = narray[index3 + 1];
-                        normals[vert3 + 2] = narray[index3 + 2];
+                        normals[vert3 + 0] = narray.get(index3 + 0);
+                        normals[vert3 + 1] = narray.get(index3 + 1);
+                        normals[vert3 + 2] = narray.get(index3 + 2);
                     }
                     else {
                         normals[vert3 + 0] = 0;
@@ -282,8 +283,8 @@ export class Importer_gltf {
 
                 if (uvs) {
                     if (tarray) {
-                        uvs[vert2 + 0] = tarray[index2 + 0];
-                        uvs[vert2 + 1] = tarray[index2 + 1];
+                        uvs[vert2 + 0] = tarray.get(index2 + 0);
+                        uvs[vert2 + 1] = tarray.get(index2 + 1);
                     }
                     else {
                         uvs[vert2 + 0] = 0;
@@ -293,10 +294,10 @@ export class Importer_gltf {
 
                 if (bones) {
                     if (barray) {
-                        const joint0 = barray[index4 + 0];
-                        const joint1 = barray[index4 + 1];
-                        const joint2 = barray[index4 + 2];
-                        const joint3 = barray[index4 + 3];
+                        const joint0 = barray.get(index4 + 0);
+                        const joint1 = barray.get(index4 + 1);
+                        const joint2 = barray.get(index4 + 2);
+                        const joint3 = barray.get(index4 + 3);
 
                         bones[vert1] = (joint3 << 24) + (joint2 << 16) + (joint1 << 8) + joint0;
                     }
@@ -307,10 +308,10 @@ export class Importer_gltf {
 
                 if (weights) {
                     if (warray) {
-                        let weight0 = warray[index4 + 0]; weight0 = Math.round(weight0 * 255.0);
-                        let weight1 = warray[index4 + 1]; weight1 = Math.round(weight1 * 255.0);
-                        let weight2 = warray[index4 + 2]; weight2 = Math.round(weight2 * 255.0);
-                        let weight3 = warray[index4 + 3]; weight3 = Math.round(weight3 * 255.0);
+                        let weight0 = warray.get(index4 + 0); weight0 = Math.round(weight0 * 255.0);
+                        let weight1 = warray.get(index4 + 1); weight1 = Math.round(weight1 * 255.0);
+                        let weight2 = warray.get(index4 + 2); weight2 = Math.round(weight2 * 255.0);
+                        let weight3 = warray.get(index4 + 3); weight3 = Math.round(weight3 * 255.0);
 
                         weights[vert1] = (weight3 << 24) + (weight2 << 16) + (weight1 << 8) + weight0;
                     }
@@ -326,13 +327,14 @@ export class Importer_gltf {
 
             if (primitive.indices) {
                 const iarray = primitive.indices.array;
+                const icount = primitive.indices.accessor.count;
                 const vertexOffset = primitive.indices.vertexOffset;
 
-                for (let i of iarray) {
-                    indices[iindex++] = i + vertexOffset;
+                for (let i = 0; i < icount; i++) {
+                    indices[iindex++] = iarray.get(i) + vertexOffset;
                 }
 
-                groups[g4 + 2] = iarray.length;
+                groups[g4 + 2] = icount;
             }
             else {
                 const vertexOffset = vindex - vcount;
@@ -411,7 +413,7 @@ export class Importer_gltf {
             accessor: accessor,
             bufferView: bufferView,
             buffer: buffer,
-            array: this.GetAccessorData(buffer.extras.buffer, offset, accessor.type, accessor.componentType, accessor.count),
+            array: this.GetAccessorData(buffer.extras.buffer, offset, bufferView.byteStride, accessor.type, accessor.componentType, accessor.count)
         };
     }
 
@@ -446,8 +448,8 @@ export class Importer_gltf {
             accessor: accessor,
             bufferView: bufferView,
             buffer: buffer,
-            array: this.GetAccessorData(buffer.extras.buffer, offset, accessor.type, accessor.componentType, accessor.count),
-            vertexOffset: vertexOffset,
+            array: this.GetAccessorData(buffer.extras.buffer, offset, bufferView.byteStride, accessor.type, accessor.componentType, accessor.count),
+            vertexOffset: vertexOffset
         };
     }
 
@@ -460,7 +462,7 @@ export class Importer_gltf {
      * @param count 
      * @returns 
      */
-    private GetAccessorData(buffer: ArrayBuffer, offset: number, type: string, componentType: number, count: number) {
+    private GetAccessorData(buffer: ArrayBuffer, offset: number, stride: number, type: string, componentType: number, count: number) {
         let componentCount = 1;
 
         if (type === "SCALAR") {
@@ -485,26 +487,66 @@ export class Importer_gltf {
             componentCount = 16;
         }
 
+        let strideCount = componentCount;
+
+        let array: (Int8Array | Uint8Array | Int16Array | Uint16Array | Uint32Array | Float32Array) = null;
+
         if (componentType === 5120) { // BYTE
-            return new Int8Array(buffer, offset, componentCount * count);
+            if (stride) {
+                strideCount = stride;
+            }
+
+            array = new Int8Array(buffer, offset, strideCount * count);
         }
         else if (componentType === 5121) { // UNSIGNED_BYTE
-            return new Uint8Array(buffer, offset, componentCount * count);
+            if (stride) {
+                strideCount = stride;
+            }
+
+            array = new Uint8Array(buffer, offset, strideCount * count);
         }
         else if (componentType === 5122) { // SHORT
-            return new Int16Array(buffer, offset, componentCount * count);
+            if (stride) {
+                strideCount = stride / 2;
+            }
+
+            array = new Int16Array(buffer, offset, strideCount * count);
         }
         else if (componentType === 5123) { // UNSIGNED_SHORT
-            return new Uint16Array(buffer, offset, componentCount * count);
+            if (stride) {
+                strideCount = stride / 2;
+            }
+
+            array = new Uint16Array(buffer, offset, strideCount * count);
         }
         else if (componentType === 5125) { // UNSIGNED_INT
-            return new Uint32Array(buffer, offset, componentCount * count);
+            if (stride) {
+                strideCount = stride / 4;
+            }
+
+            array = new Uint32Array(buffer, offset, strideCount * count);
         }
         else if (componentType === 5126) { // FLOAT
-            return new Float32Array(buffer, offset, componentCount * count);
+            if (stride) {
+                strideCount = stride / 4;
+            }
+
+            array = new Float32Array(buffer, offset, strideCount * count);
         }
 
-        return null;
+        if (componentCount == strideCount) {
+            return {
+                get(i: number) {
+                    return array[i];
+                }
+            };
+        }
+
+        return {
+            get(i: number) {
+                return array[Math.floor(i / componentCount) * strideCount + (i % componentCount)];
+            }
+        };
     }
 
 
@@ -866,6 +908,8 @@ export class Importer_gltf {
         const nodes: Miaoverse.Asset_prefab["nodes"] = [];
         const batches: Miaoverse.Asset_prefab["batches"] = [];
         const transforms: Miaoverse.Asset_prefab["transforms"] = [];
+        const mesh_renderers: Miaoverse.Asset_prefab["mesh_renderers"] = [];
+        const mesh_renderer_library: Miaoverse.Asset_meshrenderer[] = [];
 
         // 进行先根深度优先排序，从而避免保存节点的子级列表
         let node_index = 0;
@@ -878,13 +922,47 @@ export class Importer_gltf {
 
             if (!node.extras) {
                 node.extras = {
-                    index: node_index++,
-                    name: node.name || ("object_" + (node_index - 1)),
-                    depth: depth,
-                    parent: parent?.index || -1,
+                    node: {
+                        index: node_index++,
+                        name: node.name || ("object_" + (node_index - 1)),
+                        depth: depth,
+                        parent: parent?.node.index || -1,
+                    }
                 };
 
-                nodes.push(node.extras);
+                if (node.mesh != undefined) {
+                    const mesh = this_._data.meshes[node.mesh];
+
+                    const asset: Miaoverse.Asset_meshrenderer = {
+                        uuid: "" + CLASSID.ASSET_COMPONENT_MESH_RENDERER + "-" + mesh_renderer_library.length,
+                        classid: CLASSID.ASSET_COMPONENT_MESH_RENDERER,
+                        name: mesh.extras.name,
+                        label: mesh.extras.label,
+
+                        mesh: mesh.extras.uuid,
+                        materials: []
+                    };
+
+                    const matCount = mesh.primitives.length;
+
+                    for (let i = 0; i < matCount; i++) {
+                        const matIndex = mesh.primitives[i].material;
+                        const mat = this_._data.materials[matIndex];
+
+                        if (matIndex != undefined) {
+                            asset.materials.push({
+                                slot: i,
+                                submesh: i,
+                                material: mat.extras.uuid
+                            });
+                        }
+                    }
+
+                    node.extras.mesh_renderer = asset;
+                    mesh_renderer_library.push(asset);
+                }
+
+                nodes.push(node.extras.node);
             }
 
             const transform: (typeof transforms)[0] = {
@@ -905,10 +983,20 @@ export class Importer_gltf {
             }
 
             if (node.matrix) {
-                // TODO: 分解矩阵
+                transform.localMatrix = node.matrix;
             }
 
             transforms.push(transform);
+
+            if (node.extras.mesh_renderer) {
+                const mesh_renderer: (typeof mesh_renderers)[0] = {
+                    instance: transform.instance,
+                    node: nodeIndex,
+                    mesh_renderer: node.extras.mesh_renderer.uuid
+                };
+
+                mesh_renderers.push(mesh_renderer);
+            }
 
             if (node.children) {
                 for (let child of node.children) {
@@ -923,13 +1011,13 @@ export class Importer_gltf {
                     const batch: (typeof batches)[0] = {
                         source: -1,
                         instanceBeg: instance_index,
-                        count: 0,
+                        instanceCount: 0,
                     };
 
                     proc(index, -1, 0);
 
-                    batch.source = this._data.nodes[index].extras.index;
-                    batch.count = instance_index - batch.instanceBeg;
+                    batch.source = this._data.nodes[index].extras.node.index;
+                    batch.instanceCount = instance_index - batch.instanceBeg;
 
                     batches.push(batch);
                 }
@@ -937,18 +1025,19 @@ export class Importer_gltf {
         }
 
         const prefab: Miaoverse.Asset_prefab = {
-            uuid: "",
+            uuid: "" + CLASSID.ASSET_PREFAB + "-" + 0,
             classid: CLASSID.ASSET_PREFAB,
             name: this._data.asset.extras.name || "",
             label: this._data.asset.extras.name || "",
 
-            instanceCount: instance_index,
+            instanceCount: instance_index + 1,
             nodes,
             batches,
-            transforms
+            transforms,
+            mesh_renderers
         };
 
-        return [prefab];
+        return [[prefab], mesh_renderer_library];
     }
 
     /** 事务处理器。 */
@@ -1031,7 +1120,10 @@ interface Gltf {
         /** 扩展信息。 */
         extensions?: never;
         /** 特定于应用程序的数据。 */
-        extras?: Miaoverse.Asset_prefab["nodes"][0];
+        extras?: {
+            node: Miaoverse.Asset_prefab["nodes"][0];
+            mesh_renderer?: Miaoverse.Asset_meshrenderer;
+        };
     }[];
     /** 网格数组。 */
     meshes?: {

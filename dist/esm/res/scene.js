@@ -30,6 +30,113 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
             params
         };
     }
+    async InstancePrefab(scene, uri, pkg, master, listBeg) {
+        const prefab = {
+            uuid: "",
+            master: master,
+            root: null,
+            instanceList: master?.instanceList || [],
+            instanceBeg: listBeg || 0,
+            instanceCount: 0
+        };
+        const uuid = this._global.resources.ToUUID(uri, pkg);
+        if (!uuid) {
+            return prefab;
+        }
+        prefab.uuid = uuid;
+        const desc = await this._global.resources.Load_file("json", uri, true, pkg);
+        const data = desc?.data;
+        if (!data) {
+            return prefab;
+        }
+        prefab.root = await this._global.resources.Object.Create(scene);
+        prefab.root.layers = 32;
+        prefab.instanceCount = data.instanceCount;
+        for (let batch of data.batches) {
+            if (typeof batch.source == "string") {
+                const child_prefab = await this.InstancePrefab(scene, batch.source, desc.pkg, prefab.master, prefab.instanceBeg + batch.instanceBeg);
+                if (child_prefab.instanceCount != batch.instanceCount) {
+                    this._global.Track(`Scene_kernel.InstancePrefab: 预制件 ${uuid} 实际3D对象实例数量 ${child_prefab.instanceCount} 与预期 ${batch.instanceCount} 不符！`, 3);
+                }
+                child_prefab.root.SetParent(prefab.root);
+            }
+            else {
+                const instances = await this.InstanceNode(scene, batch.source, prefab.instanceBeg + batch.instanceBeg, data.nodes, prefab.instanceList);
+                if (instances.instanceCount != batch.instanceCount) {
+                    this._global.Track(`Scene_kernel.InstancePrefab: 节点源 ${uuid} 实际3D对象实例数量 ${instances.instanceCount} 与预期 ${batch.instanceCount} 不符！`, 3);
+                }
+                instances.root.SetParent(prefab.root);
+            }
+        }
+        prefab.instanceList[prefab.instanceBeg + prefab.instanceCount - 1] = prefab.root;
+        for (let transform of data.transforms) {
+            const instance = prefab.instanceList[prefab.instanceBeg + transform.instance];
+            if (instance) {
+                if (transform.localMatrix) {
+                    instance.localMatrix = this._global.Matrix4x4(transform.localMatrix);
+                }
+                else {
+                    if (transform.localPosition) {
+                        instance.localPosition = this._global.Vector3(transform.localPosition);
+                    }
+                    if (transform.localRotation) {
+                        instance.localRotation = this._global.Quaternion(transform.localRotation);
+                    }
+                    if (transform.localScale) {
+                        instance.localScale = this._global.Vector3(transform.localScale);
+                    }
+                }
+                if (transform.deactive) {
+                    instance.active = false;
+                }
+                if (transform.layers) {
+                    instance.layers = transform.layers;
+                }
+                if (transform.parent > -1) {
+                    const parent = prefab.instanceList[prefab.instanceBeg + transform.parent];
+                    if (parent) {
+                        instance.SetParent(parent);
+                    }
+                }
+            }
+        }
+        for (let mesh_renderer of data.mesh_renderers) {
+            const instance = prefab.instanceList[prefab.instanceBeg + mesh_renderer.instance];
+            if (instance) {
+                const mr_instance = await this._global.resources.MeshRenderer.Load(mesh_renderer.mesh_renderer, desc.pkg);
+                if (mr_instance) {
+                    instance.meshRenderer = mr_instance;
+                }
+            }
+        }
+        if (data.lnglat) {
+            prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+        }
+        return prefab;
+    }
+    async InstanceNode(scene, source, listBeg, nodes, instanceList) {
+        let instanceCount = 0;
+        const min_depth = nodes[source].depth + 1;
+        for (let i = source; i < nodes.length; i++) {
+            const asset = nodes[i];
+            if (asset.depth < min_depth && i > source) {
+                break;
+            }
+            let parent = null;
+            if (asset.parent >= source) {
+                parent = instanceList[listBeg + (asset.parent - source)];
+                if (!parent) {
+                    this._global.Track(`Scene_kernel.InstanceNode: 父级节点索引异常！`, 3);
+                }
+            }
+            const instance = await this._global.resources.Object.Create(scene);
+            instanceList[listBeg + instanceCount++] = instance;
+            if (parent) {
+                instance.SetParent(parent);
+            }
+        }
+        return { instanceCount, root: instanceList[listBeg] };
+    }
     _Create;
     _Destroy;
     _Culling;
