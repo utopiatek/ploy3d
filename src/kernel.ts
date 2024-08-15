@@ -9,6 +9,8 @@ type Ploy3D = {
     uid: number;
     /** 是否使用的是WebGL图形API*/
     webgl: boolean;
+    /** DAZ资源服务地址。 */
+    dazServ: string;
     /** 内核代码。 */
     kernelCode: ArrayBuffer;
     /** 内核管理器。 */
@@ -646,6 +648,9 @@ export interface Internal {
     Util_Decompress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, drcSize: io_uint) => io_uint;
     /** 压缩LZMA数据。 */
     Util_Compress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, srcSize: io_uint) => io_uint;
+
+    /** 从欧拉角（内旋顺序，默认102-[Y-X-Z]）转换到四元数，正方向为看向旋转轴方向顺时针旋转。 */
+    Quaternion_FromEulerAngles: (x: number, y: number, z: number, order: number) => number[];
 
     /** 创建网格资源文件数据。 */
     Worker_CreateMeshData: (geo: io_ptr) => [number, io_ptr];

@@ -13,6 +13,9 @@ export class Ploy3D {
         if (options.workerUrlJS) {
             this.workerUrlJS = options.workerUrlJS;
         }
+        if (options.dazServ) {
+            this.dazServ = options.dazServ;
+        }
         if (options.CreateCanvas) {
             this.CreateCanvas = options.CreateCanvas;
         }
@@ -240,6 +243,7 @@ export class Ploy3D {
     kernelUrl = "./lib/ploycloud.wasm";
     workerUrl = "./lib/ploycloud.worker.wasm";
     workerUrlJS = "./lib/ploycloud.worker.js";
+    dazServ = ".";
     uid = 1;
     started = false;
     width = 1920;

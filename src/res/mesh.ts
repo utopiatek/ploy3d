@@ -217,7 +217,7 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
         if (data) {
             res = this.MakeGeometry(data);
         }
-        else {
+        else if (asset.meshdata) {
             const meshdata = await this._global.resources.Load_file<ArrayBuffer>("arrayBuffer", asset.meshdata, true, pkg);
             if (!meshdata.data) {
                 return null;
@@ -228,6 +228,21 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
             this._global.env.bufferSet1(meshdata_ptr, meshdata.data, 0, meshdata.data.byteLength);
 
             res = [meshdata.data.byteLength, meshdata_ptr];
+        }
+        else if (asset.geometry) {
+            const geometry = await this._global.resources.Load_file<ArrayBuffer>("arrayBuffer", asset.geometry, true, pkg);
+            if (!geometry.data) {
+                return null;
+            }
+
+            const uv_set = await this._global.resources.Load_file<ArrayBuffer>("arrayBuffer", asset.uv_set, true, pkg);
+            if (!uv_set.data) {
+                return null;
+            }
+
+            this._global.worker.importer.Gen_mesh_data(new DataView(geometry.data), new DataView(uv_set.data));
+
+            return null;
         }
 
         // ========================-------------------------------
@@ -1349,6 +1364,10 @@ export interface Asset_mesh extends Miaoverse.Asset {
     creater?: Asset_mesh_creater;
     /** 网格数据URI（集合了ASSET_MESH_GEOMETRY、ASSET_MESH_UVSET、ASSET_SKIN等数据）。 */
     meshdata?: string;
+    /** 基础几何体URI（仅包含第1顶点缓存，meshdata与geometry&uv_set二选一）。 */
+    geometry?: string;
+    /** UV数据URI。 */
+    uv_set?: string;
 }
 
 /** 网格几何数据构建器。 */

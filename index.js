@@ -49,6 +49,7 @@ async function Main(fs_root) {
         config: {
             web: true
         },
+        dazServ: "./.git.assets/daz/",
         rootFS: fs_root,
         appLut: {
             "test": app_test.PloyApp_test

@@ -1,7 +1,9 @@
 import { Importer_gltf } from './importer_gltf.js';
+import { Resources_daz } from './importer_daz.js';
 export class Importer {
     constructor(worker) {
         this._worker = worker;
+        this._resources_daz = new Resources_daz(worker);
     }
     async Import_gltf(url, progress) {
         progress(0.0, "加载文件：" + url);
@@ -61,6 +63,13 @@ export class Importer {
     }
     async Import_gltf_file(file, progress) {
         return null;
+    }
+    async Import_daz(path, progress) {
+        this._resources_daz["_news"] = [];
+        const pkg = await this._resources_daz.Load(path, progress);
+        const pkgs = this._resources_daz["_news"];
+        this._resources_daz["_news"] = null;
+        return { main: pkg.uuid, pkgs };
     }
     async Import_vtile_bd(col, row, level) {
         return null;
@@ -127,6 +136,27 @@ export class Importer {
         group._ab = null;
         return group;
     }
+    async Gen_mesh_data(geometry, uv_set) {
+        const uv_vert_count = uv_set.getUint32(48, true);
+        const uv_uv_count = uv_set.getUint32(52, true);
+        const uv_mapping_count = uv_set.getUint32(56, true);
+        const uv_uvs_ptr = 4 * uv_set.getUint32(72, true);
+        const uv_mappings_ptr = 4 * uv_set.getUint32(76, true);
+        const uv_uvs = new Float32Array(uv_set.buffer, uv_uvs_ptr, uv_uv_count * 2);
+        const uv_mappings = uv_vert_count > 65535 ? new Uint32Array(uv_set.buffer, uv_mappings_ptr, uv_mapping_count * 3) : new Uint16Array(uv_set.buffer, uv_mappings_ptr, uv_mapping_count * 3);
+        const geometry_type = geometry.getUint32(48, true);
+        const geometry_edge_interpolation_mode = geometry.getUint32(52, true);
+        const geometry_vert_count = geometry.getUint32(56, true);
+        const geometry_poly_count = geometry.getUint32(60, true);
+        const geometry_vertices_ptr = 4 * geometry.getUint32(88, true);
+        const geometry_polylist_ptr = 4 * geometry.getUint32(92, true);
+        const geometry_group_count = geometry.getUint32(104, true);
+        const geometry_vertices = new Float32Array(geometry.buffer, geometry_vertices_ptr, geometry_vert_count * 3);
+        const geometry_polylist = geometry_vert_count > 65535 ? new Uint32Array(geometry.buffer, geometry_polylist_ptr, geometry_poly_count * 6) : new Uint16Array(geometry.buffer, geometry_polylist_ptr, geometry_poly_count * 6);
+        console.error(uv_vert_count, uv_uv_count, uv_mapping_count, uv_uvs_ptr, uv_mappings_ptr);
+        console.error(geometry_vert_count, geometry_poly_count, geometry_group_count);
+    }
     _worker;
+    _resources_daz;
 }
 //# sourceMappingURL=importer.js.map

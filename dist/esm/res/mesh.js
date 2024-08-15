@@ -120,7 +120,7 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
         if (data) {
             res = this.MakeGeometry(data);
         }
-        else {
+        else if (asset.meshdata) {
             const meshdata = await this._global.resources.Load_file("arrayBuffer", asset.meshdata, true, pkg);
             if (!meshdata.data) {
                 return null;
@@ -128,6 +128,18 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
             const meshdata_ptr = this._global.internal.System_New(meshdata.data.byteLength);
             this._global.env.bufferSet1(meshdata_ptr, meshdata.data, 0, meshdata.data.byteLength);
             res = [meshdata.data.byteLength, meshdata_ptr];
+        }
+        else if (asset.geometry) {
+            const geometry = await this._global.resources.Load_file("arrayBuffer", asset.geometry, true, pkg);
+            if (!geometry.data) {
+                return null;
+            }
+            const uv_set = await this._global.resources.Load_file("arrayBuffer", asset.uv_set, true, pkg);
+            if (!uv_set.data) {
+                return null;
+            }
+            this._global.worker.importer.Gen_mesh_data(new DataView(geometry.data), new DataView(uv_set.data));
+            return null;
         }
         const instance = this.Instance(res[1], res[0], asset.uuid);
         this._global.internal.System_Delete(res[1]);

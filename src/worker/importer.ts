@@ -1,5 +1,6 @@
 import { Miaoworker } from './worker.js';
 import { Importer_gltf } from './importer_gltf.js';
+import { Resources_daz } from './importer_daz.js';
 
 /** 资源导入器。 */
 export class Importer {
@@ -9,6 +10,7 @@ export class Importer {
      */
     public constructor(worker: Miaoworker) {
         this._worker = worker;
+        this._resources_daz = new Resources_daz(worker);
     }
 
     /** 装载GLTF场景数据。 */
@@ -82,6 +84,16 @@ export class Importer {
     public async Import_gltf_file(file: File, progress: (rate: number, msg: string) => void) {
         // TODO ...
         return null as any;
+    }
+
+    /** 装载DAZ数据文件。 */
+    public async Import_daz(path: string, progress: (rate: number, msg: string) => void) {
+        this._resources_daz["_news"] = [];
+        const pkg = await this._resources_daz.Load(path, progress);
+        const pkgs = this._resources_daz["_news"];
+        this._resources_daz["_news"] = null;
+
+        return { main: pkg.uuid, pkgs };
     }
 
     /** 装载百度地图矢量瓦片。 */
@@ -195,6 +207,46 @@ export class Importer {
         return group;
     }
 
+    /** 生成网格数据。 */
+    public async Gen_mesh_data(geometry: DataView, uv_set: DataView) {
+        const uv_vert_count = uv_set.getUint32(48, true);
+        const uv_uv_count = uv_set.getUint32(52, true);
+        const uv_mapping_count = uv_set.getUint32(56, true);
+
+        const uv_uvs_ptr = 4 * uv_set.getUint32(72, true);
+        const uv_mappings_ptr = 4 * uv_set.getUint32(76, true);
+
+        const uv_uvs = new Float32Array(uv_set.buffer, uv_uvs_ptr, uv_uv_count * 2);
+        const uv_mappings = uv_vert_count > 65535 ? new Uint32Array(uv_set.buffer, uv_mappings_ptr, uv_mapping_count * 3) : new Uint16Array(uv_set.buffer, uv_mappings_ptr, uv_mapping_count * 3);
+
+        // ======================---------------------------
+
+        const geometry_type = geometry.getUint32(48, true);
+        const geometry_edge_interpolation_mode = geometry.getUint32(52, true);
+        const geometry_vert_count = geometry.getUint32(56, true);
+        const geometry_poly_count = geometry.getUint32(60, true);
+
+        const geometry_vertices_ptr = 4 * geometry.getUint32(88, true);
+        const geometry_polylist_ptr = 4 * geometry.getUint32(92, true);
+
+        const geometry_group_count = geometry.getUint32(104, true);
+
+        const geometry_vertices = new Float32Array(geometry.buffer, geometry_vertices_ptr, geometry_vert_count * 3);
+        const geometry_polylist = geometry_vert_count > 65535 ? new Uint32Array(geometry.buffer, geometry_polylist_ptr, geometry_poly_count * 6) : new Uint16Array(geometry.buffer, geometry_polylist_ptr, geometry_poly_count * 6);
+
+        // ======================---------------------------
+
+        // ======================---------------------------
+
+        console.error(uv_vert_count, uv_uv_count, uv_mapping_count, uv_uvs_ptr, uv_mappings_ptr);
+        console.error(geometry_vert_count, geometry_poly_count, geometry_group_count);
+
+        //console.error(uv_uvs);
+        //console.error(uv_mappings);
+    }
+
     /** 事务处理器。 */
     private _worker: Miaoworker;
+    /** DAZ资产管理器。 */
+    private _resources_daz: Resources_daz;
 }

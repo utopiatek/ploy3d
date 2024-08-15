@@ -21,6 +21,7 @@ export class Miaoworker {
         this.startTS = Date.now();
         this.uid = _global?.uid;
         this.webgl = _global?.webgl;
+        this.dazServ = _global?.dazServ;
         this.kernelCode = _global?.kernelCode;
         this.kernel = _global?.kernel;
         this.env = _global?.env;
@@ -44,6 +45,8 @@ export class Miaoworker {
         uid: number;
         /** 是否使用的是WebGL图形API*/
         webgl: boolean;
+        /** DAZ资源服务地址。 */
+        dazServ: string;
         /** 内核代码。 */
         kernelCode: ArrayBuffer;
     }) {
@@ -63,6 +66,7 @@ export class Miaoworker {
                 args: {
                     uid: this.uid,
                     webgl: this.webgl,
+                    dazServ: this.dazServ,
                     kernelCode: this.kernelCode,
                     transfer: [this.kernelCode]
                 }
@@ -82,6 +86,7 @@ export class Miaoworker {
         if (this.workerID != 0) {
             this.uid = args.uid;
             this.webgl = args.webgl;
+            this.dazServ = args.dazServ;
             this.kernelCode = args.kernelCode;
 
             this.kernel = await (new Kernel(this)).Init({
@@ -222,6 +227,34 @@ export class Miaoworker {
     }
 
     /**
+     * 导入DAZ文件，返回资源包UUID。
+     * @param worker 派遣线程索引，0为主线程。
+     * @param url DAZ文件路径。
+     * @returns 异步对象
+     */
+    public Import_daz(worker: number, url: string, progress: (rate: number, msg: string) => void) {
+        return new Promise<Awaited<ReturnType<Importer["Import_daz"]>>>((resolve, reject) => {
+            if (this.closed) {
+                reject("事务处理器已关闭！");
+                return;
+            }
+
+            if (0 === worker) {
+                this.importer.Import_daz(url, progress).then(resolve).catch(reject);
+            }
+            else {
+                this.PostMessage({
+                    type: WorkType.Import_daz,
+                    state: 0,
+                    args: {
+                        url: url
+                    },
+                }).then(resolve).catch(reject);
+            }
+        });
+    }
+
+    /**
      * 装载百度地图矢量瓦片，返回网格数据。
      * @param worker 派遣线程索引，0为主线程。
      * @param param 瓦片参数。
@@ -309,7 +342,7 @@ export class Miaoworker {
         //     return null;
         // }
 
-        const n = pako.inflate(buffer) as Uint8Array;
+        const n = this.Pako_inflate(buffer);
         if (n.byteLength != 45000 && n.byteLength != 90000) {
             return null;
         }
@@ -362,6 +395,15 @@ export class Miaoworker {
         }
 
         return d;
+    }
+
+    /**
+     * GZIP数据解压。
+     * @param buffer 压缩数据。
+     * @returns 返回解压后数据。
+     */
+    public Pako_inflate(buffer: ArrayBuffer) {
+        return pako.inflate(buffer) as Uint8Array;
     }
 
     /**
@@ -492,6 +534,22 @@ export class Miaoworker {
                         this.PostMessage(info);
                     });
             }
+            // 应要求导入并解析DAZ文件
+            else if (info.type === WorkType.Import_daz) {
+                this.Import_daz(0, info.args.url, (rate, msg) => { })
+                    .then((data) => {
+                        info.args = data;
+                        info.state = 2;
+
+                        this.PostMessage(info);
+                    })
+                    .catch((reason) => {
+                        info.args = reason;
+                        info.state = -1;
+
+                        this.PostMessage(info);
+                    });
+            }
             // 应要求矢量地图瓦片
             else if (info.type === WorkType.Import_vtile_bd) {
                 this.Import_vtile_bd(0, info.args.param, (rate, msg) => { })
@@ -602,6 +660,8 @@ export class Miaoworker {
     public uid: number;
     /** 是否使用的是WebGL图形API*/
     public webgl: boolean;
+    /** DAZ资源服务地址。 */
+    public dazServ: string;
     /** 内核代码。 */
     public kernelCode: ArrayBuffer;
     /** 内核管理器。 */
@@ -646,6 +706,8 @@ export const enum WorkType {
     Import_gltf,
     /** 导入GLTF文件。 */
     Import_gltf_file,
+    /** 导入DAZ文件。 */
+    Import_daz,
     /** 装载矢量地图瓦片。 */
     Import_vtile_bd,
     /** 装载3MXB文件资源。 */

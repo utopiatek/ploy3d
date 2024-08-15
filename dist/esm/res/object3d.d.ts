@@ -247,7 +247,7 @@ export declare const Object_member_index: {
     readonly next: Miaoverse.Kernel_member;
 };
 /** 3D对象层标识（用于过滤筛选对象，默认1）。 */
-export declare const enum Object_layers_flag {
+export declare const enum LAYER_FLAGS {
     /** 普通节点。 */
     DEFAULT = 1,
     /** 骨骼节点。 */

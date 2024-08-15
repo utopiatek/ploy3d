@@ -365,6 +365,10 @@ export interface Asset_mesh extends Miaoverse.Asset {
     creater?: Asset_mesh_creater;
     /** 网格数据URI（集合了ASSET_MESH_GEOMETRY、ASSET_MESH_UVSET、ASSET_SKIN等数据）。 */
     meshdata?: string;
+    /** 基础几何体URI（仅包含第1顶点缓存，meshdata与geometry&uv_set二选一）。 */
+    geometry?: string;
+    /** UV数据URI。 */
+    uv_set?: string;
 }
 /** 网格几何数据构建器。 */
 export interface Asset_mesh_creater {

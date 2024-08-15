@@ -78,6 +78,7 @@ export declare class Importer_gltf {
      * 装载场景数据为预制件。
      */
     private LoadNodes;
+    private LoadSkeleton;
     /** 事务处理器。 */
     private _worker;
     /** GLTF数据对象。 */

@@ -926,7 +926,7 @@ export class Importer_gltf {
                         index: node_index++,
                         name: node.name || ("object_" + (node_index - 1)),
                         depth: depth,
-                        parent: parent?.node.index || -1,
+                        parent: parent ? parent.node.index : -1,
                     }
                 };
 
@@ -1038,6 +1038,50 @@ export class Importer_gltf {
         };
 
         return [[prefab], mesh_renderer_library];
+    }
+
+
+    private async LoadSkeleton(index: number) {
+        const skin = this._data.skins[index];
+
+        const accessor = this._data.accessors[skin.inverseBindMatrices];
+        if (undefined == accessor.bufferView || "MAT4" != accessor.type) {
+            console.error("异常的骨骼蒙皮数据！");
+            return null;
+        }
+
+        const bufferView = this._data.bufferViews[accessor.bufferView];
+        const buffer = this._data.buffers[bufferView.buffer];
+
+        let offset = undefined != accessor.byteOffset ? accessor.byteOffset : 0;
+
+        offset += undefined != bufferView.byteOffset ? bufferView.byteOffset : 0;
+
+        const array = this.GetAccessorData(buffer.extras.buffer, offset, bufferView.byteStride, accessor.type, accessor.componentType, accessor.count);
+
+        // ================-----------------------------
+
+        let intLength = 0;
+
+        const headerOffset = intLength; intLength += 12 + 8;
+        const initDatasOffset = intLength; intLength += 12 * 0;
+        const inverseBindMatrices = intLength; intLength += 16 * 0;
+
+
+        //const skeleton = {
+        //    skeleton: undefined == skin.skeleton ? prefabs.nodes[this.data.nodes[this.data.nodes.length - 1].sort].guid : prefabs.nodes[this.data.nodes[skin.skeleton].sort].guid,
+        //    joints: skin.joints.map(j => prefabs.nodes[this.data.nodes[j].sort].guid),
+        //    inverseBindMatrices: {
+        //        count: array.byteLength / 64,
+        //        bin_offset: extfile.file.size,
+        //        bin: "#" + extfile.file.guid
+        //    }
+        //};
+
+        //extfile.bins.push(array);
+        //extfile.file.size += array.byteLength;
+
+        return 0;
     }
 
     /** 事务处理器。 */

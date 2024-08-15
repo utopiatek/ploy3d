@@ -14,6 +14,8 @@ export declare class Ploy3D {
         workerUrl?: string;
         /** 线程模块URL。 */
         workerUrlJS?: string;
+        /** DAZ资源服务地址。 */
+        dazServ?: string;
         /** 自定义主进度条显示控制。 */
         Progress?: Ploy3D["Progress"];
         /** 自定义日志打印方法。 */
@@ -142,6 +144,8 @@ export declare class Ploy3D {
     workerUrl: string;
     /** 线程模块URL。 */
     workerUrlJS: string;
+    /** DAZ资源服务地址。 */
+    dazServ: string;
     /** 用户ID（请登陆并设置真实用户ID，用户仅能上传使用真实用户ID标识的资源，模拟用户ID可能会导致资源UUID冲突）。 */
     uid: number;
     /** 引擎是否已启动。 */

@@ -448,7 +448,7 @@ export const Object_member_index = {
 } as const;
 
 /** 3D对象层标识（用于过滤筛选对象，默认1）。 */
-export const enum Object_layers_flag {
+export const enum LAYER_FLAGS {
     /** 普通节点。 */
     DEFAULT = 0x1,
     /** 骨骼节点。 */

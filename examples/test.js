@@ -86,6 +86,21 @@ export class PloyApp_test extends ploycloud.PloyApp {
         // prefab.root.SetLngLat(dior_lnglat[0] + 0.0125, dior_lnglat[1] + 0.0025, 0.0);
         // prefab.root.localPosition = this.engine.Vector3([0, 1, 0]);
 
+        const chara_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shibahu.zip", () => { });
+        this.engine.resources.Register(chara_pkg.pkg, chara_pkg.files);
+        const chara_prefab = await this.engine.resources.Scene.InstancePrefab(this.scene, "65-0", chara_pkg.pkg);
+        chara_prefab.root.SetLngLat(dior_lnglat[0] + 0.0025, dior_lnglat[1] + 0.0025, 0.0);
+        chara_prefab.root.localScale = this.engine.Vector3([100, 100, 100]);
+        console.error(chara_pkg, chara_prefab);
+
+        // 导入DAZ文件，依赖的其它DAZ文件会同时导入，每个DAZ文件转换为一个资源包
+        // const daz_imports = await this.engine.worker.Import_daz(1, "Scenes/a1.duf", () => { });
+        // for (let daz_pkg of daz_imports.pkgs) {
+        //     this.engine.resources.Register(daz_pkg.pkg, daz_pkg.files);
+        // }
+        // const daz_prefab = await this.engine.resources.Scene.InstancePrefab(this.scene, daz_imports.main + "-65-0");
+        // console.error("daz_imports:", daz_imports, daz_prefab);
+
         // 创建立方体网格绘制材质
         const cube_material = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
         // 创建立方体网格

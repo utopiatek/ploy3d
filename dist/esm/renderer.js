@@ -81,6 +81,7 @@ export class DrawQueue {
         const GetInstanceSlot = MeshRenderer["_GetInstanceSlot"];
         const VerifyInstance = MeshRenderer["_VerifyInstance"];
         GetInstanceSlot(1);
+        GetInstanceSlot(2);
         const drawCalls = this.drawList.drawCalls;
         const drawParts = this.drawList.drawParts = [];
         for (let call of drawCalls) {

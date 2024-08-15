@@ -13,6 +13,22 @@ export declare class Importer {
     }>;
     /** 装载GLTF场景数据。 */
     Import_gltf_file(file: File, progress: (rate: number, msg: string) => void): Promise<any>;
+    /** 装载DAZ数据文件。 */
+    Import_daz(path: string, progress: (rate: number, msg: string) => void): Promise<{
+        main: string;
+        pkgs: {
+            path: string;
+            uuid: string;
+            key: string;
+            pkg: import("../mod.js").PackageReg;
+            files?: Record<string, any>;
+            uuidLut: Record<string, any>;
+            nodeLib: {
+                lut: Record<string, import("./importer_daz.js").Daz_node>;
+                list: string[];
+            };
+        }[];
+    }>;
     /** 装载百度地图矢量瓦片。 */
     Import_vtile_bd(col: number, row: number, level: number): Promise<any>;
     /** 加载3MX场景分组资源实例。 */
@@ -65,6 +81,10 @@ export declare class Importer {
             _mesh_data?: ArrayBuffer;
         }[];
     }>;
+    /** 生成网格数据。 */
+    Gen_mesh_data(geometry: DataView, uv_set: DataView): Promise<void>;
     /** 事务处理器。 */
     private _worker;
+    /** DAZ资产管理器。 */
+    private _resources_daz;
 }

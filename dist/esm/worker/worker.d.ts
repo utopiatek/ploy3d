@@ -18,6 +18,8 @@ export declare class Miaoworker {
         uid: number;
         /** 是否使用的是WebGL图形API*/
         webgl: boolean;
+        /** DAZ资源服务地址。 */
+        dazServ: string;
         /** 内核代码。 */
         kernelCode: ArrayBuffer;
     }): Promise<this>;
@@ -49,6 +51,27 @@ export declare class Miaoworker {
      * @returns 异步对象。
      */
     Import_gltf_file(worker: number, file: File, progress: (rate: number, msg: string) => void): Promise<PackageReg>;
+    /**
+     * 导入DAZ文件，返回资源包UUID。
+     * @param worker 派遣线程索引，0为主线程。
+     * @param url DAZ文件路径。
+     * @returns 异步对象
+     */
+    Import_daz(worker: number, url: string, progress: (rate: number, msg: string) => void): Promise<{
+        main: string;
+        pkgs: {
+            path: string;
+            uuid: string;
+            key: string;
+            pkg: PackageReg;
+            files?: Record<string, any>;
+            uuidLut: Record<string, any>;
+            nodeLib: {
+                lut: Record<string, import("./importer_daz.js").Daz_node>;
+                list: string[];
+            };
+        }[];
+    }>;
     /**
      * 装载百度地图矢量瓦片，返回网格数据。
      * @param worker 派遣线程索引，0为主线程。
@@ -95,6 +118,12 @@ export declare class Miaoworker {
      * @returns 异步对象。
      */
     Decode_dem(worker: number, url: string): Promise<Uint8Array>;
+    /**
+     * GZIP数据解压。
+     * @param buffer 压缩数据。
+     * @returns 返回解压后数据。
+     */
+    Pako_inflate(buffer: ArrayBuffer): Uint8Array;
     /**
      * 压缩贴图数据。
      * @param data_ 原始贴图数据。
@@ -149,6 +178,8 @@ export declare class Miaoworker {
     uid: number;
     /** 是否使用的是WebGL图形API*/
     webgl: boolean;
+    /** DAZ资源服务地址。 */
+    dazServ: string;
     /** 内核代码。 */
     kernelCode: ArrayBuffer;
     /** 内核管理器。 */
@@ -191,8 +222,10 @@ export declare const enum WorkType {
     Import_gltf = 3,
     /** 导入GLTF文件。 */
     Import_gltf_file = 4,
+    /** 导入DAZ文件。 */
+    Import_daz = 5,
     /** 装载矢量地图瓦片。 */
-    Import_vtile_bd = 5,
+    Import_vtile_bd = 6,
     /** 装载3MXB文件资源。 */
-    Load_3mxb_resource = 6
+    Load_3mxb_resource = 7
 }

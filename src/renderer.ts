@@ -153,6 +153,8 @@ export class DrawQueue {
 
         // 清空实例数据数组
         GetInstanceSlot(1);
+        // 至少分配一个实例槽
+        GetInstanceSlot(2);
 
         const drawCalls = this.drawList.drawCalls;
         const drawParts = this.drawList.drawParts = [] as number[][];

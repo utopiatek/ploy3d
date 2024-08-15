@@ -14,6 +14,7 @@ export class Miaoworker {
         this.startTS = Date.now();
         this.uid = _global?.uid;
         this.webgl = _global?.webgl;
+        this.dazServ = _global?.dazServ;
         this.kernelCode = _global?.kernelCode;
         this.kernel = _global?.kernel;
         this.env = _global?.env;
@@ -37,6 +38,7 @@ export class Miaoworker {
                 args: {
                     uid: this.uid,
                     webgl: this.webgl,
+                    dazServ: this.dazServ,
                     kernelCode: this.kernelCode,
                     transfer: [this.kernelCode]
                 }
@@ -50,6 +52,7 @@ export class Miaoworker {
         if (this.workerID != 0) {
             this.uid = args.uid;
             this.webgl = args.webgl;
+            this.dazServ = args.dazServ;
             this.kernelCode = args.kernelCode;
             this.kernel = await (new Kernel(this)).Init({
                 CompileBranches: (g1, g2, g3, flags, topology, frontFace, cullMode) => {
@@ -147,6 +150,26 @@ export class Miaoworker {
             }
         });
     }
+    Import_daz(worker, url, progress) {
+        return new Promise((resolve, reject) => {
+            if (this.closed) {
+                reject("事务处理器已关闭！");
+                return;
+            }
+            if (0 === worker) {
+                this.importer.Import_daz(url, progress).then(resolve).catch(reject);
+            }
+            else {
+                this.PostMessage({
+                    type: 5,
+                    state: 0,
+                    args: {
+                        url: url
+                    },
+                }).then(resolve).catch(reject);
+            }
+        });
+    }
     Import_vtile_bd(worker, param, progress) {
         return new Promise((resolve, reject) => {
             if (this.closed) {
@@ -158,7 +181,7 @@ export class Miaoworker {
             }
             else {
                 this.PostMessage({
-                    type: 5,
+                    type: 6,
                     state: 0,
                     args: {
                         param
@@ -178,7 +201,7 @@ export class Miaoworker {
             }
             else {
                 this.PostMessage({
-                    type: 6,
+                    type: 7,
                     state: 0,
                     args: group,
                 }).then(resolve).catch(reject);
@@ -193,7 +216,7 @@ export class Miaoworker {
         if (152 == buffer.byteLength) {
             return null;
         }
-        const n = pako.inflate(buffer);
+        const n = this.Pako_inflate(buffer);
         if (n.byteLength != 45000 && n.byteLength != 90000) {
             return null;
         }
@@ -237,6 +260,9 @@ export class Miaoworker {
             }
         }
         return d;
+    }
+    Pako_inflate(buffer) {
+        return pako.inflate(buffer);
     }
     async EncodeTexture(data_, has_alpha) {
         return null;
@@ -320,7 +346,7 @@ export class Miaoworker {
                 });
             }
             else if (info.type === 5) {
-                this.Import_vtile_bd(0, info.args.param, (rate, msg) => { })
+                this.Import_daz(0, info.args.url, (rate, msg) => { })
                     .then((data) => {
                     info.args = data;
                     info.state = 2;
@@ -333,6 +359,19 @@ export class Miaoworker {
                 });
             }
             else if (info.type === 6) {
+                this.Import_vtile_bd(0, info.args.param, (rate, msg) => { })
+                    .then((data) => {
+                    info.args = data;
+                    info.state = 2;
+                    this.PostMessage(info);
+                })
+                    .catch((reason) => {
+                    info.args = reason;
+                    info.state = -1;
+                    this.PostMessage(info);
+                });
+            }
+            else if (info.type === 7) {
                 this.Load_3mxb_resource(0, info.args, (rate, msg) => { })
                     .then((data) => {
                     info.args = data;
@@ -391,6 +430,7 @@ export class Miaoworker {
     startTS;
     uid;
     webgl;
+    dazServ;
     kernelCode;
     kernel;
     env;
