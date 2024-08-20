@@ -114,6 +114,11 @@ export class Mesh extends Miaoverse.Resource<Mesh> {
         return this._triangles;
     }
 
+    /** 骨骼蒙皮数据对应的骨架信息。 */
+    public get skeleton() {
+        return this._skeleton;
+    }
+
     /** 内核实现。 */
     private _impl: Mesh_kernel;
     /** 顶点缓存数组。 */
@@ -142,6 +147,15 @@ export class Mesh extends Miaoverse.Resource<Mesh> {
         /** 数据字节大小。 */
         size: number;
     }[];
+    /** 骨骼蒙皮数据对应的骨架信息。 */
+    private _skeleton?: {
+        /** 骨架绑定名称数组。 */
+        joints: string[];
+        /** 根关节（建模空间）索引。 */
+        root: number;
+        /** 骨架数据指针。 */
+        skeleton: Miaoverse.io_ptr;
+    };
 }
 
 /** 网格资源内核实现。 */
@@ -191,6 +205,10 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
      * @returns 返回网格资源实例。
      */
     public async Create(asset: Asset_mesh, pkg?: Miaoverse.PackageReg) {
+        const env = this._global.env;
+        const resources = this._global.resources;
+        const internal = this._global.internal;
+
         let type = asset.creater?.type;
         let data: Parameters<Mesh_kernel["MakeGeometry"]>[0] = null;
         let res: ReturnType<Mesh_kernel["MakeGeometry"]> = null;
@@ -218,38 +236,87 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
             res = this.MakeGeometry(data);
         }
         else if (asset.meshdata) {
-            const meshdata = await this._global.resources.Load_file<ArrayBuffer>("arrayBuffer", asset.meshdata, true, pkg);
+            const meshdata = await resources.Load_file<ArrayBuffer>("arrayBuffer", asset.meshdata, true, pkg);
             if (!meshdata.data) {
                 return null;
             }
 
-            const meshdata_ptr = this._global.internal.System_New(meshdata.data.byteLength);
+            const meshdata_ptr = internal.System_New(meshdata.data.byteLength);
 
-            this._global.env.bufferSet1(meshdata_ptr, meshdata.data, 0, meshdata.data.byteLength);
+            env.bufferSet1(meshdata_ptr, meshdata.data, 0, meshdata.data.byteLength);
 
             res = [meshdata.data.byteLength, meshdata_ptr];
         }
         else if (asset.geometry) {
-            const geometry = await this._global.resources.Load_file<ArrayBuffer>("arrayBuffer", asset.geometry, true, pkg);
+            const geometry = await resources.Load_file<ArrayBuffer>("arrayBuffer", asset.geometry, true, pkg);
             if (!geometry.data) {
                 return null;
             }
 
-            const uv_set = await this._global.resources.Load_file<ArrayBuffer>("arrayBuffer", asset.uv_set, true, pkg);
+            const uv_set = await resources.Load_file<ArrayBuffer>("arrayBuffer", asset.uv_set, true, pkg);
             if (!uv_set.data) {
                 return null;
             }
 
-            this._global.worker.importer.Gen_mesh_data(new DataView(geometry.data), new DataView(uv_set.data));
+            const static_morph: { weights: number[]; deltas: ArrayBuffer; }[] = [];
+            if (asset.static_morph) {
+                for (let morph of asset.static_morph) {
+                    const weights = morph.weights.slice();
+                    const deltas = await resources.Load_file<ArrayBuffer>("arrayBuffer", morph.deltas, true, pkg);
 
-            return null;
+                    if (deltas) {
+                        static_morph.push({ weights, deltas: deltas.data });
+                    }
+                }
+            }
+
+            const skin = asset.skeleton_skin ? await resources.Load_file<ArrayBuffer>("arrayBuffer", asset.skeleton_skin.skin, true, pkg) : null;
+            if (asset.skeleton_skin && !skin) {
+                console.error("网格骨骼蒙皮数据加载失败！", asset.skeleton_skin);
+            }
+
+            const data = await this._global.worker.importer.Gen_mesh_data(new DataView(geometry.data), new DataView(uv_set.data), new DataView(skin.data), static_morph);
+            const data_ptr = internal.System_New(data.byteLength);
+
+            env.bufferSet1(data_ptr, data, 0, data.byteLength);
+
+            res = this._CreateData(data_ptr, data.byteLength);
+
+            internal.System_Delete(data_ptr);
         }
 
         // ========================-------------------------------
 
         const instance = this.Instance(res[1], res[0], asset.uuid);
 
-        this._global.internal.System_Delete(res[1]);
+        internal.System_Delete(res[1]);
+
+        if (asset.skeleton_skin) {
+            const skeleton = await resources.Load_file<ArrayBuffer>("arrayBuffer", asset.skeleton_skin.skeleton, true, pkg);
+
+            if (skeleton && skeleton.data) {
+                const skeleton_ptr = internal.System_New(skeleton.data.byteLength);
+                env.bufferSet1(skeleton_ptr, skeleton.data, 0, skeleton.data.byteLength);
+                const skeleton_data = env.uarrayRef(skeleton_ptr, Skeleton_member_index.initDatas[3], 3);
+
+                // 设置1引用计数
+                env.uscalarSet(skeleton_ptr, 3, 1);
+
+                // 初始化内部数据指针
+                skeleton_data[0] += skeleton_ptr;
+                skeleton_data[1] += skeleton_ptr;
+                skeleton_data[2] += skeleton_ptr;
+
+                instance["_skeleton"] = {
+                    joints: asset.skeleton_skin.joints,
+                    root: asset.skeleton_skin.root,
+                    skeleton: skeleton_ptr
+                };
+            }
+            else {
+                console.error("网格骨骼蒙皮骨架数据加载失败！", asset.skeleton_skin);
+            }
+        }
 
         return instance;
     }
@@ -352,7 +419,7 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
         env.farraySet(data_ptr, normalsOffset, data.normals);
         env.farraySet(data_ptr, uvsOffset, data.uvs);
 
-        const resource = this._CreateData(data_ptr);
+        const resource = this._CreateData(data_ptr, 4 * intLength);
 
         this._global.internal.System_Delete(data_ptr);
 
@@ -1215,7 +1282,7 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
      * @param geo 网格几何数据指针（数据布局结构请查阅MakeGeometry代码）。
      * @returns 返回网格资源文件数据大小和数据指针。
      */
-    protected _CreateData: (geo: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+    protected _CreateData: (geo: Miaoverse.io_ptr, size: number) => [number, Miaoverse.io_ptr];
 
     /**
      * 解压CTM网格数据。
@@ -1223,6 +1290,19 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
      * @returns 返回网格几何数据大小和网格几何数据指针。
      */
     protected _DecodeCTM: (ctmData: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+
+    /**
+     * 服装网格自适应包裹身体网格。
+     */
+    protected _AutoFit: (
+        moveToSurface: number,
+        moveToSurfaceOffset: number,
+        surfaceOffset: number,
+        additionalThicknessMultiplier: number,
+        lossyScale: number,
+        clothMesh: Miaoverse.io_ptr,
+        skinMesh: Miaoverse.io_ptr
+    ) => void;
 }
 
 /** 几何UV数据内核实现。 */
@@ -1350,12 +1430,36 @@ export const Morph_member_index = {
     targetCount: ["uscalarGet", "uscalarSet", 1, 22] as Miaoverse.Kernel_member,
     morphTargets: ["ptrGet", "ptrSet", 1, 23] as Miaoverse.Kernel_member,
 
-    modifyCount: ["ptrGet", "ptrSet", 1, 24] as Miaoverse.Kernel_member,
+    deltaCounts: ["ptrGet", "ptrSet", 1, 24] as Miaoverse.Kernel_member,
     deltas: ["ptrGet", "ptrSet", 1, 25] as Miaoverse.Kernel_member,
-    unloaded: ["uscalarGet", "uscalarSet", 1, 26] as Miaoverse.Kernel_member,
-    unused3: ["uscalarGet", "uscalarSet", 1, 27] as Miaoverse.Kernel_member,
+    reserved104: ["uscalarGet", "uscalarSet", 1, 26] as Miaoverse.Kernel_member,
+    reserved108: ["uscalarGet", "uscalarSet", 1, 27] as Miaoverse.Kernel_member,
+} as const;
 
-    reserved: ["uarrayGet", "uarraySet", 4, 28] as Miaoverse.Kernel_member,
+/** 蒙皮数据内核实现的数据结构成员列表。 */
+export const Skin_member_index = {
+    ...Miaoverse.Binary_member_index,
+
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
+    method: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
+    reserved56: ["uscalarGet", "uscalarSet", 1, 14] as Miaoverse.Kernel_member,
+    vertices: ["ptrGet", "ptrSet", 1, 15] as Miaoverse.Kernel_member,
+} as const;
+
+/** 骨架定义数据内核实现的数据结构成员列表。 */
+export const Skeleton_member_index = {
+    ...Miaoverse.Binary_member_index,
+
+    flags: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
+    jointCount: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
+    jointRootIndex: ["uscalarGet", "uscalarSet", 1, 14] as Miaoverse.Kernel_member,
+    jointsNameLength: ["uscalarGet", "uscalarSet", 1, 15] as Miaoverse.Kernel_member,
+
+    reserved64: ["uscalarGet", "uscalarSet", 1, 16] as Miaoverse.Kernel_member,
+
+    initDatas: ["ptrGet", "ptrSet", 1, 17] as Miaoverse.Kernel_member,
+    inverseBindMatrices: ["ptrGet", "ptrSet", 1, 18] as Miaoverse.Kernel_member,
+    jointsName: ["ptrGet", "ptrSet", 1, 19] as Miaoverse.Kernel_member,
 } as const;
 
 /** 网格资源描述符。 */
@@ -1368,6 +1472,23 @@ export interface Asset_mesh extends Miaoverse.Asset {
     geometry?: string;
     /** UV数据URI。 */
     uv_set?: string;
+    /** 
+     * 骨骼蒙皮数据（用于构建第2顶点缓存）。
+     * 需要保证网格和骨骼蒙皮是匹配的。
+     * 对于从基础几何体构建的网格，蒙皮数据需要从基础几何体映射到带UV网格体。
+     */
+    skeleton_skin?: {
+        /** 骨架绑定名称数组。 */
+        joints: string[];
+        /** 根关节（建模空间）索引。 */
+        root: number;
+        /** 骨架数据URL。 */
+        skeleton: string;
+        /** 蒙皮数据URL。 */
+        skin: string;
+    };
+    /** 静态网格变形数据URI数组（构建网格资源实例时变形）。 */
+    static_morph?: { weights: number[]; deltas: string; }[];
 }
 
 /** 网格几何数据构建器。 */

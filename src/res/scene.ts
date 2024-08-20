@@ -104,6 +104,12 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
         prefab.root.layers = Miaoverse.LAYER_FLAGS.PREFAB;
         prefab.instanceCount = data.instanceCount;
 
+        // 对于DAZ角色预制件，我们缓存身体网格原始数据，并使服装网格自适应包裹身体网格
+        const daz_figure: {
+            /** 身体网格原始数据。 */
+            body_mesh_raw?: [number, Miaoverse.io_ptr];
+        } = data.scheme != "daz" ? null : {};
+
         // 装配预制件 ===============-----------------------
 
         for (let batch of data.batches) {
@@ -134,7 +140,28 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
         for (let transform of data.transforms) {
             const instance = prefab.instanceList[prefab.instanceBeg + transform.instance];
             if (instance) {
-                if (transform.localMatrix) {
+                if (transform.bone_init && transform.bone_ctrl) {
+                    const init = transform.bone_init;
+                    const ctrl = transform.bone_ctrl;
+                    const parent = data.transforms[transform.parent];
+
+                    const localPosition = this._global.Vector3([
+                        init.center_point[0] - (parent ? parent.bone_init.center_point[0] : 0) + ctrl.translation[0],
+                        init.center_point[1] - (parent ? parent.bone_init.center_point[1] : 0) + ctrl.translation[1],
+                        init.center_point[2] - (parent ? parent.bone_init.center_point[2] : 0) + ctrl.translation[2],
+                    ]);
+
+                    const orientation = this._global.Quaternion(init.orientation.slice());
+                    const orientation_inv = orientation.inverse;
+                    const rotation_euler = this._global.Vector3(ctrl.rotation.slice());
+                    const rotation = rotation_euler.toQuaternion(init.rotation_order);
+
+                    const localRotation = orientation.Multiply(rotation.Multiply(orientation_inv));
+
+                    instance.localPosition = localPosition;
+                    instance.localRotation = localRotation;
+                }
+                else if (transform.localMatrix) {
                     instance.localMatrix = this._global.Matrix4x4(transform.localMatrix);
                 }
                 else {
@@ -170,11 +197,69 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
 
         for (let mesh_renderer of data.mesh_renderers) {
             const instance = prefab.instanceList[prefab.instanceBeg + mesh_renderer.instance];
+
+            let mr_instance: Miaoverse.MeshRenderer = null;
+
             if (instance) {
-                const mr_instance = await this._global.resources.MeshRenderer.Load(mesh_renderer.mesh_renderer, desc.pkg);
-                if (mr_instance) {
-                    instance.meshRenderer = mr_instance;
+                // DAZ预制件网格渲染器实例化方案
+                if (daz_figure) {
+                    const Mesh_CreateData = this._global.resources.Mesh["_CreateData"];
+
+                    this._global.resources.Mesh["_CreateData"] = (ptr, size) => {
+                        if ((instance.layers & Miaoverse.LAYER_FLAGS.FIGURE) == Miaoverse.LAYER_FLAGS.FIGURE) {
+                            // 拷贝身体网格原始数据
+                            if (mesh_renderer.instance == 0) {
+                                const ptr_ = this._global.internal.System_New(size);
+                                const data_ = this._global.env.uarrayRef(ptr_, 0, size >> 2);
+                                const data = this._global.env.uarrayRef(ptr, 0, size >> 2);
+
+                                data_.set(data);
+
+                                daz_figure.body_mesh_raw = [size, ptr_];
+                            }
+                            // 使服装网格自适应包裹身体网格
+                            else {
+                                this._global.resources.Mesh["_AutoFit"](
+                                    1,                          // moveToSurface
+                                    0.0003 * 100,               // moveToSurfaceOffset
+                                    0.0,                        // surfaceOffset
+                                    0.5,                        // additionalThicknessMultiplier
+                                    1.0,                        // lossyScale
+                                    ptr,                        // clothMesh
+                                    daz_figure.body_mesh_raw[1] // skinMesh
+                                );
+                            }
+                        }
+
+                        return Mesh_CreateData(ptr, size);
+                    };
+
+                    // ========================----------------------------------
+
+                    mr_instance = await this._global.resources.MeshRenderer.Load(mesh_renderer.mesh_renderer, desc.pkg);
+                    if (mr_instance) {
+                        instance.meshRenderer = mr_instance;
+                    }
+
+                    // ========================----------------------------------
+
+                    this._global.resources.Mesh["_CreateData"] = Mesh_CreateData;
                 }
+                else {
+                    mr_instance = await this._global.resources.MeshRenderer.Load(mesh_renderer.mesh_renderer, desc.pkg);
+                    if (mr_instance) {
+                        instance.meshRenderer = mr_instance;
+                    }
+                }
+            }
+
+            if (mr_instance && mesh_renderer.joints_binding) {
+                const bindings = mesh_renderer.joints_binding.map((idx) => {
+                    const joint = prefab.instanceList[prefab.instanceBeg + idx];
+                    return joint?.internalPtr || 0
+                });
+
+                mr_instance.BindSkeleton(bindings);
             }
         }
 
@@ -276,6 +361,9 @@ export const Scene_member_index = {
  * 我们不应删除已共享预制件中的某个对象，我们可以把它隐藏（不激活）。
  */
 export interface Asset_prefab extends Miaoverse.Asset {
+    /** 预制件构建体系（不同体系预制件实例化方法存在一些区别）。 */
+    scheme?: "daz";
+
     /**
      * 预制件参考经纬度坐标（使用GCJ02坐标系）。
      */
@@ -310,8 +398,11 @@ export interface Asset_prefab extends Miaoverse.Asset {
          */
         index: number;
 
+        /** 节点资源ID。 */
+        id: string;
+
         /** 
-         * 节点名称。
+         * 节点实例ID（名称）。
          */
         name: string;
 
@@ -402,6 +493,44 @@ export interface Asset_prefab extends Miaoverse.Asset {
          * 应用到引擎的本地矩阵（优先采用）。
          */
         localMatrix?: number[];
+
+        /**
+         * 骨骼初始变换。
+         */
+        bone_init?: {
+            /** 坐标系参考中心点（子空间的origin_point位于父空间的center_point）。 */
+            center_point: number[];
+            /** 是否累积父级的缩放（通常为真，具有父骨骼的骨骼除外。可单独缩放骨骼所影响顶点）。 */
+            inherits_scale: number;
+
+            /** 骨骼端点，位于骨骼的末端，连接到另一个骨骼或终止。 */
+            end_point: number[];
+            /** 当使用基于通道的动画数据时采用的旋转顺序（默认XYZ）。 */
+            rotation_order: number;
+
+            /** 旋转、缩放操作的参考轴向（orientation * (rotation | scale) * inv(orientation)）。 */
+            orientation: number[];
+        };
+
+        /**
+         * 骨骼控制参数。
+         */
+        bone_ctrl?: {
+            /** 节点沿各轴平移。 */
+            translation: number[];
+            /** 是否累积父级的缩放（通常为真，具有父骨骼的骨骼除外。可单独缩放骨骼所影响顶点）。 */
+            inherits_scale: number;
+
+            /** 节点绕各轴旋转欧拉角。 */
+            rotation: number[];
+            /** 节点绕各轴旋转欧拉角旋转序。 */
+            rotation_order: number;
+
+            /** 节点沿各轴缩放。 */
+            scale: number[];
+            /** 节点整体缩放。 */
+            general_scale: number;
+        };
     }[];
 
     /**
@@ -422,6 +551,9 @@ export interface Asset_prefab extends Miaoverse.Asset {
          * 网格渲染器组件资源URI。
          */
         mesh_renderer: string;
+
+        /** 网格骨骼蒙皮骨骼绑定实例索引列表。 */
+        joints_binding?: number[];
     }[];
 }
 

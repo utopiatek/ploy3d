@@ -136,7 +136,7 @@ export class Importer {
         group._ab = null;
         return group;
     }
-    async Gen_mesh_data(geometry, uv_set) {
+    async Gen_mesh_data(geometry, uv_set, skin, static_morph) {
         const uv_vert_count = uv_set.getUint32(48, true);
         const uv_uv_count = uv_set.getUint32(52, true);
         const uv_mapping_count = uv_set.getUint32(56, true);
@@ -153,8 +153,172 @@ export class Importer {
         const geometry_group_count = geometry.getUint32(104, true);
         const geometry_vertices = new Float32Array(geometry.buffer, geometry_vertices_ptr, geometry_vert_count * 3);
         const geometry_polylist = geometry_vert_count > 65535 ? new Uint32Array(geometry.buffer, geometry_polylist_ptr, geometry_poly_count * 6) : new Uint16Array(geometry.buffer, geometry_polylist_ptr, geometry_poly_count * 6);
-        console.error(uv_vert_count, uv_uv_count, uv_mapping_count, uv_uvs_ptr, uv_mappings_ptr);
-        console.error(geometry_vert_count, geometry_poly_count, geometry_group_count);
+        const skin_data = (() => {
+            if (!skin) {
+                return null;
+            }
+            const skin_vert_count = skin.getUint32(48, true);
+            const skin_method = skin.getUint32(52, true);
+            const skin_vertices_ptr = 4 * skin.getUint32(60, true);
+            if (skin_vert_count != geometry_vert_count) {
+                console.error("网格骨骼蒙皮期望顶点数与基础几何体顶点数不匹配！", skin_vert_count, geometry_vert_count);
+                return null;
+            }
+            const skin_vertices = new Uint32Array(skin.buffer, skin_vertices_ptr, skin_vert_count * 2);
+            return {
+                vert_count: skin_vert_count,
+                method: skin_method,
+                vertices: skin_vertices
+            };
+        })();
+        if (uv_vert_count != geometry_vert_count) {
+            console.error("网格UV期望顶点数与基础几何体顶点数不匹配！", uv_vert_count, geometry_vert_count);
+            return null;
+        }
+        const invalid = geometry_vert_count > 65535 ? 0xFFFFFFFF : 0xFFFF;
+        let vcount = uv_uv_count;
+        let icount = 0;
+        for (let i = 0; i < geometry_poly_count; i++) {
+            icount += geometry_polylist[i * 6 + 5] == invalid ? 3 : 6;
+        }
+        let intLength = 0;
+        let headerOffset = intLength;
+        intLength += 8;
+        let groupsOffset = intLength;
+        intLength += 4 * geometry_group_count;
+        let indicesOffset = intLength;
+        intLength += icount;
+        let verticesOffset = intLength;
+        intLength += 3 * vcount;
+        let uvsOffset = intLength;
+        intLength += 2 * vcount;
+        let bones_weightsOffset = 0;
+        if (skin_data) {
+            bones_weightsOffset = intLength;
+            intLength += 2 * vcount;
+        }
+        let original_verticesOffset = 0;
+        if (static_morph && static_morph.length > 0) {
+            original_verticesOffset = intLength;
+            intLength += 3 * vcount;
+        }
+        const buffer = new ArrayBuffer(4 * intLength);
+        const header = new Uint32Array(buffer, 4 * headerOffset, 8);
+        const groups = new Uint32Array(buffer, 4 * groupsOffset, 4 * geometry_group_count);
+        const indices = new Uint32Array(buffer, 4 * indicesOffset, icount);
+        const vertices = new Float32Array(buffer, 4 * verticesOffset, 3 * vcount);
+        const uvs = new Float32Array(buffer, 4 * uvsOffset, 2 * vcount);
+        const bones_weights = bones_weightsOffset ? new Uint32Array(buffer, 4 * bones_weightsOffset, 2 * vcount) : null;
+        const original_vertices = original_verticesOffset ? new Float32Array(buffer, 4 * original_verticesOffset, 3 * vcount) : null;
+        const polylist = geometry_polylist.slice();
+        vertices.set(geometry_vertices);
+        if (skin_data) {
+            bones_weights.set(skin_data.vertices);
+        }
+        if (original_vertices) {
+            original_vertices.set(geometry_vertices);
+        }
+        if (static_morph) {
+            for (let morph of static_morph) {
+                const buffer = morph.deltas;
+                const header = new Uint32Array(buffer, 48, 16);
+                const type = header[0];
+                if (type != 1) {
+                    console.error("不支持非CPU网格变形数据！");
+                    continue;
+                }
+                const vertex_count = header[9];
+                const targetCount = header[10];
+                if (vertex_count != geometry_vert_count) {
+                    console.error("网格变形期望的几何顶点数量不符！", vertex_count, geometry_vert_count);
+                    continue;
+                }
+                const deltaCounts = new Uint32Array(buffer, header[12] * 4, targetCount);
+                const deltas = new Float32Array(buffer, header[13] * 4);
+                const deltas_uint = new Uint32Array(buffer, header[13] * 4);
+                let deltaOffset = 0;
+                for (let t = 0; t < targetCount; t++) {
+                    const deltaCount = deltaCounts[t];
+                    const weight = morph.weights[t];
+                    for (let i = 0; i < deltaCount; i++) {
+                        const i4 = (deltaOffset + i) * 4;
+                        const vi = deltas_uint[i4 + 0] * 3;
+                        const x = deltas[i4 + 1] * weight;
+                        const y = deltas[i4 + 2] * weight;
+                        const z = deltas[i4 + 3] * weight;
+                        vertices[vi + 0] += x;
+                        vertices[vi + 1] += y;
+                        vertices[vi + 2] += z;
+                    }
+                    deltaOffset += deltaCount;
+                }
+            }
+        }
+        uvs.set(uv_uvs);
+        for (let i = 0; i < uv_mapping_count; i++) {
+            const i3 = i * 3;
+            const i6 = uv_mappings[i3 + 0] * 6;
+            const vertex_index = uv_mappings[i3 + 1];
+            const uv_index = uv_mappings[i3 + 2];
+            for (let j = 2; j < 6; j++) {
+                if (polylist[i6 + j] == vertex_index) {
+                    polylist[i6 + j] = uv_index;
+                    vertices[(uv_index * 3) + 0] = vertices[(vertex_index * 3) + 0];
+                    vertices[(uv_index * 3) + 1] = vertices[(vertex_index * 3) + 1];
+                    vertices[(uv_index * 3) + 2] = vertices[(vertex_index * 3) + 2];
+                    if (original_vertices) {
+                        original_vertices[(uv_index * 3) + 0] = original_vertices[(vertex_index * 3) + 0];
+                        original_vertices[(uv_index * 3) + 1] = original_vertices[(vertex_index * 3) + 1];
+                        original_vertices[(uv_index * 3) + 2] = original_vertices[(vertex_index * 3) + 2];
+                    }
+                    if (bones_weights) {
+                        bones_weights[(uv_index * 2) + 0] = bones_weights[(vertex_index * 2) + 0];
+                        bones_weights[(uv_index * 2) + 1] = bones_weights[(vertex_index * 2) + 1];
+                    }
+                }
+            }
+        }
+        header[0] = 1 | 2 | 8 | (original_vertices ? 64 : 0) | (skin_data ? (16 | 32) : 0);
+        header[1] = icount;
+        header[2] = vcount;
+        header[3] = geometry_group_count;
+        header[4] = uv_vert_count;
+        header[5] = 0;
+        header[6] = 0;
+        header[7] = 0;
+        let icounter = 0;
+        for (let g = 0; g < geometry_group_count; g++) {
+            const g4 = g * 4;
+            groups[g4 + 0] = 3;
+            groups[g4 + 1] = icounter;
+            groups[g4 + 2] = 0;
+            groups[g4 + 3] = 0;
+            for (let i = 0; i < geometry_poly_count; i++) {
+                const i6 = i * 6;
+                const group = polylist[i6 + 1];
+                if (g == group) {
+                    const vert0 = polylist[i6 + 2];
+                    const vert1 = polylist[i6 + 3];
+                    const vert2 = polylist[i6 + 4];
+                    const vert3 = polylist[i6 + 5];
+                    if (vert3 == invalid) {
+                        indices[icounter++] = vert0;
+                        indices[icounter++] = vert1;
+                        indices[icounter++] = vert2;
+                    }
+                    else {
+                        indices[icounter++] = vert0;
+                        indices[icounter++] = vert1;
+                        indices[icounter++] = vert2;
+                        indices[icounter++] = vert0;
+                        indices[icounter++] = vert2;
+                        indices[icounter++] = vert3;
+                    }
+                }
+            }
+            groups[g4 + 2] = icounter - groups[g4 + 1];
+        }
+        return buffer;
     }
     _worker;
     _resources_daz;

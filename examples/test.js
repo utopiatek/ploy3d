@@ -49,7 +49,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         // 装载GLTF中的某个材质资源
         this.gltf_material = await resources.Material.Load("32-0", this.gltf_pkg.pkg);
         // 创建承载GLTF资源包网格资源绘制的网格渲染器组件
-        this.gltf_meshRenderer = await resources.MeshRenderer.Create(this.gltf_mesh, null, [
+        this.gltf_meshRenderer = await resources.MeshRenderer.Create(this.gltf_mesh, [
             {
                 slot: 0,
                 submesh: 0,
@@ -92,15 +92,16 @@ export class PloyApp_test extends ploycloud.PloyApp {
         chara_prefab.root.SetLngLat(dior_lnglat[0] + 0.0025, dior_lnglat[1] + 0.0025, 0.0);
         chara_prefab.root.localScale = this.engine.Vector3([100, 100, 100]);
         console.error(chara_pkg, chara_prefab);
-
+        /*
         // 导入DAZ文件，依赖的其它DAZ文件会同时导入，每个DAZ文件转换为一个资源包
-        // const daz_imports = await this.engine.worker.Import_daz(1, "Scenes/a1.duf", () => { });
-        // for (let daz_pkg of daz_imports.pkgs) {
-        //     this.engine.resources.Register(daz_pkg.pkg, daz_pkg.files);
-        // }
-        // const daz_prefab = await this.engine.resources.Scene.InstancePrefab(this.scene, daz_imports.main + "-65-0");
-        // console.error("daz_imports:", daz_imports, daz_prefab);
-
+        const daz_imports = await this.engine.worker.Import_daz(1, "Scenes/20240816B.duf", () => { });
+        for (let daz_pkg of daz_imports.pkgs) {
+            this.engine.resources.Register(daz_pkg.pkg, daz_pkg.files);
+        }
+        const daz_prefab = await this.engine.resources.Scene.InstancePrefab(this.scene, daz_imports.main + "-65-0");
+        daz_prefab.root.SetLngLat(dior_lnglat[0] + 0.0025, dior_lnglat[1] - 0.0025, 0.0);
+        console.error("daz_imports:", daz_imports, daz_prefab);
+        */
         // 创建立方体网格绘制材质
         const cube_material = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
         // 创建立方体网格
@@ -213,7 +214,15 @@ export class PloyApp_test extends ploycloud.PloyApp {
      * 绘制场景2D画面。
      */
     Draw2D() {
-        // ...
+        const targetLL = this.engine.gis.GCJ02_WGS84([120.2824892, 30.4876468]);
+        const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
+        const screenPos = this.camera.WorldToScreen(targetWPOS);
+        const pixelX = screenPos[0] * this.ui_canvas.width;
+        const pixelY = screenPos[1] * this.ui_canvas.height;
+
+        this.ui_ctx.font = "32px Arial";
+        this.ui_ctx.fillStyle = "red";
+        this.ui_ctx.fillText("经纬度转屏幕空间测试", pixelX, pixelY);
     }
 
     /**

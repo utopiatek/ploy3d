@@ -677,6 +677,7 @@ export class Importer_gltf {
                 node.extras = {
                     node: {
                         index: node_index++,
+                        id: node.name || "" + (node_index - 1),
                         name: node.name || ("object_" + (node_index - 1)),
                         depth: depth,
                         parent: parent ? parent.node.index : -1,

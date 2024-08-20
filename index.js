@@ -59,7 +59,7 @@ async function Main(fs_root) {
     return ploycloud.Start(engine, "test", "PLOY3D引擎", 1280, 720);
 }
 
-Main(null).then(() => {
+Main(/*null*/).then(() => {
     console.log("应用运行中，按ESC键结束运行 ...")
 }).catch((e) => {
     console.error(e);

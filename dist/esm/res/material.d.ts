@@ -200,11 +200,6 @@ export declare const Material_member_index: {
     readonly buffer: Miaoverse.Kernel_member;
     readonly bufferID: Miaoverse.Kernel_member;
     readonly bufferBlockOffset: Miaoverse.Kernel_member;
-    /**
-     * 根据相机组件数据和体积组件数据更新数据。
-     * @param camera 相机组件实例。
-     * @param volume 体积组件实例。
-     */
     readonly bufferBlockSize: Miaoverse.Kernel_member;
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;

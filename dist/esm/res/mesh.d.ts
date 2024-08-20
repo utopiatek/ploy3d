@@ -58,12 +58,23 @@ export declare class Mesh extends Miaoverse.Resource<Mesh> {
         /** 数据字节大小。 */
         size: number;
     }[];
+    /** 骨骼蒙皮数据对应的骨架信息。 */
+    get skeleton(): {
+        /** 骨架绑定名称数组。 */
+        joints: string[];
+        /** 根关节（建模空间）索引。 */
+        root: number;
+        /** 骨架数据指针。 */
+        skeleton: never;
+    };
     /** 内核实现。 */
     private _impl;
     /** 顶点缓存数组。 */
     private _vertices;
     /** 索引缓存数组。 */
     private _triangles;
+    /** 骨骼蒙皮数据对应的骨架信息。 */
+    private _skeleton?;
 }
 /** 网格资源内核实现。 */
 export declare class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_index> {
@@ -218,13 +229,17 @@ export declare class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh
      * @param geo 网格几何数据指针（数据布局结构请查阅MakeGeometry代码）。
      * @returns 返回网格资源文件数据大小和数据指针。
      */
-    protected _CreateData: (geo: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+    protected _CreateData: (geo: Miaoverse.io_ptr, size: number) => [number, Miaoverse.io_ptr];
     /**
      * 解压CTM网格数据。
      * @param ctmData CTM数据指针。
      * @returns 返回网格几何数据大小和网格几何数据指针。
      */
     protected _DecodeCTM: (ctmData: Miaoverse.io_ptr) => [number, Miaoverse.io_ptr];
+    /**
+     * 服装网格自适应包裹身体网格。
+     */
+    protected _AutoFit: (moveToSurface: number, moveToSurfaceOffset: number, surfaceOffset: number, additionalThicknessMultiplier: number, lossyScale: number, clothMesh: Miaoverse.io_ptr, skinMesh: Miaoverse.io_ptr) => void;
 }
 /** 几何UV数据内核实现。 */
 export declare class UVSet_kernel extends Miaoverse.Base_kernel<any, typeof UVSet_member_index> {
@@ -343,11 +358,48 @@ export declare const Morph_member_index: {
     readonly vertexCount: Miaoverse.Kernel_member;
     readonly targetCount: Miaoverse.Kernel_member;
     readonly morphTargets: Miaoverse.Kernel_member;
-    readonly modifyCount: Miaoverse.Kernel_member;
+    readonly deltaCounts: Miaoverse.Kernel_member;
     readonly deltas: Miaoverse.Kernel_member;
-    readonly unloaded: Miaoverse.Kernel_member;
-    readonly unused3: Miaoverse.Kernel_member;
-    readonly reserved: Miaoverse.Kernel_member;
+    readonly reserved104: Miaoverse.Kernel_member;
+    readonly reserved108: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};
+/** 蒙皮数据内核实现的数据结构成员列表。 */
+export declare const Skin_member_index: {
+    readonly vertexCount: Miaoverse.Kernel_member;
+    readonly method: Miaoverse.Kernel_member;
+    readonly reserved56: Miaoverse.Kernel_member;
+    readonly vertices: Miaoverse.Kernel_member;
+    readonly magic: Miaoverse.Kernel_member;
+    readonly version: Miaoverse.Kernel_member;
+    readonly byteSize: Miaoverse.Kernel_member;
+    readonly refCount: Miaoverse.Kernel_member;
+    readonly id: Miaoverse.Kernel_member;
+    readonly uuid: Miaoverse.Kernel_member;
+    readonly writeTS: Miaoverse.Kernel_member;
+    readonly readTS: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member;
+    readonly next: Miaoverse.Kernel_member;
+};
+/** 骨架定义数据内核实现的数据结构成员列表。 */
+export declare const Skeleton_member_index: {
+    readonly flags: Miaoverse.Kernel_member;
+    readonly jointCount: Miaoverse.Kernel_member;
+    readonly jointRootIndex: Miaoverse.Kernel_member;
+    readonly jointsNameLength: Miaoverse.Kernel_member;
+    readonly reserved64: Miaoverse.Kernel_member;
+    readonly initDatas: Miaoverse.Kernel_member;
+    readonly inverseBindMatrices: Miaoverse.Kernel_member;
+    readonly jointsName: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
@@ -369,6 +421,26 @@ export interface Asset_mesh extends Miaoverse.Asset {
     geometry?: string;
     /** UV数据URI。 */
     uv_set?: string;
+    /**
+     * 骨骼蒙皮数据（用于构建第2顶点缓存）。
+     * 需要保证网格和骨骼蒙皮是匹配的。
+     * 对于从基础几何体构建的网格，蒙皮数据需要从基础几何体映射到带UV网格体。
+     */
+    skeleton_skin?: {
+        /** 骨架绑定名称数组。 */
+        joints: string[];
+        /** 根关节（建模空间）索引。 */
+        root: number;
+        /** 骨架数据URL。 */
+        skeleton: string;
+        /** 蒙皮数据URL。 */
+        skin: string;
+    };
+    /** 静态网格变形数据URI数组（构建网格资源实例时变形）。 */
+    static_morph?: {
+        weights: number[];
+        deltas: string;
+    }[];
 }
 /** 网格几何数据构建器。 */
 export interface Asset_mesh_creater {

@@ -40,28 +40,6 @@ export class AnimationData_kernel extends Miaoverse.Base_kernel<any, typeof Anim
     }
 }
 
-/** 骨架定义数据内核实现。 */
-export class Skeleton_kernel extends Miaoverse.Base_kernel<any, typeof Skeleton_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    public constructor(_global: Miaoverse.Ploy3D) {
-        super(_global, Skeleton_member_index);
-    }
-}
-
-/** 蒙皮数据内核实现。 */
-export class Skin_kernel extends Miaoverse.Base_kernel<any, typeof Skin_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    public constructor(_global: Miaoverse.Ploy3D) {
-        super(_global, Skin_member_index);
-    }
-}
-
 /** 动画组件内核实现的数据结构成员列表。 */
 export const Animator_member_index = {
     ...Miaoverse.Binary_member_index,
@@ -93,29 +71,4 @@ export const AnimationData_member_index = {
 
     morphPTR: ["ptrGet", "ptrSet", 1, 20] as Miaoverse.Kernel_member,
     morphUUID: ["uuidGet", "uuidSet", 3, 21] as Miaoverse.Kernel_member,
-} as const;
-
-/** 骨架定义数据内核实现的数据结构成员列表。 */
-export const Skeleton_member_index = {
-    ...Miaoverse.Binary_member_index,
-
-    flags: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
-    jointCount: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
-    jointRootIndex: ["uscalarGet", "uscalarSet", 1, 14] as Miaoverse.Kernel_member,
-    jointsNameLength: ["uscalarGet", "uscalarSet", 1, 15] as Miaoverse.Kernel_member,
-
-    initDatas: ["ptrGet", "ptrSet", 1, 16] as Miaoverse.Kernel_member,
-    inverseBindMatrices: ["ptrGet", "ptrSet", 1, 17] as Miaoverse.Kernel_member,
-    jointsUuid: ["ptrGet", "ptrSet", 1, 18] as Miaoverse.Kernel_member,
-    jointsName: ["ptrGet", "ptrSet", 1, 19] as Miaoverse.Kernel_member,
-} as const;
-
-/** 蒙皮数据内核实现的数据结构成员列表。 */
-export const Skin_member_index = {
-    ...Miaoverse.Binary_member_index,
-
-    vertexCount: ["uscalarGet", "uscalarSet", 1, 12] as Miaoverse.Kernel_member,
-    method: ["uscalarGet", "uscalarSet", 1, 13] as Miaoverse.Kernel_member,
-    unloaded: ["uscalarGet", "uscalarSet", 1, 14] as Miaoverse.Kernel_member,
-    vertices: ["ptrGet", "ptrSet", 1, 15] as Miaoverse.Kernel_member,
 } as const;

@@ -127,6 +127,7 @@ export class Importer_daz {
         await this.Load_uv_set_library();
         meta.material_library = await this.Load_material_library();
         this._cache.nodeLib = await this.Load_node_library();
+        await this.Load_modifier_library();
         const prefab = await this.Load_nodes();
         if (prefab) {
             meta.mesh_library = prefab.mesh_library;
@@ -445,8 +446,22 @@ export class Importer_daz {
     async Load_nodes() {
         const instanceList = [];
         const instanceLut = {};
+        const instanceLut2 = {};
         const batchList = [];
         const geometryLut = {};
+        const geometryGet = (id) => {
+            id = id.replace(/%20/g, " ");
+            let geometry = geometryLut[id];
+            if (!geometry) {
+                for (let key in geometryLut) {
+                    if (geometryLut[key].node_id == id) {
+                        geometry = geometryLut[key];
+                        break;
+                    }
+                }
+            }
+            return geometry;
+        };
         const nodes = this._data.scene?.nodes;
         if (!nodes) {
             return null;
@@ -473,7 +488,8 @@ export class Importer_daz {
                 instance.node.name = node.id;
                 this.Load_node_transform(node, instance.transform);
                 instanceLut["#" + node.id] = instance.node.index;
-                const parent = node.parent ? instanceLut[node.parent] : -1;
+                instanceLut2["#" + instance.node.id] = instance.node.index;
+                const parent = node.parent ? instanceLut[node.parent.replace(/%20/g, " ")] : -1;
                 if (instance.transform.parent != parent) {
                     console.info("重设父级实例ID:", node.id, instance.transform.parent, parent);
                     instance.transform.parent = parent;
@@ -496,7 +512,6 @@ export class Importer_daz {
                                 name: geometry.name || geometry.id,
                                 label: geometry.label || geometry.id,
                                 mesh: mesh_uuid,
-                                skeleton_skin: undefined,
                                 materials: []
                             },
                             mesh_asset: {
@@ -507,7 +522,8 @@ export class Importer_daz {
                                 geometry: geometry_res.pkg_uuid + "-" + geometry_res.res.uuid,
                                 uv_set: geometry_res.res.default_uv_set
                             },
-                            geometry_res
+                            geometry_res,
+                            node_id: "#" + node.id
                         };
                         geometryLut["#" + geometry.id] = asset;
                         if (node.geometries.length > 1) {
@@ -528,7 +544,7 @@ export class Importer_daz {
             for (let entry of uvs) {
                 const uv_set = await this.GetReference(entry.url);
                 const uv_set_uuid = uv_set ? uv_set.pkg_uuid + "-" + uv_set.res : null;
-                const geometry = geometryLut[entry.parent];
+                const geometry = geometryGet(entry.parent);
                 if (geometry && uv_set_uuid) {
                     geometry.mesh_asset.uv_set = uv_set_uuid;
                 }
@@ -542,7 +558,7 @@ export class Importer_daz {
             for (let entry of materials) {
                 const material = await this.GetReference(entry.url);
                 const material_uuid = material ? material.pkg_uuid + "-" + material.res : null;
-                const geometry = geometryLut[entry.geometry];
+                const geometry = geometryGet(entry.geometry);
                 if (geometry && material_uuid) {
                     const material_groups = geometry.geometry_res.res.material_groups;
                     const material_slots = geometry.mesh_renderer_asset.materials;
@@ -574,6 +590,53 @@ export class Importer_daz {
                 }
             }
         }
+        const modifiers = this._data.scene?.modifiers;
+        if (modifiers) {
+            for (let entry of modifiers) {
+                const modifier = await this.GetReference(entry.url);
+                if (!modifier) {
+                    console.warn("不支持的修改器数据！", entry.url);
+                    continue;
+                }
+                const geometry = geometryGet(entry.parent);
+                if (geometry) {
+                    const skeleton_skin = modifier.res.skeleton_skin;
+                    if (skeleton_skin) {
+                        geometry.mesh_asset.skeleton_skin = {
+                            joints: skeleton_skin.joints,
+                            root: skeleton_skin.root,
+                            skeleton: modifier.pkg_uuid + "-" + skeleton_skin.skeleton,
+                            skin: modifier.pkg_uuid + "-" + skeleton_skin.skin
+                        };
+                        const joints_binding = geometry.mesh_asset.skeleton_skin.joints.map((name) => {
+                            let instance_id = instanceLut["#" + name];
+                            if (instance_id == undefined) {
+                                instance_id = instanceLut2["#" + name];
+                                if (instance_id == undefined) {
+                                    instance_id = -1;
+                                    console.error("查找不到骨骼绑定实例！", name);
+                                }
+                            }
+                            return instance_id;
+                        });
+                        geometry.mesh_renderer_instance.joints_binding = joints_binding;
+                    }
+                    const morph = modifier.res.morph;
+                    if (morph && morph.deltas) {
+                        if (!geometry.mesh_asset.static_morph) {
+                            geometry.mesh_asset.static_morph = [];
+                        }
+                        geometry.mesh_asset.static_morph.push({
+                            weights: morph.weights.slice(),
+                            deltas: modifier.pkg_uuid + "-" + morph.deltas
+                        });
+                    }
+                }
+                else {
+                    console.error(geometryLut, modifier, entry, this._cache);
+                }
+            }
+        }
         const mesh_library = [];
         const mesh_renderer_library = [];
         const prefab = instanceList.length ? {
@@ -581,7 +644,8 @@ export class Importer_daz {
             classid: 65,
             name: this._cache.pkg.key,
             label: this._cache.pkg.key,
-            instanceCount: instanceList.length,
+            scheme: "daz",
+            instanceCount: instanceList.length + 1,
             nodes: [],
             batches: [],
             transforms: [],
@@ -627,6 +691,7 @@ export class Importer_daz {
                 id: reference.pkg_uuid + "-" + node.id,
                 node: {
                     index: instanceList.length,
+                    id: node.id,
                     name: node.name,
                     depth: parent ? parent.node.depth + 1 : 0,
                     parent: parent ? parent.node.index : -1
@@ -744,6 +809,299 @@ export class Importer_daz {
             transform.bone_ctrl.general_scale = node.general_scale.current_value || node.general_scale.value;
         }
         return transform;
+    }
+    async Load_modifier_library() {
+        const library = this._data.modifier_library;
+        if (!library) {
+            return;
+        }
+        for (let i = 0; i < library.length; i++) {
+            const entry = library[i];
+            let asset = null;
+            if (entry.skin) {
+                const data = this.Load_skeleton_skin(entry.skin);
+                const name = entry.skin.geometry.substring(1);
+                const skin_uuid = "" + 34 + "-" + i;
+                const skin_file_path = `skin/${skin_uuid}_${name}.bin`;
+                const skeleton_uuid = "" + 33 + "-" + i;
+                const skeleton_file_path = `skeleton/${skeleton_uuid}_${name}.bin`;
+                this._cache.files[skin_file_path] = data[3];
+                this._cache.files[skeleton_file_path] = data[2];
+                asset = asset || {};
+                asset.skeleton_skin = {
+                    root: data[0],
+                    joints: data[1],
+                    skin: skin_uuid,
+                    skeleton: skeleton_uuid
+                };
+            }
+            if (entry.morph) {
+                const data = entry.morph.deltas.count > 0 ? this.Load_morph(entry.morph) : null;
+                const name = entry.id.substring(1);
+                const morph_uuid = "" + 35 + "-" + i;
+                const morph_file_path = `morph/${morph_uuid}_${name}.bin`;
+                if (data) {
+                    this._cache.files[morph_file_path] = data;
+                }
+                asset = asset || {};
+                asset.morph = {
+                    weights: [1.0],
+                    deltas: data ? morph_uuid : null
+                };
+            }
+            this._cache.uuidLut[entry.id] = asset;
+        }
+    }
+    Load_skeleton_skin(skin) {
+        function parse_joint_name(uri) {
+            if (uri.startsWith("#")) {
+                return uri.substring(1).replace(/%20/g, " ");
+            }
+            else {
+                console.error("仅支持引用相同资源包中的关节节点资源！", uri);
+                return uri.split("#")[1].replace(/%20/g, " ");
+            }
+        }
+        const joints_count = skin.joints.length;
+        const joints_name = [];
+        const vertex_count = skin.vertex_count;
+        const vertices_bone_count = new Uint8Array(vertex_count);
+        const vb2 = new Uint8Array(8 * vertex_count);
+        const invMat = new Float32Array(16 * joints_count);
+        const root_name = parse_joint_name(skin.node);
+        for (let b = 0; b < joints_count; b++) {
+            const joint = skin.joints[b];
+            const joint_name = parse_joint_name(joint.node);
+            if (joint.node_weights) {
+                for (let cp of joint.node_weights.values) {
+                    const vi = cp[0];
+                    const i8 = vi * 8;
+                    const bw = Math.ceil(cp[1] * 255);
+                    const bi = vertices_bone_count[vi];
+                    if (bi > 3) {
+                        let min_w = bw;
+                        let min_x = -1;
+                        for (let x = 0; x < 4; x++) {
+                            const w = vb2[i8 + 4 + x];
+                            if (w < min_w) {
+                                min_w = w;
+                                min_x = x;
+                            }
+                        }
+                        if (-1 < min_x) {
+                            vb2[i8 + min_x] = b;
+                            vb2[i8 + 4 + min_x] = bw;
+                        }
+                    }
+                    else {
+                        vb2[i8 + bi] = b;
+                        vb2[i8 + 4 + bi] = bw;
+                        vertices_bone_count[vi]++;
+                    }
+                }
+            }
+            if (joint.scale_weights || joint.local_weights || joint.local_weights) {
+                console.error("不支持蒙皮权重：scale_weights、local_weights、local_weights！");
+            }
+            joints_name.push(joint_name);
+        }
+        for (let v = 0; v < vertex_count; v++) {
+            const v8 = v * 8;
+            const bone_count = vertices_bone_count[v];
+            const last_total = vb2[v8 + 4] + vb2[v8 + 5] + vb2[v8 + 6] + vb2[v8 + 7];
+            let cur_total = 0;
+            for (let b = 0; b < bone_count; b++) {
+                if (b == bone_count - 1) {
+                    vb2[v8 + 4 + b] = 255 - cur_total;
+                }
+                else {
+                    const weight = Math.floor((vb2[v8 + 4 + b] / last_total) * 255);
+                    vb2[v8 + 4 + b] = weight;
+                    cur_total += weight;
+                }
+            }
+        }
+        let root_index = joints_name.indexOf(root_name);
+        if (root_index == -1) {
+            root_index = joints_name.length;
+            joints_name.push(root_name);
+        }
+        let skin_buffer = null;
+        {
+            let intLength = 0;
+            const binaryOffset = intLength;
+            intLength += 12;
+            const headerOffset = intLength;
+            intLength += 4;
+            const verticesOffset = intLength;
+            intLength += vertex_count * 2;
+            const buffer = new ArrayBuffer(intLength * 4);
+            const binary = new Uint32Array(buffer, binaryOffset * 4, 12);
+            const header = new Uint32Array(buffer, headerOffset * 4, 4);
+            const vertices = new Uint8Array(buffer, verticesOffset * 4, vertex_count * 8);
+            binary[0] = MAGIC_INVALID + 34;
+            binary[1] = 1;
+            binary[2] = buffer.byteLength;
+            binary[3] = 0;
+            binary[4] = 0;
+            binary[5] = 0;
+            binary[6] = 0;
+            binary[7] = 0;
+            binary[8] = 0;
+            binary[9] = 0;
+            binary[10] = 0;
+            binary[11] = 0;
+            header[0] = vertex_count;
+            header[1] = 0;
+            header[2] = 0;
+            header[3] = verticesOffset;
+            vertices.set(vb2);
+            skin_buffer = buffer;
+        }
+        let skeleton_buffer = null;
+        {
+            const encoder = this._resources["_worker"].env.textEncoder;
+            const names_ = joints_name.join(",");
+            const names_carray = encoder.encode(names_);
+            const names_length = (names_carray.byteLength + 3 + 1) & ~3;
+            let intLength = 0;
+            const binaryOffset = intLength;
+            intLength += 12;
+            const headerOffset = intLength;
+            intLength += 8;
+            const initsOffset = intLength;
+            intLength += joints_name.length * 16;
+            const invMatsOffset = intLength;
+            intLength += joints_name.length * 16;
+            const namesOffset = intLength;
+            intLength += names_length / 4;
+            const buffer = new ArrayBuffer(intLength * 4);
+            const binary = new Uint32Array(buffer, binaryOffset * 4, 12);
+            const header = new Uint32Array(buffer, headerOffset * 4, 8);
+            const inits = new Float32Array(buffer, initsOffset * 4, joints_name.length * 16);
+            const inits_uint = new Uint32Array(buffer, initsOffset * 4, joints_name.length * 16);
+            const invMats = new Float32Array(buffer, invMatsOffset * 4, joints_name.length * 16);
+            const names = new Uint8Array(buffer, namesOffset * 4, names_length);
+            binary[0] = MAGIC_INVALID + 33;
+            binary[1] = 1;
+            binary[2] = buffer.byteLength;
+            binary[3] = 0;
+            binary[4] = 0;
+            binary[5] = 0;
+            binary[6] = 0;
+            binary[7] = 0;
+            binary[8] = 0;
+            binary[9] = 0;
+            binary[10] = 0;
+            binary[11] = 0;
+            header[0] = 1 | 2 | 4;
+            header[1] = joints_name.length;
+            header[2] = root_index;
+            header[3] = names_length;
+            header[4] = 0;
+            header[5] = initsOffset;
+            header[6] = invMatsOffset;
+            header[7] = namesOffset;
+            names.set(names_carray);
+            for (let i = 0; i < joints_name.length; i++) {
+                const name = joints_name[i];
+                const node = this._cache.nodeLib.lut[name];
+                if (node) {
+                    const data = node.bone_init;
+                    const i16 = i * 16;
+                    inits[i16 + 0] = data.center_point[0];
+                    inits[i16 + 1] = data.center_point[1];
+                    inits[i16 + 2] = data.center_point[2];
+                    inits_uint[i16 + 3] = data.inherits_scale;
+                    inits[i16 + 4] = data.end_point[0];
+                    inits[i16 + 5] = data.end_point[1];
+                    inits[i16 + 6] = data.end_point[2];
+                    inits_uint[i16 + 7] = data.rotation_order;
+                    inits[i16 + 8] = data.orientation[0];
+                    inits[i16 + 9] = data.orientation[1];
+                    inits[i16 + 10] = data.orientation[2];
+                    inits[i16 + 11] = data.orientation[3];
+                    inits[i16 + 12] = 0;
+                    inits[i16 + 13] = 0;
+                    inits[i16 + 14] = 0;
+                    inits[i16 + 15] = 1;
+                }
+                else {
+                    console.error("查找不对关节节点资源！", name, this._cache.nodeLib);
+                }
+            }
+            skeleton_buffer = buffer;
+        }
+        return [root_index, joints_name, skeleton_buffer, skin_buffer];
+    }
+    Load_morph(morph) {
+        const targetCount = 1;
+        const deltaCount = morph.deltas.count;
+        let intLength = 0;
+        const binaryOffset = intLength;
+        intLength += 12;
+        const headerOffset = intLength;
+        intLength += 16;
+        const deltaCountsOffset = intLength;
+        intLength += targetCount;
+        const deltasOffset = intLength;
+        intLength += 4 * deltaCount;
+        const buffer = new ArrayBuffer(intLength * 4);
+        const binary = new Uint32Array(buffer, binaryOffset * 4, 12);
+        const header = new Uint32Array(buffer, headerOffset * 4, 16);
+        const header_float = new Float32Array(buffer, headerOffset * 4, 16);
+        const deltaCounts = new Uint32Array(buffer, deltaCountsOffset * 4, targetCount);
+        const deltas = new Float32Array(buffer, deltasOffset * 4, 4 * deltaCount);
+        const deltas_uint = new Uint32Array(buffer, deltasOffset * 4, 4 * deltaCount);
+        const min = [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE];
+        const max = [-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE];
+        deltaCounts[0] = deltaCount;
+        for (let i = 0; i < deltaCount; i++) {
+            const vertex = morph.deltas.values[i];
+            const i4 = i * 4;
+            const x = vertex[1];
+            const y = vertex[2];
+            const z = vertex[3];
+            deltas_uint[i4 + 0] = vertex[0];
+            deltas[i4 + 1] = x;
+            deltas[i4 + 2] = y;
+            deltas[i4 + 3] = z;
+            min[0] = Math.min(min[0], x);
+            min[1] = Math.min(min[1], y);
+            min[2] = Math.min(min[2], z);
+            max[0] = Math.max(max[0], x);
+            max[1] = Math.max(max[1], y);
+            max[2] = Math.max(max[2], z);
+        }
+        binary[0] = MAGIC_INVALID + 35;
+        binary[1] = 1;
+        binary[2] = buffer.byteLength;
+        binary[3] = 0;
+        binary[4] = 0;
+        binary[5] = 0;
+        binary[6] = 0;
+        binary[7] = 0;
+        binary[8] = 0;
+        binary[9] = 0;
+        binary[10] = 0;
+        binary[11] = 0;
+        header[0] = 1;
+        header[1] = 16 * deltaCount;
+        header_float[2] = min[0];
+        header_float[3] = min[1];
+        header_float[4] = min[2];
+        header_float[5] = max[0];
+        header_float[6] = max[1];
+        header_float[7] = max[2];
+        header[8] = 0;
+        header[9] = morph.vertex_count;
+        header[10] = targetCount;
+        header[11] = 0;
+        header[12] = deltaCountsOffset;
+        header[13] = deltasOffset;
+        header[14] = 0;
+        header[15] = 0;
+        return buffer;
     }
     async GetReference(url, type) {
         url = url.replace(/%20/g, " ");

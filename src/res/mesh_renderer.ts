@@ -24,6 +24,19 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
     }
 
     /**
+     * 绑定网格骨骼蒙皮骨架关节实例。
+     * @param joints 关节实例指针数组。
+     */
+    public BindSkeleton(joints: Miaoverse.io_ptr[]) {
+        const enabled = this._impl.Get<number>(this._ptr, "skeleton_skin_enabled");
+        const array_ptr = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "skeleton_skin_joints");
+
+        if (enabled) {
+            this._global.env.uarraySet(array_ptr, 0, joints);
+        }
+    }
+
+    /**
      * 基于指定3D对象更新G1相关数据。
      * @param object3d 3D对象内核实例指针。
      */
@@ -91,14 +104,14 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
         return this._impl.Get(this._ptr, "materialCount");
     }
 
-    /** 实例化绘制的实例数据列表（绑定到G1）。 */
-    public get g1_instanceList() {
-        return this.ReadBufferNode(this._impl.Get(this._ptr, "g1_instanceList"));
+    /** 骨骼蒙皮骨骼变换数据缓存ID。 */
+    public get boneBuffer() {
+        return this._impl.Get<number>(this._ptr, "boneBuffer");
     }
 
-    /** 骨骼蒙皮绘制的骨骼变换矩阵列表（绑定到G1）。 */
-    public get g1_boneList() {
-        return this.ReadBufferNode(this._impl.Get(this._ptr, "g1_boneList"));
+    /** 骨骼蒙皮骨骼变换数据数组空间起始索引。。 */
+    public get boneArrayStart() {
+        return this._impl.Get<number>(this._ptr, "boneArrayStart");
     }
 
     /** 需要在G1绑定对象中设置网格变形目标数据贴图ID。 */
@@ -146,14 +159,14 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
 
         desc.data.uuid = uuid;
 
-        // 不含骨架绑定的网格网格渲染器资源实例可共享
-        if (this._instanceLut[uuid] && !desc.data.skeleton_skin) {
+        const mesh = await this._global.resources.Mesh.Load(desc.data.mesh, desc.pkg);
+
+        // 不含骨架绑定的网格渲染器资源实例可共享
+        if (this._instanceLut[uuid] && !(mesh?.skeleton)) {
             return this._instanceLut[uuid];
         }
 
-        const mesh = await this._global.resources.Mesh.Load(desc.data.mesh, desc.pkg);
-        const skeleton = null as any;
-        const materials: Parameters<MeshRenderer_kernel["Create"]>[2] = [];
+        const materials: Parameters<MeshRenderer_kernel["Create"]>[1] = [];
 
         for (let mat of desc.data.materials) {
             // TODO: 如果带属性数据则不使用共享材质，应当新建材质
@@ -168,16 +181,15 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
 
         // 创建实例 ===============-----------------------
 
-        return this.Create(mesh, skeleton, materials);
+        return this.Create(mesh, materials);
     }
 
     /**
      * 创建网格渲染器组件实例。
      * @param mesh 网格资源内核实例指针。
-     * @param skeleton 骨架定义数据内核实例指针。
      * @returns 返回网格渲染器组件实例。
      */
-    public async Create(mesh: Miaoverse.Mesh, skeleton: any, materials?: {
+    public async Create(mesh: Miaoverse.Mesh, materials?: {
         /** 材质插槽索引（默认等同子网格索引）。 */
         slot?: number;
         /** 材质应用到子网格索引（相同子网格可绑定多个材质进行多次重叠渲染）。*/
@@ -185,7 +197,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
         /** 材质资源实例。 */
         material: Miaoverse.Material;
     }[]) {
-        const ptr = this._Create(mesh?.internalPtr || 0, skeleton?.internalPtr as never || 0);
+        const ptr = this._Create(mesh?.internalPtr || 0, mesh?.skeleton?.skeleton as never || 0);
         const id = this._instanceIdle;
 
         // 设置实例 ===============-----------------------
@@ -298,7 +310,14 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
 export const MeshRendere_member_index = {
     ...Miaoverse.Uniform_member_index,
 
-    reserved: ["uarrayGet", "uarraySet", 8, 20] as Miaoverse.Kernel_member,
+    skeleton_skin_enabled: ["uscalarGet", "uscalarSet", 1, 20] as Miaoverse.Kernel_member,
+    skeleton_skin_writeTS: ["uscalarGet", "uscalarSet", 1, 21] as Miaoverse.Kernel_member,
+    skeleton_skin_memorySize: ["uscalarGet", "uscalarSet", 1, 22] as Miaoverse.Kernel_member,
+    skeleton_skin_memory: ["uscalarGet", "uscalarSet", 1, 23] as Miaoverse.Kernel_member,
+    skeleton_skin_joints: ["ptrGet", "ptrSet", 1, 24] as Miaoverse.Kernel_member,
+    skeleton_skin_ctrls: ["ptrGet", "ptrSet", 1, 25] as Miaoverse.Kernel_member,
+    skeleton_skin_jointsTS: ["ptrGet", "ptrSet", 1, 26] as Miaoverse.Kernel_member,
+    skeleton_skin_pose: ["ptrGet", "ptrSet", 1, 27] as Miaoverse.Kernel_member,
 
     skeletonPTR: ["ptrGet", "ptrSet", 1, 28] as Miaoverse.Kernel_member,
     skeletonUUID: ["uuidGet", "uuidSet", 3, 29] as Miaoverse.Kernel_member,
@@ -311,8 +330,8 @@ export const MeshRendere_member_index = {
     frontFace: ["uscalarGet", "uscalarSet", 1, 38] as Miaoverse.Kernel_member,
     cullMode: ["uscalarGet", "uscalarSet", 1, 39] as Miaoverse.Kernel_member,
 
-    g1_instanceList: ["ptrGet", "ptrSet", 1, 40] as Miaoverse.Kernel_member,
-    g1_boneList: ["ptrGet", "ptrSet", 1, 41] as Miaoverse.Kernel_member,
+    boneBuffer: ["ptrGet", "ptrSet", 1, 40] as Miaoverse.Kernel_member,
+    boneArrayStart: ["ptrGet", "ptrSet", 1, 41] as Miaoverse.Kernel_member,
     g1_morphTargets: ["uscalarGet", "uscalarSet", 1, 42] as Miaoverse.Kernel_member,
     vertexArray: ["uscalarGet", "uscalarSet", 1, 43] as Miaoverse.Kernel_member,
 
@@ -366,8 +385,6 @@ export const DrawInstance_member_index = {
 export interface Asset_meshrenderer extends Miaoverse.Asset {
     /** 网格资源URI。 */
     mesh: string;
-    /** 骨架定义资源URI。 */
-    skeleton_skin?: string;
     /** 材质节点设置数组。 */
     materials: {
         /** 材质插槽索引（默认等同子网格索引）。 */

@@ -649,8 +649,28 @@ export interface Internal {
     /** 压缩LZMA数据。 */
     Util_Compress_lzma: (dest: io_ptr, destSize: io_uint, src: io_ptr, srcSize: io_uint) => io_uint;
 
+    /** 使用四元数旋转向量。 */
+    Quaternion_RotateVector: (qx: number, qy: number, qz: number, qw: number, vx: number, vy: number, vz: number) => number[];
+    /** 当前四元数乘以参数四元数（q1 * q2 = qO）。 */
+    Quaternion_Multiply: (x1: number, y1: number, z1: number, w1: number, x2: number, y2: number, z2: number, w2: number) => number[];
+    /** 转换为欧拉角。 */
+    Quaternion_ToEulerAngles: (x: number, y: number, z: number, w: number) => number[];
     /** 从欧拉角（内旋顺序，默认102-[Y-X-Z]）转换到四元数，正方向为看向旋转轴方向顺时针旋转。 */
     Quaternion_FromEulerAngles: (x: number, y: number, z: number, order: number) => number[];
+    /** 计算四元数的逆。 */
+    Quaternion_Invert: (x: number, y: number, z: number, w: number) => number[];
+
+    /** 获取矩阵的逆矩阵。 */
+    Matrix4x4_Invert: (m1: io_ptr, mO: io_ptr) => void;
+    /** 向量左乘矩阵。 */
+    Matrix4x4_MultiplyVector: (m1: io_ptr, v1: io_ptr, vO: io_ptr) => void;
+    /** 左乘矩阵。 */
+    Matrix4x4_MultiplyMatrices: (m1: io_ptr, m2: io_ptr, mO: io_ptr) => void;
+    /** 根据变换数据计算模型矩阵。 */
+    Matrix4x4_FromTransform: (mO: io_ptr,
+        posX: number, posY: number, posZ: number,
+        rotX: number, rotY: number, rotZ: number, rotW: number,
+        scaleX: number, scaleY: number, scaleZ: number) => void;
 
     /** 创建网格资源文件数据。 */
     Worker_CreateMeshData: (geo: io_ptr) => [number, io_ptr];

@@ -145,6 +145,21 @@ export declare class Importer_daz {
      */
     private Load_node_transform;
     /**
+     * 加载骨骼蒙皮数据和变形数据。
+     */
+    private Load_modifier_library;
+    /**
+     * 加载骨骼蒙皮数据。
+     * @param skin
+     */
+    private Load_skeleton_skin;
+    /**
+     * 加载网格变形数据。
+     * @param morph
+     * @returns
+     */
+    private Load_morph;
+    /**
      * 获取引用资源。
      * @param url 资源URL。
      * @param type 资源类型：0-其它资源，1-节点资源。
@@ -173,33 +188,9 @@ export interface Daz_node {
     /** 父节点ID。 */
     parent: string;
     /** 骨骼初始变换。 */
-    bone_init: {
-        /** 坐标系参考中心点（子空间的origin_point位于父空间的center_point）。 */
-        center_point: number[];
-        /** 是否累积父级的缩放（通常为真，具有父骨骼的骨骼除外。可单独缩放骨骼所影响顶点）。 */
-        inherits_scale: number;
-        /** 骨骼端点，位于骨骼的末端，连接到另一个骨骼或终止。 */
-        end_point: number[];
-        /** 当使用基于通道的动画数据时采用的旋转顺序（默认XYZ）。 */
-        rotation_order: number;
-        /** 旋转、缩放操作的参考轴向（orientation * (rotation | scale) * inv(orientation)）。 */
-        orientation: number[];
-    };
+    bone_init?: Miaoverse.Asset_prefab["transforms"][0]["bone_init"];
     /** 骨骼控制参数。 */
-    bone_ctrl: {
-        /** 节点沿各轴平移。 */
-        translation: number[];
-        /** 是否累积父级的缩放（通常为真，具有父骨骼的骨骼除外。可单独缩放骨骼所影响顶点）。 */
-        inherits_scale: number;
-        /** 节点绕各轴旋转欧拉角。 */
-        rotation: number[];
-        /** 节点绕各轴旋转欧拉角旋转序。 */
-        rotation_order: number;
-        /** 节点沿各轴缩放。 */
-        scale: number[];
-        /** 节点整体缩放。 */
-        general_scale: number;
-    };
+    bone_ctrl?: Miaoverse.Asset_prefab["transforms"][0]["bone_ctrl"];
 }
 /** DAZ资产（文件）。 */
 interface daz_asset {

@@ -1187,19 +1187,6 @@ struct LightList {
 
         if (webgl) {
             code = `
-struct InstanceData {
-    mat4 wfmMat;
-    mat3x4 normal_wfmMat;
-    uint id;
-    uint flags;
-    uint layers;
-    uint user;
-};
-
-layout(std140) uniform InstanceUniforms {
-    InstanceData data[128];
-} instanceUniforms;
-
 layout(std140) uniform BonesUniforms {
     mat4 bones[256];
 } bonesUniforms;
@@ -1246,19 +1233,6 @@ uniform highp sampler2D morphTG;
         }
         else {
             code = `
-struct InstanceData {
-    wfmMat : mat4x4<f32>,
-    normal_wfmMat : mat3x4<f32>,
-    id : u32,
-    flags : u32,
-    layers : u32,
-    user : u32,
-};
-
-struct InstanceUniforms {
-    data : array<InstanceData, 128>,
-};
-
 struct BonesUniforms {
     bones : array<mat4x4<f32>, 256>,
 };
@@ -1280,9 +1254,8 @@ struct ObjectUniforms {
     morphWeights : mat4x4<f32>,
 };
 
-@group(1) @binding(0) var<uniform> objectUniforms : ObjectUniforms;
-@group(1) @binding(1) var<uniform> instanceUniforms : InstanceUniforms;
-@group(1) @binding(2) var<uniform> bonesUniforms : BonesUniforms;
+@group(1) @binding(0) var<uniform> bonesUniforms : BonesUniforms;
+@group(1) @binding(1) var<uniform> objectUniforms : ObjectUniforms;
 
 @group(1) @binding(3) var morphTG : texture_2d<f32>;
             `;
@@ -1444,20 +1417,15 @@ struct ObjectUniforms {
         const groupDesc: GPUBindGroupLayoutDescriptor = {
             label: "g1",
             entries: [
-                {
+                {// bonesUniforms
                     binding: 0,
                     visibility: GPUShaderStage.VERTEX,
                     buffer: {
                         hasDynamicOffset: true
                     }
                 },
-                {
+                {// objectUniforms
                     binding: 1,
-                    visibility: GPUShaderStage.VERTEX,
-                    buffer: {}
-                },
-                {
-                    binding: 2,
                     visibility: GPUShaderStage.VERTEX,
                     buffer: {}
                 },
@@ -2061,28 +2029,26 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
         else if (uniform.group == 1) {
             const meshRenderer = uniform as Miaoverse.MeshRenderer;
 
-            const instanceList = meshRenderer.g1_instanceList;
-            const boneList = meshRenderer.g1_boneList;
             const morphTargetsID = meshRenderer.g1_morphTargets;
             const morphTargets = this._global.device.GetTexture2D(morphTargetsID || this._global.resources.Texture.default2D.internalID);
 
-            entries.push({
+            entries[0] = {
+                binding: 0,
+                resource: {
+                    buffer: device.GetBuffer(meshRenderer.boneBuffer)?.buffer || buffer.buffer,
+                    offset: 0,
+                    size: 64 * 256
+                }
+            };
+
+            entries[1] = {
                 binding: 1,
                 resource: {
-                    buffer: device.GetBuffer(instanceList.bufferID).buffer,
-                    offset: instanceList.offset,
-                    size: instanceList.size
+                    buffer: buffer.buffer,
+                    offset: uniform.offset,
+                    size: uniform.size
                 }
-            });
-
-            entries.push({
-                binding: 2,
-                resource: {
-                    buffer: device.GetBuffer(boneList.bufferID).buffer,
-                    offset: boneList.offset,
-                    size: boneList.size
-                }
-            });
+            };
 
             entries.push({
                 binding: 3,
@@ -2118,7 +2084,7 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
             return null;
         }
 
-        return binding;
+        return { id: 1, binding: binding, offset: uniform.group == 1 ? (uniform as Miaoverse.MeshRenderer).boneArrayStart * 64 : uniform.offset };
     }
 
     /**

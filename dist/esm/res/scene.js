@@ -52,6 +52,7 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
         prefab.root = await this._global.resources.Object.Create(scene);
         prefab.root.layers = 32;
         prefab.instanceCount = data.instanceCount;
+        const daz_figure = data.scheme != "daz" ? null : {};
         for (let batch of data.batches) {
             if (typeof batch.source == "string") {
                 const child_prefab = await this.InstancePrefab(scene, batch.source, desc.pkg, prefab.master, prefab.instanceBeg + batch.instanceBeg);
@@ -72,7 +73,24 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
         for (let transform of data.transforms) {
             const instance = prefab.instanceList[prefab.instanceBeg + transform.instance];
             if (instance) {
-                if (transform.localMatrix) {
+                if (transform.bone_init && transform.bone_ctrl) {
+                    const init = transform.bone_init;
+                    const ctrl = transform.bone_ctrl;
+                    const parent = data.transforms[transform.parent];
+                    const localPosition = this._global.Vector3([
+                        init.center_point[0] - (parent ? parent.bone_init.center_point[0] : 0) + ctrl.translation[0],
+                        init.center_point[1] - (parent ? parent.bone_init.center_point[1] : 0) + ctrl.translation[1],
+                        init.center_point[2] - (parent ? parent.bone_init.center_point[2] : 0) + ctrl.translation[2],
+                    ]);
+                    const orientation = this._global.Quaternion(init.orientation.slice());
+                    const orientation_inv = orientation.inverse;
+                    const rotation_euler = this._global.Vector3(ctrl.rotation.slice());
+                    const rotation = rotation_euler.toQuaternion(init.rotation_order);
+                    const localRotation = orientation.Multiply(rotation.Multiply(orientation_inv));
+                    instance.localPosition = localPosition;
+                    instance.localRotation = localRotation;
+                }
+                else if (transform.localMatrix) {
                     instance.localMatrix = this._global.Matrix4x4(transform.localMatrix);
                 }
                 else {
@@ -102,11 +120,44 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
         }
         for (let mesh_renderer of data.mesh_renderers) {
             const instance = prefab.instanceList[prefab.instanceBeg + mesh_renderer.instance];
+            let mr_instance = null;
             if (instance) {
-                const mr_instance = await this._global.resources.MeshRenderer.Load(mesh_renderer.mesh_renderer, desc.pkg);
-                if (mr_instance) {
-                    instance.meshRenderer = mr_instance;
+                if (daz_figure) {
+                    const Mesh_CreateData = this._global.resources.Mesh["_CreateData"];
+                    this._global.resources.Mesh["_CreateData"] = (ptr, size) => {
+                        if ((instance.layers & 4) == 4) {
+                            if (mesh_renderer.instance == 0) {
+                                const ptr_ = this._global.internal.System_New(size);
+                                const data_ = this._global.env.uarrayRef(ptr_, 0, size >> 2);
+                                const data = this._global.env.uarrayRef(ptr, 0, size >> 2);
+                                data_.set(data);
+                                daz_figure.body_mesh_raw = [size, ptr_];
+                            }
+                            else {
+                                this._global.resources.Mesh["_AutoFit"](1, 0.0003 * 100, 0.0, 0.5, 1.0, ptr, daz_figure.body_mesh_raw[1]);
+                            }
+                        }
+                        return Mesh_CreateData(ptr, size);
+                    };
+                    mr_instance = await this._global.resources.MeshRenderer.Load(mesh_renderer.mesh_renderer, desc.pkg);
+                    if (mr_instance) {
+                        instance.meshRenderer = mr_instance;
+                    }
+                    this._global.resources.Mesh["_CreateData"] = Mesh_CreateData;
                 }
+                else {
+                    mr_instance = await this._global.resources.MeshRenderer.Load(mesh_renderer.mesh_renderer, desc.pkg);
+                    if (mr_instance) {
+                        instance.meshRenderer = mr_instance;
+                    }
+                }
+            }
+            if (mr_instance && mesh_renderer.joints_binding) {
+                const bindings = mesh_renderer.joints_binding.map((idx) => {
+                    const joint = prefab.instanceList[prefab.instanceBeg + idx];
+                    return joint?.internalPtr || 0;
+                });
+                mr_instance.BindSkeleton(bindings);
             }
         }
         if (data.lnglat) {

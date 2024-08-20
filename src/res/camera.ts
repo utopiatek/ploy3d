@@ -179,6 +179,16 @@ export class Camera extends Miaoverse.Resource<Camera> {
         this.Set3D(undefined, distance);
     }
 
+    /**
+     * 世界坐标转相机屏幕坐标。
+     * @param wpos 世界坐标
+     * @returns 返回屏幕坐标。
+     */
+    public WorldToScreen(wpos: number[]) {
+        const cpos = this._impl["_WorldToScreen"](this._ptr, wpos[0], wpos[1], wpos[2]);
+        return cpos;
+    }
+
     /** 相机参数更新时间戳（计算各个变换矩阵的时间戳）。 */
     public get writeTS(): number {
         return this._impl.Get(this._ptr, "writeTS");
@@ -394,6 +404,9 @@ export class Camera_kernel extends Miaoverse.Base_kernel<Camera, typeof Camera_m
      * @returns 返回包围球显示大小（直径像素大小，0表示不可见）。
      */
     protected _Frustum_Check: (checker: Miaoverse.io_ptr) => Miaoverse.io_uint;
+
+    /** 世界空间坐标转相机屏幕空间坐标。 */
+    protected _WorldToScreen: (camera: Miaoverse.io_ptr, x: number, y: number, z: number) => number[];
 }
 
 /** 相机组件内核实现的数据结构成员列表。 */

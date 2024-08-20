@@ -27,22 +27,6 @@ export declare class AnimationData_kernel extends Miaoverse.Base_kernel<any, typ
      */
     constructor(_global: Miaoverse.Ploy3D);
 }
-/** 骨架定义数据内核实现。 */
-export declare class Skeleton_kernel extends Miaoverse.Base_kernel<any, typeof Skeleton_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    constructor(_global: Miaoverse.Ploy3D);
-}
-/** 蒙皮数据内核实现。 */
-export declare class Skin_kernel extends Miaoverse.Base_kernel<any, typeof Skin_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    constructor(_global: Miaoverse.Ploy3D);
-}
 /** 动画组件内核实现的数据结构成员列表。 */
 export declare const Animator_member_index: {
     readonly reserved: Miaoverse.Kernel_member;
@@ -75,44 +59,6 @@ export declare const AnimationData_member_index: {
     readonly skeletonUUID: Miaoverse.Kernel_member;
     readonly morphPTR: Miaoverse.Kernel_member;
     readonly morphUUID: Miaoverse.Kernel_member;
-    readonly magic: Miaoverse.Kernel_member;
-    readonly version: Miaoverse.Kernel_member;
-    readonly byteSize: Miaoverse.Kernel_member;
-    readonly refCount: Miaoverse.Kernel_member;
-    readonly id: Miaoverse.Kernel_member;
-    readonly uuid: Miaoverse.Kernel_member;
-    readonly writeTS: Miaoverse.Kernel_member;
-    readonly readTS: Miaoverse.Kernel_member;
-    readonly last: Miaoverse.Kernel_member;
-    readonly next: Miaoverse.Kernel_member;
-};
-/** 骨架定义数据内核实现的数据结构成员列表。 */
-export declare const Skeleton_member_index: {
-    readonly flags: Miaoverse.Kernel_member;
-    readonly jointCount: Miaoverse.Kernel_member;
-    readonly jointRootIndex: Miaoverse.Kernel_member;
-    readonly jointsNameLength: Miaoverse.Kernel_member;
-    readonly initDatas: Miaoverse.Kernel_member;
-    readonly inverseBindMatrices: Miaoverse.Kernel_member;
-    readonly jointsUuid: Miaoverse.Kernel_member;
-    readonly jointsName: Miaoverse.Kernel_member;
-    readonly magic: Miaoverse.Kernel_member;
-    readonly version: Miaoverse.Kernel_member;
-    readonly byteSize: Miaoverse.Kernel_member;
-    readonly refCount: Miaoverse.Kernel_member;
-    readonly id: Miaoverse.Kernel_member;
-    readonly uuid: Miaoverse.Kernel_member;
-    readonly writeTS: Miaoverse.Kernel_member;
-    readonly readTS: Miaoverse.Kernel_member;
-    readonly last: Miaoverse.Kernel_member;
-    readonly next: Miaoverse.Kernel_member;
-};
-/** 蒙皮数据内核实现的数据结构成员列表。 */
-export declare const Skin_member_index: {
-    readonly vertexCount: Miaoverse.Kernel_member;
-    readonly method: Miaoverse.Kernel_member;
-    readonly unloaded: Miaoverse.Kernel_member;
-    readonly vertices: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;

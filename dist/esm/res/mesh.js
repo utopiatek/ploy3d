@@ -72,9 +72,13 @@ export class Mesh extends Miaoverse.Resource {
     get triangles() {
         return this._triangles;
     }
+    get skeleton() {
+        return this._skeleton;
+    }
     _impl;
     _vertices;
     _triangles;
+    _skeleton;
 }
 export class Mesh_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
@@ -96,6 +100,9 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
         return this.Create(desc.data, desc.pkg);
     }
     async Create(asset, pkg) {
+        const env = this._global.env;
+        const resources = this._global.resources;
+        const internal = this._global.internal;
         let type = asset.creater?.type;
         let data = null;
         let res = null;
@@ -121,28 +128,65 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
             res = this.MakeGeometry(data);
         }
         else if (asset.meshdata) {
-            const meshdata = await this._global.resources.Load_file("arrayBuffer", asset.meshdata, true, pkg);
+            const meshdata = await resources.Load_file("arrayBuffer", asset.meshdata, true, pkg);
             if (!meshdata.data) {
                 return null;
             }
-            const meshdata_ptr = this._global.internal.System_New(meshdata.data.byteLength);
-            this._global.env.bufferSet1(meshdata_ptr, meshdata.data, 0, meshdata.data.byteLength);
+            const meshdata_ptr = internal.System_New(meshdata.data.byteLength);
+            env.bufferSet1(meshdata_ptr, meshdata.data, 0, meshdata.data.byteLength);
             res = [meshdata.data.byteLength, meshdata_ptr];
         }
         else if (asset.geometry) {
-            const geometry = await this._global.resources.Load_file("arrayBuffer", asset.geometry, true, pkg);
+            const geometry = await resources.Load_file("arrayBuffer", asset.geometry, true, pkg);
             if (!geometry.data) {
                 return null;
             }
-            const uv_set = await this._global.resources.Load_file("arrayBuffer", asset.uv_set, true, pkg);
+            const uv_set = await resources.Load_file("arrayBuffer", asset.uv_set, true, pkg);
             if (!uv_set.data) {
                 return null;
             }
-            this._global.worker.importer.Gen_mesh_data(new DataView(geometry.data), new DataView(uv_set.data));
-            return null;
+            const static_morph = [];
+            if (asset.static_morph) {
+                for (let morph of asset.static_morph) {
+                    const weights = morph.weights.slice();
+                    const deltas = await resources.Load_file("arrayBuffer", morph.deltas, true, pkg);
+                    if (deltas) {
+                        static_morph.push({ weights, deltas: deltas.data });
+                    }
+                }
+            }
+            const skin = asset.skeleton_skin ? await resources.Load_file("arrayBuffer", asset.skeleton_skin.skin, true, pkg) : null;
+            if (asset.skeleton_skin && !skin) {
+                console.error("网格骨骼蒙皮数据加载失败！", asset.skeleton_skin);
+            }
+            const data = await this._global.worker.importer.Gen_mesh_data(new DataView(geometry.data), new DataView(uv_set.data), new DataView(skin.data), static_morph);
+            const data_ptr = internal.System_New(data.byteLength);
+            env.bufferSet1(data_ptr, data, 0, data.byteLength);
+            res = this._CreateData(data_ptr, data.byteLength);
+            internal.System_Delete(data_ptr);
         }
         const instance = this.Instance(res[1], res[0], asset.uuid);
-        this._global.internal.System_Delete(res[1]);
+        internal.System_Delete(res[1]);
+        if (asset.skeleton_skin) {
+            const skeleton = await resources.Load_file("arrayBuffer", asset.skeleton_skin.skeleton, true, pkg);
+            if (skeleton && skeleton.data) {
+                const skeleton_ptr = internal.System_New(skeleton.data.byteLength);
+                env.bufferSet1(skeleton_ptr, skeleton.data, 0, skeleton.data.byteLength);
+                const skeleton_data = env.uarrayRef(skeleton_ptr, Skeleton_member_index.initDatas[3], 3);
+                env.uscalarSet(skeleton_ptr, 3, 1);
+                skeleton_data[0] += skeleton_ptr;
+                skeleton_data[1] += skeleton_ptr;
+                skeleton_data[2] += skeleton_ptr;
+                instance["_skeleton"] = {
+                    joints: asset.skeleton_skin.joints,
+                    root: asset.skeleton_skin.root,
+                    skeleton: skeleton_ptr
+                };
+            }
+            else {
+                console.error("网格骨骼蒙皮骨架数据加载失败！", asset.skeleton_skin);
+            }
+        }
         return instance;
     }
     Instance(data_ptr, data_size, uuid) {
@@ -196,7 +240,7 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
         env.farraySet(data_ptr, verticesOffset, data.vertices);
         env.farraySet(data_ptr, normalsOffset, data.normals);
         env.farraySet(data_ptr, uvsOffset, data.uvs);
-        const resource = this._CreateData(data_ptr);
+        const resource = this._CreateData(data_ptr, 4 * intLength);
         this._global.internal.System_Delete(data_ptr);
         return resource;
     }
@@ -687,6 +731,7 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
     _Create;
     _CreateData;
     _DecodeCTM;
+    _AutoFit;
 }
 export class UVSet_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
@@ -766,10 +811,27 @@ export const Morph_member_index = {
     vertexCount: ["uscalarGet", "uscalarSet", 1, 21],
     targetCount: ["uscalarGet", "uscalarSet", 1, 22],
     morphTargets: ["ptrGet", "ptrSet", 1, 23],
-    modifyCount: ["ptrGet", "ptrSet", 1, 24],
+    deltaCounts: ["ptrGet", "ptrSet", 1, 24],
     deltas: ["ptrGet", "ptrSet", 1, 25],
-    unloaded: ["uscalarGet", "uscalarSet", 1, 26],
-    unused3: ["uscalarGet", "uscalarSet", 1, 27],
-    reserved: ["uarrayGet", "uarraySet", 4, 28],
+    reserved104: ["uscalarGet", "uscalarSet", 1, 26],
+    reserved108: ["uscalarGet", "uscalarSet", 1, 27],
+};
+export const Skin_member_index = {
+    ...Miaoverse.Binary_member_index,
+    vertexCount: ["uscalarGet", "uscalarSet", 1, 12],
+    method: ["uscalarGet", "uscalarSet", 1, 13],
+    reserved56: ["uscalarGet", "uscalarSet", 1, 14],
+    vertices: ["ptrGet", "ptrSet", 1, 15],
+};
+export const Skeleton_member_index = {
+    ...Miaoverse.Binary_member_index,
+    flags: ["uscalarGet", "uscalarSet", 1, 12],
+    jointCount: ["uscalarGet", "uscalarSet", 1, 13],
+    jointRootIndex: ["uscalarGet", "uscalarSet", 1, 14],
+    jointsNameLength: ["uscalarGet", "uscalarSet", 1, 15],
+    reserved64: ["uscalarGet", "uscalarSet", 1, 16],
+    initDatas: ["ptrGet", "ptrSet", 1, 17],
+    inverseBindMatrices: ["ptrGet", "ptrSet", 1, 18],
+    jointsName: ["ptrGet", "ptrSet", 1, 19],
 };
 //# sourceMappingURL=mesh.js.map

@@ -17,16 +17,6 @@ export class AnimationData_kernel extends Miaoverse.Base_kernel {
         super(_global, AnimationData_member_index);
     }
 }
-export class Skeleton_kernel extends Miaoverse.Base_kernel {
-    constructor(_global) {
-        super(_global, Skeleton_member_index);
-    }
-}
-export class Skin_kernel extends Miaoverse.Base_kernel {
-    constructor(_global) {
-        super(_global, Skin_member_index);
-    }
-}
 export const Animator_member_index = {
     ...Miaoverse.Binary_member_index,
     reserved: ["uarrayGet", "uarraySet", 4, 12],
@@ -49,23 +39,5 @@ export const AnimationData_member_index = {
     skeletonUUID: ["uuidGet", "uuidSet", 3, 17],
     morphPTR: ["ptrGet", "ptrSet", 1, 20],
     morphUUID: ["uuidGet", "uuidSet", 3, 21],
-};
-export const Skeleton_member_index = {
-    ...Miaoverse.Binary_member_index,
-    flags: ["uscalarGet", "uscalarSet", 1, 12],
-    jointCount: ["uscalarGet", "uscalarSet", 1, 13],
-    jointRootIndex: ["uscalarGet", "uscalarSet", 1, 14],
-    jointsNameLength: ["uscalarGet", "uscalarSet", 1, 15],
-    initDatas: ["ptrGet", "ptrSet", 1, 16],
-    inverseBindMatrices: ["ptrGet", "ptrSet", 1, 17],
-    jointsUuid: ["ptrGet", "ptrSet", 1, 18],
-    jointsName: ["ptrGet", "ptrSet", 1, 19],
-};
-export const Skin_member_index = {
-    ...Miaoverse.Binary_member_index,
-    vertexCount: ["uscalarGet", "uscalarSet", 1, 12],
-    method: ["uscalarGet", "uscalarSet", 1, 13],
-    unloaded: ["uscalarGet", "uscalarSet", 1, 14],
-    vertices: ["ptrGet", "ptrSet", 1, 15],
 };
 //# sourceMappingURL=animator.js.map

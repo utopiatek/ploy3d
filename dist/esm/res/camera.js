@@ -103,6 +103,10 @@ export class Camera extends Miaoverse.Resource {
         }
         this.Set3D(undefined, distance);
     }
+    WorldToScreen(wpos) {
+        const cpos = this._impl["_WorldToScreen"](this._ptr, wpos[0], wpos[1], wpos[2]);
+        return cpos;
+    }
     get writeTS() {
         return this._impl.Get(this._ptr, "writeTS");
     }
@@ -250,6 +254,7 @@ export class Camera_kernel extends Miaoverse.Base_kernel {
     }
     _Create;
     _Frustum_Check;
+    _WorldToScreen;
 }
 export const Camera_member_index = {
     ...Miaoverse.Binary_member_index,

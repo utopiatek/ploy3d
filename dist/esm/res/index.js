@@ -98,6 +98,17 @@ export class Resources {
         });
         this.Texture.defaultAtlas = this._global.device.CreateTexture2D(4096, 4096, 2, 1, "rgba8unorm", GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT);
         this.MeshRenderer.defaultG1 = await this.MeshRenderer.Create(null, null);
+        if (!this._global.localFS) {
+            const pkg = {
+                index: 0,
+                key: "1-1-1.miaokit.builtins",
+                uuid: "1-1-1",
+                invalid: false,
+                path: "./assets/packages/1-1-1.miaokit.builtins.ab",
+                zip: false
+            };
+            this.Register(pkg);
+        }
         return this;
     }
     async Load_file(type, uri, not_cache, cur_pkg) {

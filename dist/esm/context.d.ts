@@ -117,7 +117,11 @@ export declare class Context {
      * @param uniform 统一资源组实例。
      * @returns 返回绑定对象实例。
      */
-    CreateBindGroup(uniform: Miaoverse.FrameUniforms | Miaoverse.Material | Miaoverse.MeshRenderer): GPUBindGroup;
+    CreateBindGroup(uniform: Miaoverse.FrameUniforms | Miaoverse.Material | Miaoverse.MeshRenderer): {
+        id: number;
+        binding: GPUBindGroup;
+        offset: number;
+    };
     /**
      * 获取着色器实例。
      * @param id 着色器实例ID。

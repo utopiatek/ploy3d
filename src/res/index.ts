@@ -172,6 +172,22 @@ export class Resources {
 
         // ========================-------------------------------
 
+        // 在不允许访问本地文件夹时，无法扫描本地资源包，因此在此处注册默认资源包
+        if (!this._global.localFS) {
+            const pkg: PackageReg = {
+                index: 0,
+                key: "1-1-1.miaokit.builtins",
+                uuid: "1-1-1",
+                invalid: false,
+                path: "./assets/packages/1-1-1.miaokit.builtins.ab",
+                zip: false
+            };
+
+            this.Register(pkg);
+        }
+
+        // ========================-------------------------------
+
         return this;
     }
 

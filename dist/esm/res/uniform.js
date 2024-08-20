@@ -23,9 +23,12 @@ export class Uniform extends Miaoverse.Resource {
             }
         }
         if (this.bindingID == 0) {
-            this.bindingID = 1;
-            this.binding = this._global.context.CreateBindGroup(this);
-            this.dynamicOffsets = [this.offset];
+            const binding = this._global.context.CreateBindGroup(this);
+            if (binding) {
+                this.bindingID = binding.id;
+                this.binding = binding.binding;
+                this.dynamicOffsets = [binding.offset];
+            }
         }
         if (this.binding) {
             passEncoder.setBindGroup(this.group, this.binding, this.dynamicOffsets);

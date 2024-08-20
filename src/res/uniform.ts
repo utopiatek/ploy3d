@@ -49,9 +49,12 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
 
         // 绑定资源组到着色器管线
         if (this.bindingID == 0) {
-            this.bindingID = 1;
-            this.binding = this._global.context.CreateBindGroup(this as any);
-            this.dynamicOffsets = [this.offset];
+            const binding = this._global.context.CreateBindGroup(this as any);
+            if (binding) {
+                this.bindingID = binding.id;
+                this.binding = binding.binding;
+                this.dynamicOffsets = [binding.offset];
+            }
         }
 
         if (this.binding) {

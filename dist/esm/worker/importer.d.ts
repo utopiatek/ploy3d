@@ -82,7 +82,10 @@ export declare class Importer {
         }[];
     }>;
     /** 生成网格数据。 */
-    Gen_mesh_data(geometry: DataView, uv_set: DataView): Promise<void>;
+    Gen_mesh_data(geometry: DataView, uv_set: DataView, skin: DataView, static_morph: {
+        weights: number[];
+        deltas: ArrayBuffer;
+    }[]): Promise<ArrayBuffer>;
     /** 事务处理器。 */
     private _worker;
     /** DAZ资产管理器。 */

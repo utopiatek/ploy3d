@@ -7,6 +7,13 @@ export class MeshRenderer extends Miaoverse.Uniform {
     SetMaterial(slot, submesh, material) {
         this._impl["_SetMaterial"](this._ptr, slot, submesh, material.internalPtr);
     }
+    BindSkeleton(joints) {
+        const enabled = this._impl.Get(this._ptr, "skeleton_skin_enabled");
+        const array_ptr = this._impl.Get(this._ptr, "skeleton_skin_joints");
+        if (enabled) {
+            this._global.env.uarraySet(array_ptr, 0, joints);
+        }
+    }
     UpdateG1(object3d) {
         this._impl["_UpdateG1"](this._ptr, object3d.internalPtr);
     }
@@ -52,11 +59,11 @@ export class MeshRenderer extends Miaoverse.Uniform {
     get materialCount() {
         return this._impl.Get(this._ptr, "materialCount");
     }
-    get g1_instanceList() {
-        return this.ReadBufferNode(this._impl.Get(this._ptr, "g1_instanceList"));
+    get boneBuffer() {
+        return this._impl.Get(this._ptr, "boneBuffer");
     }
-    get g1_boneList() {
-        return this.ReadBufferNode(this._impl.Get(this._ptr, "g1_boneList"));
+    get boneArrayStart() {
+        return this._impl.Get(this._ptr, "boneArrayStart");
     }
     get g1_morphTargets() {
         return this._impl.Get(this._ptr, "g1_morphTargets");
@@ -80,11 +87,10 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
             return null;
         }
         desc.data.uuid = uuid;
-        if (this._instanceLut[uuid] && !desc.data.skeleton_skin) {
+        const mesh = await this._global.resources.Mesh.Load(desc.data.mesh, desc.pkg);
+        if (this._instanceLut[uuid] && !(mesh?.skeleton)) {
             return this._instanceLut[uuid];
         }
-        const mesh = await this._global.resources.Mesh.Load(desc.data.mesh, desc.pkg);
-        const skeleton = null;
         const materials = [];
         for (let mat of desc.data.materials) {
             const material = await this._global.resources.Material.Load(mat.material, desc.pkg);
@@ -94,10 +100,10 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
                 material
             });
         }
-        return this.Create(mesh, skeleton, materials);
+        return this.Create(mesh, materials);
     }
-    async Create(mesh, skeleton, materials) {
-        const ptr = this._Create(mesh?.internalPtr || 0, skeleton?.internalPtr || 0);
+    async Create(mesh, materials) {
+        const ptr = this._Create(mesh?.internalPtr || 0, mesh?.skeleton?.skeleton || 0);
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new MeshRenderer(this, ptr, id);
@@ -160,7 +166,14 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
 }
 export const MeshRendere_member_index = {
     ...Miaoverse.Uniform_member_index,
-    reserved: ["uarrayGet", "uarraySet", 8, 20],
+    skeleton_skin_enabled: ["uscalarGet", "uscalarSet", 1, 20],
+    skeleton_skin_writeTS: ["uscalarGet", "uscalarSet", 1, 21],
+    skeleton_skin_memorySize: ["uscalarGet", "uscalarSet", 1, 22],
+    skeleton_skin_memory: ["uscalarGet", "uscalarSet", 1, 23],
+    skeleton_skin_joints: ["ptrGet", "ptrSet", 1, 24],
+    skeleton_skin_ctrls: ["ptrGet", "ptrSet", 1, 25],
+    skeleton_skin_jointsTS: ["ptrGet", "ptrSet", 1, 26],
+    skeleton_skin_pose: ["ptrGet", "ptrSet", 1, 27],
     skeletonPTR: ["ptrGet", "ptrSet", 1, 28],
     skeletonUUID: ["uuidGet", "uuidSet", 3, 29],
     meshPTR: ["ptrGet", "ptrSet", 1, 32],
@@ -169,8 +182,8 @@ export const MeshRendere_member_index = {
     flush: ["uscalarGet", "uscalarSet", 1, 37],
     frontFace: ["uscalarGet", "uscalarSet", 1, 38],
     cullMode: ["uscalarGet", "uscalarSet", 1, 39],
-    g1_instanceList: ["ptrGet", "ptrSet", 1, 40],
-    g1_boneList: ["ptrGet", "ptrSet", 1, 41],
+    boneBuffer: ["ptrGet", "ptrSet", 1, 40],
+    boneArrayStart: ["ptrGet", "ptrSet", 1, 41],
     g1_morphTargets: ["uscalarGet", "uscalarSet", 1, 42],
     vertexArray: ["uscalarGet", "uscalarSet", 1, 43],
     drawTS: ["uscalarGet", "uscalarSet", 1, 44],

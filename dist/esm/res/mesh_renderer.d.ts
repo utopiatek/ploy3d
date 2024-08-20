@@ -17,6 +17,11 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
      */
     SetMaterial(slot: number, submesh: number, material: Miaoverse.Material): void;
     /**
+     * 绑定网格骨骼蒙皮骨架关节实例。
+     * @param joints 关节实例指针数组。
+     */
+    BindSkeleton(joints: Miaoverse.io_ptr[]): void;
+    /**
      * 基于指定3D对象更新G1相关数据。
      * @param object3d 3D对象内核实例指针。
      */
@@ -44,22 +49,10 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
     get drawTS(): number;
     /** 材质数量。 */
     get materialCount(): number;
-    /** 实例化绘制的实例数据列表（绑定到G1）。 */
-    get g1_instanceList(): {
-        buffer: never;
-        bufferID: number;
-        /** 材质数量。 */
-        offset: number;
-        size: number;
-    };
-    /** 骨骼蒙皮绘制的骨骼变换矩阵列表（绑定到G1）。 */
-    get g1_boneList(): {
-        buffer: never;
-        bufferID: number;
-        /** 材质数量。 */
-        offset: number;
-        size: number;
-    };
+    /** 骨骼蒙皮骨骼变换数据缓存ID。 */
+    get boneBuffer(): number;
+    /** 骨骼蒙皮骨骼变换数据数组空间起始索引。。 */
+    get boneArrayStart(): number;
     /** 需要在G1绑定对象中设置网格变形目标数据贴图ID。 */
     get g1_morphTargets(): number;
     /** 属性访问视图。 */
@@ -84,10 +77,9 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
     /**
      * 创建网格渲染器组件实例。
      * @param mesh 网格资源内核实例指针。
-     * @param skeleton 骨架定义数据内核实例指针。
      * @returns 返回网格渲染器组件实例。
      */
-    Create(mesh: Miaoverse.Mesh, skeleton: any, materials?: {
+    Create(mesh: Miaoverse.Mesh, materials?: {
         /** 材质插槽索引（默认等同子网格索引）。 */
         slot?: number;
         /** 材质应用到子网格索引（相同子网格可绑定多个材质进行多次重叠渲染）。*/
@@ -134,7 +126,14 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
 }
 /** 网格渲染器组件内核实现的数据结构成员列表。 */
 export declare const MeshRendere_member_index: {
-    readonly reserved: Miaoverse.Kernel_member;
+    readonly skeleton_skin_enabled: Miaoverse.Kernel_member;
+    readonly skeleton_skin_writeTS: Miaoverse.Kernel_member;
+    readonly skeleton_skin_memorySize: Miaoverse.Kernel_member;
+    readonly skeleton_skin_memory: Miaoverse.Kernel_member;
+    readonly skeleton_skin_joints: Miaoverse.Kernel_member;
+    readonly skeleton_skin_ctrls: Miaoverse.Kernel_member;
+    readonly skeleton_skin_jointsTS: Miaoverse.Kernel_member;
+    readonly skeleton_skin_pose: Miaoverse.Kernel_member;
     readonly skeletonPTR: Miaoverse.Kernel_member;
     readonly skeletonUUID: Miaoverse.Kernel_member;
     readonly meshPTR: Miaoverse.Kernel_member;
@@ -143,8 +142,8 @@ export declare const MeshRendere_member_index: {
     readonly flush: Miaoverse.Kernel_member;
     readonly frontFace: Miaoverse.Kernel_member;
     readonly cullMode: Miaoverse.Kernel_member;
-    readonly g1_instanceList: Miaoverse.Kernel_member;
-    readonly g1_boneList: Miaoverse.Kernel_member;
+    readonly boneBuffer: Miaoverse.Kernel_member;
+    readonly boneArrayStart: Miaoverse.Kernel_member;
     readonly g1_morphTargets: Miaoverse.Kernel_member;
     readonly vertexArray: Miaoverse.Kernel_member;
     readonly drawTS: Miaoverse.Kernel_member;
@@ -171,7 +170,7 @@ export declare const MeshRendere_member_index: {
     readonly bufferBlockSize: Miaoverse.Kernel_member;
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
-    readonly updated: Miaoverse.Kernel_member; /** 实例绘制数据顶点缓存布局。 */
+    readonly updated: Miaoverse.Kernel_member;
     readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
@@ -212,8 +211,6 @@ export declare const DrawInstance_member_index: {
 export interface Asset_meshrenderer extends Miaoverse.Asset {
     /** 网格资源URI。 */
     mesh: string;
-    /** 骨架定义资源URI。 */
-    skeleton_skin?: string;
     /** 材质节点设置数组。 */
     materials: {
         /** 材质插槽索引（默认等同子网格索引）。 */
