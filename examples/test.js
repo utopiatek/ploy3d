@@ -192,6 +192,9 @@ export class PloyApp_test extends ploycloud.PloyApp {
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(1);
 
+        // 绘制6000帧以持续播放动画
+        this.DrawFrame(60000);
+
         console.log(this);
     }
 

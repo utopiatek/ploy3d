@@ -57,6 +57,11 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
             }
         }
 
+        // G1的绑定偏移每一帧都变化（骨骼变换矩阵数组）
+        if (this.group == 1) {
+            this.dynamicOffsets = [(this as any).boneArrayStart * 64];
+        }
+
         if (this.binding) {
             passEncoder.setBindGroup(this.group, this.binding, this.dynamicOffsets);
         }

@@ -1,3 +1,4 @@
+import { MAGIC_INVALID } from "../mod.js";
 export class Importer_gltf {
     constructor(_worker) {
         this._worker = _worker;
@@ -9,6 +10,7 @@ export class Importer_gltf {
         progress(0.1, "加载资源数据缓存");
         await this.LoadBuffers();
         progress(0.2, "解析并压缩网格");
+        await this.LoadSkeletons();
         const mesh_library = await this.LoadMeshes();
         progress(0.4, "装载并压缩贴图");
         await this.LoadTextures((rate, msg) => { progress(0.4 + 0.4 * rate, msg); });
@@ -16,9 +18,10 @@ export class Importer_gltf {
         const material_library = await this.LoadMaterials((index) => {
             return this._data.textures[index].extras;
         });
-        progress(0.8, "解析对象结构");
-        const [prefab_library, mesh_renderer_library] = await this.LoadNodes();
-        progress(0.9, "加载动画数据");
+        progress(0.8, "加载动画数据");
+        const animations_library = await this.LoadAnimations();
+        progress(0.9, "解析对象结构");
+        const [prefab_library, mesh_renderer_library] = await this.LoadNodes(animations_library);
         progress(1.0, "资源包解析完成");
         const uuid = await this._worker.env.uuidGen();
         const uuid_parts = uuid.split("-");
@@ -36,6 +39,7 @@ export class Importer_gltf {
             material_library,
             mesh_library,
             mesh_renderer_library: mesh_renderer_library,
+            animations_library,
             prefab_library: prefab_library,
             file_library: Object.keys(this._files_cache)
         };
@@ -377,6 +381,7 @@ export class Importer_gltf {
         }
         if (componentCount == strideCount) {
             return {
+                array,
                 get(i) {
                     return array[i];
                 }
@@ -661,7 +666,7 @@ export class Importer_gltf {
         }
         return material_library;
     }
-    async LoadNodes() {
+    async LoadNodes(animations_library) {
         const this_ = this;
         const nodes = [];
         const batches = [];
@@ -670,15 +675,25 @@ export class Importer_gltf {
         const mesh_renderer_library = [];
         let node_index = 0;
         let instance_index = 0;
+        let jointsLut;
+        let skeletonList;
+        const animator = animations_library ? {
+            instance: 0,
+            node: -1,
+            animations: [animations_library[0].uuid],
+            targets_binding: []
+        } : null;
         function proc(nodeIndex, parentIndex, depth) {
             const node = this_._data.nodes[nodeIndex];
+            const node_id = node.name || "" + nodeIndex;
             const parent = this_._data.nodes[parentIndex]?.extras;
+            jointsLut[node_id] = instance_index;
             if (!node.extras) {
                 node.extras = {
                     node: {
                         index: node_index++,
-                        id: node.name || "" + (node_index - 1),
-                        name: node.name || ("object_" + (node_index - 1)),
+                        id: node_id,
+                        name: node_id,
                         depth: depth,
                         parent: parent ? parent.node.index : -1,
                     }
@@ -707,12 +722,17 @@ export class Importer_gltf {
                     }
                     node.extras.mesh_renderer = asset;
                     mesh_renderer_library.push(asset);
+                    if (node.skin != undefined) {
+                        mesh.extras.skeleton_skin = this_._data.skins[node.skin].extras;
+                    }
                 }
                 nodes.push(node.extras.node);
             }
+            else {
+            }
             const transform = {
                 instance: instance_index++,
-                node: nodeIndex,
+                node: node.extras.node.index,
             };
             if (node.translation) {
                 transform.localPosition = node.translation;
@@ -730,10 +750,17 @@ export class Importer_gltf {
             if (node.extras.mesh_renderer) {
                 const mesh_renderer = {
                     instance: transform.instance,
-                    node: nodeIndex,
+                    node: transform.node,
                     mesh_renderer: node.extras.mesh_renderer.uuid
                 };
                 mesh_renderers.push(mesh_renderer);
+                const skeleton_skin = this_._data.meshes[node.mesh].extras.skeleton_skin;
+                if (skeleton_skin) {
+                    skeletonList.push({
+                        mesh_renderer,
+                        skeleton_skin
+                    });
+                }
             }
             if (node.children) {
                 for (let child of node.children) {
@@ -742,6 +769,8 @@ export class Importer_gltf {
             }
         }
         for (let scene of this._data.scenes) {
+            jointsLut = {};
+            skeletonList = [];
             if (scene.nodes) {
                 for (let index of scene.nodes) {
                     const batch = {
@@ -753,6 +782,20 @@ export class Importer_gltf {
                     batch.source = this._data.nodes[index].extras.node.index;
                     batch.instanceCount = instance_index - batch.instanceBeg;
                     batches.push(batch);
+                }
+            }
+            for (let binding of skeletonList) {
+                binding.mesh_renderer.joints_binding = binding.skeleton_skin.joints.map((id) => {
+                    const instance = jointsLut[id];
+                    return instance == undefined ? -1 : instance;
+                });
+            }
+            if (animator) {
+                const names = animations_library[0].targets;
+                for (let i = 0; i < names.length; i++) {
+                    if (animator.targets_binding[i] == undefined) {
+                        animator.targets_binding[i] = jointsLut[names[i]];
+                    }
                 }
             }
         }
@@ -767,9 +810,37 @@ export class Importer_gltf {
             transforms,
             mesh_renderers
         };
+        if (animator) {
+            const names = animations_library[0].targets;
+            for (let i = 0; i < names.length; i++) {
+                if (animator.targets_binding[i] == undefined) {
+                    animator.targets_binding[i] = -1;
+                    console.error("查找不到动画驱动目标实例！", names[i]);
+                }
+            }
+            animator.instance = instance_index;
+            prefab.animators = [animator];
+        }
         return [[prefab], mesh_renderer_library];
     }
+    async LoadSkeletons() {
+        const skeleton_count = this._data.skins?.length || 0;
+        for (let i = 0; i < skeleton_count; i++) {
+            const skin = this._data.skins[i];
+            const data = await this.LoadSkeleton(i);
+            const name = skin.name || ("skeleton" + i);
+            const skeleton_uuid = "" + 33 + "-" + i;
+            const skeleton_file_path = `skeleton/${skeleton_uuid}_${name}.bin`;
+            skin.extras = {
+                root: data[0],
+                joints: data[1],
+                skeleton: skeleton_uuid
+            };
+            this._files_cache[skeleton_file_path] = data[2];
+        }
+    }
     async LoadSkeleton(index) {
+        const nodes = this._data.nodes;
         const skin = this._data.skins[index];
         const accessor = this._data.accessors[skin.inverseBindMatrices];
         if (undefined == accessor.bufferView || "MAT4" != accessor.type) {
@@ -781,14 +852,292 @@ export class Importer_gltf {
         let offset = undefined != accessor.byteOffset ? accessor.byteOffset : 0;
         offset += undefined != bufferView.byteOffset ? bufferView.byteOffset : 0;
         const array = this.GetAccessorData(buffer.extras.buffer, offset, bufferView.byteStride, accessor.type, accessor.componentType, accessor.count);
+        const joints_name = [];
+        for (let i = 0; i < skin.joints.length; i++) {
+            const node = nodes[skin.joints[i]];
+            joints_name[i] = node.name || ("" + i);
+        }
+        let root_node_i = skin.skeleton;
+        if (root_node_i == undefined) {
+            for (let i = 0; i < nodes.length; i++) {
+                if (nodes[i].skin == index) {
+                    root_node_i = i;
+                }
+            }
+        }
+        const root_name = nodes[root_node_i].name || ("" + root_node_i);
+        let root_index = joints_name.indexOf(root_name);
+        if (root_index == -1) {
+            root_index = joints_name.length;
+            joints_name.push(root_name);
+        }
+        let skeleton_buffer = null;
+        {
+            const encoder = this._worker.env.textEncoder;
+            const names_ = joints_name.join(",");
+            const names_carray = encoder.encode(names_);
+            const names_length = (names_carray.byteLength + 3 + 1) & ~3;
+            let intLength = 0;
+            const binaryOffset = intLength;
+            intLength += 12;
+            const headerOffset = intLength;
+            intLength += 8;
+            const invMatsOffset = intLength;
+            intLength += joints_name.length * 16;
+            const namesOffset = intLength;
+            intLength += names_length / 4;
+            const buffer = new ArrayBuffer(intLength * 4);
+            const binary = new Uint32Array(buffer, binaryOffset * 4, 12);
+            const header = new Uint32Array(buffer, headerOffset * 4, 8);
+            const invMats = new Float32Array(buffer, invMatsOffset * 4, joints_name.length * 16);
+            const names = new Uint8Array(buffer, namesOffset * 4, names_length);
+            binary[0] = MAGIC_INVALID + 33;
+            binary[1] = 1;
+            binary[2] = buffer.byteLength;
+            binary[3] = 0;
+            binary[4] = 0;
+            binary[5] = 0;
+            binary[6] = 0;
+            binary[7] = 0;
+            binary[8] = 0;
+            binary[9] = 0;
+            binary[10] = 0;
+            binary[11] = 0;
+            header[0] = 0;
+            header[1] = joints_name.length;
+            header[2] = root_index;
+            header[3] = names_length;
+            header[4] = 0;
+            header[5] = 0;
+            header[6] = invMatsOffset;
+            header[7] = namesOffset;
+            names.set(names_carray);
+            for (let i = 0; i < joints_name.length; i++) {
+                const i16 = i * 16;
+                if (i == root_index) {
+                    invMats.set([
+                        1, 0, 0, 0,
+                        0, 1, 0, 0,
+                        0, 0, 1, 0,
+                        0, 0, 0, 1
+                    ], i16);
+                }
+                else {
+                    for (let j = 0; j < 16; j++) {
+                        invMats[i16 + j] = array.get(i16 + j);
+                    }
+                }
+            }
+            skeleton_buffer = buffer;
+        }
+        return [root_index, joints_name, skeleton_buffer, null];
+    }
+    async LoadAnimations() {
+        if (!this._data.animations) {
+            return null;
+        }
+        const targetLut = [];
+        const tatgetList = [];
+        const LutTarget = (node) => {
+            if (targetLut[node] != undefined) {
+                return targetLut[node];
+            }
+            const name = this._data.nodes[node].name || "" + node;
+            const target = tatgetList.length;
+            targetLut[node] = target;
+            tatgetList.push(name);
+            return target;
+        };
+        const clipList = [];
+        for (let a = 0; a < this._data.animations.length; a++) {
+            const clip = await this.LoadAnimation(a, LutTarget);
+            if (clip) {
+                clipList.push(clip);
+            }
+        }
+        for (let clipData of clipList) {
+            clipData[3] = tatgetList.length;
+        }
+        const encoder = this._worker.env.textEncoder;
+        const names_ = tatgetList.join(",");
+        const names_carray = encoder.encode(names_);
+        const names_length = (names_carray.byteLength + 3 + 1) & ~3;
         let intLength = 0;
+        const binaryOffset = intLength;
+        intLength += 12;
         const headerOffset = intLength;
-        intLength += 12 + 8;
-        const initDatasOffset = intLength;
-        intLength += 12 * 0;
-        const inverseBindMatrices = intLength;
-        intLength += 16 * 0;
-        return 0;
+        intLength += 4;
+        const namesOffset = intLength;
+        intLength += names_length / 4;
+        const ptrsOffset = intLength;
+        intLength += clipList.length;
+        const ptrs_ = new Uint32Array(clipList.length);
+        for (let i = 0; i < clipList.length; i++) {
+            ptrs_[i] = intLength;
+            intLength += clipList[i].length;
+        }
+        const buffer = new ArrayBuffer(intLength * 4);
+        const binary = new Uint32Array(buffer, binaryOffset * 4, 12);
+        const header = new Uint32Array(buffer, headerOffset * 4, 4);
+        const names = new Uint8Array(buffer, namesOffset * 4, names_length);
+        const ptrs = new Uint32Array(buffer, ptrsOffset * 4, clipList.length);
+        binary[0] = MAGIC_INVALID + 40;
+        binary[1] = 1;
+        binary[2] = buffer.byteLength;
+        binary[3] = 0;
+        binary[4] = 0;
+        binary[5] = 0;
+        binary[6] = 0;
+        binary[7] = 0;
+        binary[8] = 0;
+        binary[9] = 0;
+        binary[10] = 0;
+        binary[11] = 0;
+        header[0] = tatgetList.length;
+        header[1] = clipList.length;
+        header[2] = namesOffset;
+        header[3] = ptrsOffset;
+        names.set(names_carray);
+        ptrs.set(ptrs_);
+        for (let i = 0; i < clipList.length; i++) {
+            const clipData = clipList[i];
+            (new Uint32Array(buffer, ptrs[i] * 4, clipData.length)).set(clipData);
+        }
+        const uuid = "" + 40 + "-0";
+        const asset_name = this._data.asset.extras.name;
+        const file_path = `anims/${uuid}_${asset_name}.bin`;
+        this._files_cache[file_path] = buffer;
+        const asset = {
+            uuid: "" + 41 + "-0",
+            classid: 41,
+            name: asset_name,
+            label: asset_name,
+            targets: tatgetList,
+            data: uuid
+        };
+        return [asset];
+    }
+    async LoadAnimation(index, LutTarget) {
+        const animation = this._data.animations[index];
+        const samplerCount = animation.samplers.length;
+        const channelCount = animation.channels.length;
+        const stats = [
+            { totalLength: 0, accessors: [], lut: {} },
+            { totalLength: 0, accessors: [], lut: {} }
+        ];
+        const Load = (slot, iaccessor) => {
+            let stat = stats[slot];
+            let accessor_ = stat.accessors[stat.lut[iaccessor]];
+            if (accessor_) {
+                return accessor_;
+            }
+            const accessor = this._data.accessors[iaccessor];
+            const bufferView = this._data.bufferViews[accessor.bufferView];
+            const buffer = this._data.buffers[bufferView.buffer];
+            let offset = undefined != accessor.byteOffset ? accessor.byteOffset : 0;
+            offset += undefined != bufferView.byteOffset ? bufferView.byteOffset : 0;
+            const array = this.GetAccessorData(buffer.extras.buffer, offset, bufferView.byteStride, accessor.type, accessor.componentType, accessor.count);
+            accessor_ = {
+                offset: stat.totalLength,
+                array: array.array
+            };
+            stat.totalLength += array.array.length;
+            stat.lut[iaccessor] = stat.accessors.length;
+            stat.accessors.push(accessor_);
+            return accessor_;
+        };
+        let maxTS = 0;
+        for (let sampler of animation.samplers) {
+            const timeline = Load(0, sampler.input);
+            const keyframe = Load(1, sampler.output);
+            const maxTS_ = timeline.array[timeline.array.length - 1];
+            if (maxTS < maxTS_) {
+                maxTS = maxTS_;
+            }
+        }
+        let binSize = 12;
+        const offsetChannels = binSize;
+        binSize += 3 * channelCount;
+        const offsetSamplers = binSize;
+        binSize += 6 * samplerCount;
+        const offsetTimeline = binSize;
+        binSize += stats[0].totalLength;
+        const offsetKeyframes = binSize;
+        binSize += stats[1].totalLength;
+        const buffer = new ArrayBuffer(binSize * 4);
+        const writer = new Uint32Array(buffer);
+        writer[0] = index;
+        writer[1] = buffer.byteLength;
+        writer[2] = Math.ceil(maxTS * 1000.0);
+        writer[3] = 0;
+        writer[4] = channelCount;
+        writer[5] = samplerCount;
+        writer[6] = stats[0].totalLength * 4;
+        writer[7] = stats[1].totalLength * 4;
+        writer[8] = offsetChannels;
+        writer[9] = offsetSamplers;
+        writer[10] = offsetTimeline;
+        writer[11] = offsetKeyframes;
+        for (let i = 0; i < channelCount; i++) {
+            const channel = animation.channels[i];
+            let attribute = 0;
+            switch (channel.target.path) {
+                case "translation":
+                    attribute = 1;
+                    break;
+                case "rotation":
+                    attribute = 2;
+                    break;
+                case "scale":
+                    attribute = 3;
+                    break;
+                case "weights":
+                    attribute = 4;
+                    break;
+                default:
+                    console.error("非法动画驱动属性类型！", channel.target.path);
+                    break;
+            }
+            const index3 = offsetChannels + i * 3;
+            writer[index3 + 0] = channel.sampler;
+            writer[index3 + 1] = LutTarget(channel.target.node);
+            writer[index3 + 2] = attribute;
+        }
+        for (let i = 0; i < samplerCount; i++) {
+            const samplers = animation.samplers[i];
+            const inputAcc = stats[0].accessors[stats[0].lut[samplers.input]];
+            const outputAcc = stats[1].accessors[stats[1].lut[samplers.output]];
+            const index6 = offsetSamplers + i * 6;
+            writer[index6 + 0] = inputAcc.offset;
+            writer[index6 + 1] = inputAcc.array.length;
+            writer[index6 + 2] = Math.ceil(inputAcc.array[inputAcc.array.length - 1] * 1000.0);
+            writer[index6 + 3] = outputAcc.offset;
+            writer[index6 + 4] = outputAcc.array.length / inputAcc.array.length;
+            writer[index6 + 5] = samplers.interpolation == "LINEAR" ? 0 : (samplers.interpolation == "STEP" ? 1 : 2);
+        }
+        const timeline = new Uint8Array(buffer, offsetTimeline * 4, writer[6]);
+        {
+            let binOffset = 0;
+            for (let acc of stats[0].accessors) {
+                timeline.set(new Uint8Array(acc.array.buffer, acc.array.byteOffset, acc.array.byteLength), binOffset);
+                binOffset += acc.array.byteLength;
+            }
+            if (binOffset !== timeline.byteLength) {
+                console.error("GLTF动画时间线数据读写大小不一致", binOffset, timeline.byteLength);
+            }
+        }
+        const keyframes = new Uint8Array(buffer, offsetKeyframes * 4, writer[7]);
+        {
+            let binOffset = 0;
+            for (let acc of stats[1].accessors) {
+                keyframes.set(new Uint8Array(acc.array.buffer, acc.array.byteOffset, acc.array.byteLength), binOffset);
+                binOffset += acc.array.byteLength;
+            }
+            if (binOffset !== keyframes.byteLength) {
+                console.error("GLTF动画关键帧集数据读写大小不一致", binOffset, keyframes.byteLength);
+            }
+        }
+        return writer;
     }
     _worker;
     _data;

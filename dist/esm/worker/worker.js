@@ -66,6 +66,10 @@ export class Miaoworker {
                 UploadBuffer: (bufferID, cachePtr, offset, size) => {
                     this.Track("Miaoworker内核不应调用UploadBuffer方法！");
                 },
+                Update: (classid, id) => {
+                    this.Track("Miaoworker内核不应调用Update方法！");
+                    return 0;
+                },
                 Release: (classid, id) => {
                     this.Track("Miaoworker内核不应调用Release方法！");
                     return 0;

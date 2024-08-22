@@ -30,6 +30,9 @@ export class Uniform extends Miaoverse.Resource {
                 this.dynamicOffsets = [binding.offset];
             }
         }
+        if (this.group == 1) {
+            this.dynamicOffsets = [this.boneArrayStart * 64];
+        }
         if (this.binding) {
             passEncoder.setBindGroup(this.group, this.binding, this.dynamicOffsets);
         }

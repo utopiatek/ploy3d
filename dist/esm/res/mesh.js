@@ -155,9 +155,10 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
                     }
                 }
             }
-            const skin = asset.skeleton_skin ? await resources.Load_file("arrayBuffer", asset.skeleton_skin.skin, true, pkg) : null;
-            if (asset.skeleton_skin && !skin) {
-                console.error("网格骨骼蒙皮数据加载失败！", asset.skeleton_skin);
+            const skin_uri = asset.skeleton_skin?.skin;
+            const skin = skin_uri ? await resources.Load_file("arrayBuffer", skin_uri, true, pkg) : null;
+            if (skin_uri && !skin) {
+                console.error("网格骨骼蒙皮数据加载失败！", skin_uri);
             }
             const data = await this._global.worker.importer.Gen_mesh_data(new DataView(geometry.data), new DataView(uv_set.data), new DataView(skin.data), static_morph);
             const data_ptr = internal.System_New(data.byteLength);
@@ -174,9 +175,15 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
                 env.bufferSet1(skeleton_ptr, skeleton.data, 0, skeleton.data.byteLength);
                 const skeleton_data = env.uarrayRef(skeleton_ptr, Skeleton_member_index.initDatas[3], 3);
                 env.uscalarSet(skeleton_ptr, 3, 1);
-                skeleton_data[0] += skeleton_ptr;
-                skeleton_data[1] += skeleton_ptr;
-                skeleton_data[2] += skeleton_ptr;
+                if (skeleton_data[0]) {
+                    skeleton_data[0] += skeleton_ptr;
+                }
+                if (skeleton_data[1]) {
+                    skeleton_data[1] += skeleton_ptr;
+                }
+                if (skeleton_data[2]) {
+                    skeleton_data[2] += skeleton_ptr;
+                }
                 instance["_skeleton"] = {
                     joints: asset.skeleton_skin.joints,
                     root: asset.skeleton_skin.root,

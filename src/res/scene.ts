@@ -263,6 +263,22 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
             }
         }
 
+        for (let animator_desc of data.animators || []) {
+            const instance = prefab.instanceList[prefab.instanceBeg + animator_desc.instance];
+
+            if (instance) {
+                const targets = animator_desc.targets_binding ? animator_desc.targets_binding.map((idx) => {
+                    return prefab.instanceList[prefab.instanceBeg + idx];
+                }) : [];
+
+                const animator = await this._global.resources.Animator.Create(targets, animator_desc.animations, pkg);
+
+                if (animator) {
+                    instance.animator = animator;
+                }
+            }
+        }
+
         if (data.lnglat) {
             prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
         }
@@ -554,6 +570,31 @@ export interface Asset_prefab extends Miaoverse.Asset {
 
         /** 网格骨骼蒙皮骨骼绑定实例索引列表。 */
         joints_binding?: number[];
+    }[];
+
+    /**
+     * 动画组件数据。
+     */
+    animators?: {
+        /**
+         * 当前动画组件所属实例对象的实例索引。
+         */
+        instance: number;
+
+        /** 
+         * 对应直属预制件节点索引。
+         */
+        node: number;
+
+        /**
+         * 动画数据URI（可以引用多个驱动目标数组兼容的动画数据）。
+         */
+        animations: string[];
+
+        /** 
+         * 动画驱动目标实例索引列表。
+         */
+        targets_binding?: number[];
     }[];
 }
 

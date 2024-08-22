@@ -16,6 +16,8 @@ export declare class VMath_kernel {
     Quaternion_FromEulerAngles: (x: number, y: number, z: number, order: number) => number[];
     /** 计算四元数的逆。 */
     Quaternion_Invert: (x: number, y: number, z: number, w: number) => number[];
+    /** 两四元数插值。。 */
+    Quaternion_Slerp: (x1: number, y1: number, z1: number, w1: number, x2: number, y2: number, z2: number, w2: number, t: number) => number[];
     /** 获取矩阵的逆矩阵。 */
     Matrix4x4_Invert: (m1: Miaoverse.io_ptr, mO: Miaoverse.io_ptr) => void;
     /** 向量左乘矩阵。 */

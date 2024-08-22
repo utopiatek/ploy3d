@@ -191,6 +191,7 @@ export declare const Material_member_index: {
     readonly enableFlags: Miaoverse.Kernel_member;
     readonly buffer_bufferID: Miaoverse.Kernel_member;
     readonly buffer_size: Miaoverse.Kernel_member;
+    /** 材质使用的着色器资源。 */
     readonly buffer_addr: Miaoverse.Kernel_member;
     readonly buffer_next: Miaoverse.Kernel_member;
     readonly bn_buffer: Miaoverse.Kernel_member;

@@ -288,6 +288,14 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         this._impl["_SetMeshRenderer"](this._ptr, component?.internalPtr || 0);
     }
 
+    /** 动画组件。 */
+    public set animator(component: Miaoverse.Animator) {
+        this._impl["_SetAnimator"](this._ptr, component?.id || 0);
+        if (component) {
+            component["_refCount"]++;
+        }
+    }
+
     /** 内核实现。 */
     private _impl: Object_kernel;
 }
@@ -384,6 +392,13 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
      * @param meshRenderer 网格渲染器组件内核实例指针。
      */
     protected _SetMeshRenderer: (object3d: Miaoverse.io_ptr, meshRenderer: Miaoverse.io_ptr) => void;
+
+    /**
+     * 设置动画组件。
+     * @param object3d 3D对象内核实例指针。
+     * @param animator 动画组件实例ID。
+     */
+    protected _SetAnimator: (object3d: Miaoverse.io_ptr, animator: number) => void;
 }
 
 /** 场景节点内核实现的数据结构成员列表。 */

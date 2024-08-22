@@ -180,9 +180,14 @@ export class Ploy3D {
             UploadBuffer: (bufferID, cachePtr, offset, size) => {
                 this.device.WriteBuffer(bufferID, offset, this.env.buffer, (cachePtr << 2) + offset, (size + 3) & ~3);
             },
+            Update: (classid, id) => {
+                if (classid == 51) {
+                    this.resources.Animator.Update(id);
+                }
+            },
             Release: (classid, id) => {
                 return 0;
-            },
+            }
         });
         if (!this.kernel) {
             throw "内核接口初始化失败！";

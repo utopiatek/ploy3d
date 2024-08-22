@@ -160,6 +160,18 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
                 mr_instance.BindSkeleton(bindings);
             }
         }
+        for (let animator_desc of data.animators || []) {
+            const instance = prefab.instanceList[prefab.instanceBeg + animator_desc.instance];
+            if (instance) {
+                const targets = animator_desc.targets_binding ? animator_desc.targets_binding.map((idx) => {
+                    return prefab.instanceList[prefab.instanceBeg + idx];
+                }) : [];
+                const animator = await this._global.resources.Animator.Create(targets, animator_desc.animations, pkg);
+                if (animator) {
+                    instance.animator = animator;
+                }
+            }
+        }
         if (data.lnglat) {
             prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
         }

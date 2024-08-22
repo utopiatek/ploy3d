@@ -434,7 +434,7 @@ export interface Asset_mesh extends Miaoverse.Asset {
         /** 骨架数据URL。 */
         skeleton: string;
         /** 蒙皮数据URL。 */
-        skin: string;
+        skin?: string;
     };
     /** 静态网格变形数据URI数组（构建网格资源实例时变形）。 */
     static_morph?: {

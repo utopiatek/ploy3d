@@ -270,9 +270,10 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
                 }
             }
 
-            const skin = asset.skeleton_skin ? await resources.Load_file<ArrayBuffer>("arrayBuffer", asset.skeleton_skin.skin, true, pkg) : null;
-            if (asset.skeleton_skin && !skin) {
-                console.error("网格骨骼蒙皮数据加载失败！", asset.skeleton_skin);
+            const skin_uri = asset.skeleton_skin?.skin;
+            const skin = skin_uri ? await resources.Load_file<ArrayBuffer>("arrayBuffer", skin_uri, true, pkg) : null;
+            if (skin_uri && !skin) {
+                console.error("网格骨骼蒙皮数据加载失败！", skin_uri);
             }
 
             const data = await this._global.worker.importer.Gen_mesh_data(new DataView(geometry.data), new DataView(uv_set.data), new DataView(skin.data), static_morph);
@@ -303,9 +304,17 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
                 env.uscalarSet(skeleton_ptr, 3, 1);
 
                 // 初始化内部数据指针
-                skeleton_data[0] += skeleton_ptr;
-                skeleton_data[1] += skeleton_ptr;
-                skeleton_data[2] += skeleton_ptr;
+                if (skeleton_data[0]) {
+                    skeleton_data[0] += skeleton_ptr;
+                }
+
+                if (skeleton_data[1]) {
+                    skeleton_data[1] += skeleton_ptr;
+                }
+
+                if (skeleton_data[2]) {
+                    skeleton_data[2] += skeleton_ptr;
+                }
 
                 instance["_skeleton"] = {
                     joints: asset.skeleton_skin.joints,
@@ -1485,7 +1494,7 @@ export interface Asset_mesh extends Miaoverse.Asset {
         /** 骨架数据URL。 */
         skeleton: string;
         /** 蒙皮数据URL。 */
-        skin: string;
+        skin?: string;
     };
     /** 静态网格变形数据URI数组（构建网格资源实例时变形）。 */
     static_morph?: { weights: number[]; deltas: string; }[];

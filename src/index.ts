@@ -346,10 +346,15 @@ export class Ploy3D {
                     (cachePtr << 2) + offset,           // 数据源偏移
                     (size + 3) & ~3);
             },
+            Update: (classid: number, id: number) => {
+                if (classid == Miaoverse.CLASSID.ASSET_COMPONENT_ANIMATOR) {
+                    this.resources.Animator.Update(id);
+                }
+            },
             Release: (classid: number, id: number) => {
                 // TODO ...
                 return 0;
-            },
+            }
         });
 
         if (!this.kernel) {

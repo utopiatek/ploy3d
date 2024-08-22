@@ -171,6 +171,7 @@ export declare const MeshRendere_member_index: {
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
     readonly updated: Miaoverse.Kernel_member;
+    /** 实例绘制数据顶点缓存布局。 */
     readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;

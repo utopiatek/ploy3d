@@ -93,6 +93,8 @@ export declare class Object3D extends Miaoverse.Resource<Object3D> {
     get root(): Object3D;
     /** 网格渲染器组件。 */
     set meshRenderer(component: Miaoverse.MeshRenderer);
+    /** 动画组件。 */
+    set animator(component: Miaoverse.Animator);
     /** 内核实现。 */
     private _impl;
 }
@@ -163,6 +165,12 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      * @param meshRenderer 网格渲染器组件内核实例指针。
      */
     protected _SetMeshRenderer: (object3d: Miaoverse.io_ptr, meshRenderer: Miaoverse.io_ptr) => void;
+    /**
+     * 设置动画组件。
+     * @param object3d 3D对象内核实例指针。
+     * @param animator 动画组件实例ID。
+     */
+    protected _SetAnimator: (object3d: Miaoverse.io_ptr, animator: number) => void;
 }
 /** 场景节点内核实现的数据结构成员列表。 */
 export declare const Node_member_index: {

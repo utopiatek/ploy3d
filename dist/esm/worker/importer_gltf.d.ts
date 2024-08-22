@@ -78,7 +78,26 @@ export declare class Importer_gltf {
      * 装载场景数据为预制件。
      */
     private LoadNodes;
+    /**
+     * 解析所有骨骼蒙皮骨架数据。
+     */
+    private LoadSkeletons;
+    /**
+     * 解析骨骼蒙皮骨架数据。
+     */
     private LoadSkeleton;
+    /**
+     * 异步装载所有动画数据。
+     * @returns
+     */
+    private LoadAnimations;
+    /**
+     * 加载动画片段数据。
+     * @param index
+     * @param LutTarget
+     * @returns
+     */
+    private LoadAnimation;
     /** 事务处理器。 */
     private _worker;
     /** GLTF数据对象。 */
@@ -200,7 +219,7 @@ interface Gltf {
         /** 扩展信息。 */
         extensions?: never;
         /** 特定于应用程序的数据。 */
-        extras?: never;
+        extras?: Miaoverse.Asset_mesh["skeleton_skin"];
     }[];
     /** 动画数组。 */
     animations?: {

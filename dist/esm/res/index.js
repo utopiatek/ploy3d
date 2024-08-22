@@ -343,6 +343,11 @@ export class Resources {
                     pkg.resid_path[res.uuid] = res;
                 }
             }
+            if (pkg.meta.animations_library) {
+                for (let res of pkg.meta.animations_library) {
+                    pkg.resid_path[res.uuid] = res;
+                }
+            }
             if (pkg.meta.prefab_library) {
                 for (let res of pkg.meta.prefab_library) {
                     pkg.resid_path[res.uuid] = res;

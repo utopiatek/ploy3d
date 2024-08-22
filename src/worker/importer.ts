@@ -311,7 +311,10 @@ export class Importer {
         vertices.set(geometry_vertices);
 
         if (skin_data) {
-            bones_weights.set(skin_data.vertices);
+            for (let i = 0; i < vcount; i++) {
+                bones_weights[i] = skin_data.vertices[i * 2 + 0];
+                bones_weights[vcount + i] = skin_data.vertices[i * 2 + 1];
+            }
         }
 
         if (original_vertices) {
@@ -389,8 +392,8 @@ export class Importer {
                     }
 
                     if (bones_weights) {
-                        bones_weights[(uv_index * 2) + 0] = bones_weights[(vertex_index * 2) + 0];
-                        bones_weights[(uv_index * 2) + 1] = bones_weights[(vertex_index * 2) + 1];
+                        bones_weights[uv_index] = bones_weights[vertex_index];
+                        bones_weights[vcount + uv_index] = bones_weights[vcount + vertex_index];
                     }
                 }
             }
