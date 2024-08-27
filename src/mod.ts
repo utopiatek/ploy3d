@@ -38,4 +38,5 @@ export * from "./res/gis.js"
 
 export * from "./worker/worker.js"
 
+export * from "./ui/canvas.js"
 export * from "./ui/index.js"

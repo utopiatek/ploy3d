@@ -220,6 +220,10 @@ export class Ploy3D {
         if (!this.gis) {
             throw "GIS初始化失败！";
         }
+        this.renderer2d = await (new Miaoverse.Renderer2D(this)).Init();
+        if (!this.renderer2d) {
+            throw "2D渲染器初始化失败！";
+        }
         this.ui = await (new Miaoverse.CalynUI(this)).Init();
         if (!this.ui) {
             throw "UI系统初始化失败！";
@@ -271,6 +275,7 @@ export class Ploy3D {
     resources;
     worker;
     gis;
+    renderer2d;
     ui;
     config = {
         surface: null,
@@ -516,7 +521,9 @@ export class PloyApp {
             if (this._drawQueue) {
                 if (this._loop2d) {
                     this._loop2d--;
+                    this.engine.renderer2d.BeginFrame();
                     this.Draw2D();
+                    this.engine.renderer2d.EndFrame();
                 }
                 this._loop3d--;
                 this.Draw3D();

@@ -97,6 +97,8 @@ export declare class Object3D extends Miaoverse.Resource<Object3D> {
     set animator(component: Miaoverse.Animator);
     /** 内核实现。 */
     private _impl;
+    /** 对象名称。 */
+    private _name;
 }
 /** 3D对象内核实现。 */
 export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object_member_index> {

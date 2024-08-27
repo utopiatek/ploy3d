@@ -57,6 +57,8 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
     get g1_morphTargets(): number;
     /** 属性访问视图。 */
     get view(): Record<string, number[]>;
+    /** 自定义网格渲染器绘制方法（主要用于在网格上直接绘制UI）。 */
+    drawCustom: (queue: Miaoverse.DrawQueue, method: string, params: number[]) => void;
     /** 属性访问视图。 */
     private _view;
 }
@@ -167,11 +169,13 @@ export declare const MeshRendere_member_index: {
     readonly buffer: Miaoverse.Kernel_member;
     readonly bufferID: Miaoverse.Kernel_member;
     readonly bufferBlockOffset: Miaoverse.Kernel_member;
-    readonly bufferBlockSize: Miaoverse.Kernel_member;
+    readonly bufferBlockSize: Miaoverse.Kernel_member; /**
+     * 验证绘制实例在指定相机视锥内可见（入不可见将不保留绘制实例数据）。
+     * @returns 返回有效数据槽。
+     */
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
     readonly updated: Miaoverse.Kernel_member;
-    /** 实例绘制数据顶点缓存布局。 */
     readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;

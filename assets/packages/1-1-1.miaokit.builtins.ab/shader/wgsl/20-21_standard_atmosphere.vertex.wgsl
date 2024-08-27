@@ -126,6 +126,8 @@ fn atmosphereVertex(worldPos: vec3f, eyePos: vec3f, lightDir: vec3f) {
 // 顶点材质方法（在顶点着色器入口函数中先调用init_vertex_1/init_vertex_3，后调用material_vs）
 fn material_vs() ->OutputVS {
     var output: OutputVS;
+    
+    output.instanceID = gl_InstanceID;
 
     // 在此可以添加一些用户代码来修改或提供模型空间顶点属性 ...
 

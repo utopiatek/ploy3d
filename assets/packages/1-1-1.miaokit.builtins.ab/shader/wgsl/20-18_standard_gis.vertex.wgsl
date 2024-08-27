@@ -1,6 +1,8 @@
 
 fn material_vs() ->OutputVS {
     var output: OutputVS;
+    
+    output.instanceID = gl_InstanceID;
 
     // 地球半周长
     let perimeter_half = 20037508.3428;

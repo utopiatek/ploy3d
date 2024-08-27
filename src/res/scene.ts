@@ -325,6 +325,8 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
             // 添加到实例列表
             instanceList[listBeg + instanceCount++] = instance;
 
+            instance.name = asset.name;
+            
             // 构建父子关系
             if (parent) {
                 instance.SetParent(parent);

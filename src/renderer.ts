@@ -471,23 +471,44 @@ export class DrawQueue {
 
             context.SetIndexBuffer(ibFormat, subMesh, this.passEncoder);
 
-            this.passEncoder.drawIndexed(
-                subMesh.size / ibFormat,// indexCount
-                instanceCount,          // instanceCount
-                0,                      // firstIndex
-                0,                      // baseVertex
-                firstInstance,          // firstInstance
-            );
+            if (activeG1.drawCustom) {
+                activeG1.drawCustom(this, "drawIndexed", [
+                    subMesh.size / ibFormat,// indexCount
+                    instanceCount,          // instanceCount
+                    0,                      // firstIndex
+                    0,                      // baseVertex
+                    firstInstance,          // firstInstance
+                ]);
+            }
+            else {
+                this.passEncoder.drawIndexed(
+                    subMesh.size / ibFormat,// indexCount
+                    instanceCount,          // instanceCount
+                    0,                      // firstIndex
+                    0,                      // baseVertex
+                    firstInstance,          // firstInstance
+                );
+            }
         }
         else {
             const drawCount = activeG2.view.drawCount?.[0];
             if (drawCount) {
-                this.passEncoder.draw(
-                    drawCount,              // vertexCount
-                    instanceCount,          // instanceCount
-                    0,                      // firstVertex
-                    firstInstance,          // firstInstance
-                );
+                if (activeG1.drawCustom) {
+                    activeG1.drawCustom(this, "draw", [
+                        drawCount,              // vertexCount
+                        instanceCount,          // instanceCount
+                        0,                      // firstVertex
+                        firstInstance,          // firstInstance
+                    ]);
+                }
+                else {
+                    this.passEncoder.draw(
+                        drawCount,              // vertexCount
+                        instanceCount,          // instanceCount
+                        0,                      // firstVertex
+                        firstInstance,          // firstInstance
+                    );
+                }
             }
         }
     }

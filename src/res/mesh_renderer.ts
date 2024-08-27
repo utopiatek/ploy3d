@@ -124,6 +124,9 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
         return this._view;
     }
 
+    /** 自定义网格渲染器绘制方法（主要用于在网格上直接绘制UI）。 */
+    public drawCustom: (queue: Miaoverse.DrawQueue, method: string, params: number[]) => void;
+
     /** 属性访问视图。 */
     private _view: Record<string, Array<number>>;
 }

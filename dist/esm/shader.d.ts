@@ -92,6 +92,8 @@ export interface ShaderAsset {
     };
     /** 自定义顶点缓存布局。 */
     vertex_buffers?: GPUVertexBufferLayout[];
+    /** 自定义G3资源组布局。 */
+    custom_g3?: GPUBindGroupLayoutDescriptor;
     /** 着色器实例ID（着色器资产装载后生成）。 */
     instance?: number;
 }
@@ -103,6 +105,8 @@ export interface PropLayout {
     tuple: PropTuple;
     /** GPU资源绑定组布局实例。 */
     layout?: GPUBindGroupLayout;
+    /** 自定义GPU资源绑定组布局实例G3。 */
+    custom_g3?: GPUBindGroupLayout;
     /** 资源绑定组代码。 */
     vscode: string;
     /** 资源绑定组代码。 */

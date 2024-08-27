@@ -7,6 +7,8 @@ var<private> mesh_tile_rect: vec4f = vec4f(0.0);
 // 顶点材质方法（在顶点着色器入口函数中先调用init_vertex_0，后调用material_vs）
 fn material_vs() ->OutputVS {
     var output: OutputVS;
+    
+    output.instanceID = gl_InstanceID;
 
     // 在此可以添加一些用户代码来修改或提供模型空间顶点属性 ...
 

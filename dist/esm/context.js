@@ -255,6 +255,9 @@ export class Context {
         }
         this._shaders.usedCount += 1;
         asset.instance = id;
+        if (asset.custom_g3) {
+            entry.custom_g3 = this._global.device.device.createBindGroupLayout(asset.custom_g3);
+        }
         return entry;
     }
     GenerateMaterialPropTuple(properties, uniformGroup) {
@@ -1174,6 +1177,9 @@ struct ObjectUniforms {
         if (g3 && g3.layout) {
             pipelineLDesc.bindGroupLayouts.push(g3.layout);
         }
+        else if (g2.custom_g3) {
+            pipelineLDesc.bindGroupLayouts.push(g2.custom_g3);
+        }
         const pipelineLayout = this._global.device.device.createPipelineLayout(pipelineLDesc);
         const shaderModules = this.CompileShaderModule(g2, g0, g1, g3);
         const blendMode = desc.flags >> 28;
@@ -1601,6 +1607,28 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
             return null;
         }
         return { id: 1, binding: binding, offset: uniform.group == 1 ? uniform.boneArrayStart * 64 : uniform.offset };
+    }
+    CreateBindGroupCustom(uniform, entries) {
+        const shader = this._shaders.list[uniform.layoutID];
+        if (!shader) {
+            this._global.Track("Context.CreateBindGroup: 无效着色器实例ID=" + uniform.layoutID + "！", 3);
+            return null;
+        }
+        if (!shader.custom_g3) {
+            this._global.Track(`Context.CreateBindGroupCustom: 当前着色器（${shader.name}）未自定义G3`, 3);
+            return null;
+        }
+        const bindingDesc = {
+            label: "",
+            layout: shader.custom_g3,
+            entries: entries
+        };
+        const binding = this._global.device.device.createBindGroup(bindingDesc);
+        if (!binding) {
+            this._global.Track("Context.CreateBindGroupCustom: 资源组绑定对象创建失败！", 3);
+            return null;
+        }
+        return { id: 1, binding: binding, offset: 0 };
     }
     GetShader(id) {
         return this._shaders.list[id];

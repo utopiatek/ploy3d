@@ -70,6 +70,8 @@ fn material_vs() ->OutputVS {
     // =================--------------------------------------------
 
     var output: OutputVS;
+    
+    output.instanceID = gl_InstanceID;
 
     output.gl_Position = vec4(pos, 0.0, 1.0);
     output.clipPosition = vec4(pos, 0.0, 1.0);

@@ -68,10 +68,10 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
 
     /** 对象名称。 */
     public get name(): string {
-        return this._impl.Get(this._ptr, "name");
+        return this._name;
     }
     public set name(name: string) {
-        this._impl.Set(this._ptr, "name", name);
+        this._name = name;
     }
 
     /** 对象激活状态。 */
@@ -298,6 +298,8 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
 
     /** 内核实现。 */
     private _impl: Object_kernel;
+    /** 对象名称。 */
+    private _name: string = "object3d";
 }
 
 /** 3D对象内核实现。 */

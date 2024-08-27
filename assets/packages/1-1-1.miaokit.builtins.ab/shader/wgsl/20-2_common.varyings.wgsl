@@ -25,6 +25,9 @@ struct OutputVS {
     @interpolate(flat) @location(6) custom1: vec4<i32>,
     // 用户定义属性2
     @location(7) custom2: vec4<f32>,
+
+    // 实例索引
+    @interpolate(flat) @location(8) instanceID: u32,
 };
 
 // 片元输入结构
@@ -49,9 +52,14 @@ struct InputFS {
     @interpolate(flat) @location(6) custom1: vec4<i32>,
     // 用户定义属性2
     @location(7) custom2: vec4<f32>,
+
+    // 实例索引
+    @interpolate(flat) @location(8) instanceID: u32,
 };
 
 var<private> gl_FrontFacing: bool = false;
+
+var<private> inputs_instanceID: u32 = 0u;
 
 var<private> inputs_clipPosition: vec4f = vec4f(0.0);
 var<private> inputs_litPosition: vec4f = vec4f(0.0);
@@ -67,7 +75,9 @@ var<private> inputs_custom2: vec4<f32> = vec4<f32>(0.0);
 
 fn varyings_init(frag: InputFS) {
     gl_FrontFacing = frag.gl_FrontFacing;
-    
+
+    inputs_instanceID = frag.instanceID;
+
     inputs_clipPosition = frag.clipPosition;
     inputs_litPosition = frag.litPosition;
 

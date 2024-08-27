@@ -123,6 +123,17 @@ export declare class Context {
         offset: number;
     };
     /**
+     * 创建自定义资源组G3绑定对象实例。
+     * @param uniform 统一资源组实例。
+     * @param entries 资源实例引用。
+     * @returns 返回绑定对象实例。
+     */
+    CreateBindGroupCustom(uniform: Miaoverse.Material, entries: GPUBindGroupEntry[]): {
+        id: number;
+        binding: GPUBindGroup;
+        offset: number;
+    };
+    /**
      * 获取着色器实例。
      * @param id 着色器实例ID。
      * @returns 返回着色器实例。

@@ -8,6 +8,8 @@ var<private> positions : array<vec4f, 3> = array<vec4f, 3>(
 // 顶点材质方法（在顶点着色器入口函数中先调用init_vertex_0，后调用material_vs）
 fn material_vs() ->OutputVS {
     var output: OutputVS;
+    
+    output.instanceID = gl_InstanceID;
 
     output.gl_Position = positions[gl_VertexID];
     output.clipPosition = positions[gl_VertexID];

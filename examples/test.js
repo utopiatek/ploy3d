@@ -163,6 +163,67 @@ export class PloyApp_test extends ploycloud.PloyApp {
             }
         }
 
+        // 创建广告牌绘制材质
+        const billboard_material = await resources.Material.Create({
+            uuid: "",
+            classid: 32,
+            name: "billboard",
+            label: "billboard",
+
+            shader: "1-1-1.miaokit.builtins:/shader/17-6_standard_billboard.json",
+            flags: 0x100000 | 0x1000000,
+            properties: {
+                textures: {},
+                vectors: {
+                    spriteSize: [200, 100]
+                }
+            }
+        });
+        // 创建广告牌网格渲染器组件（广告牌无需设置网格）
+        const billboard_mesh_renderer = await resources.MeshRenderer.Create(null, [
+            {
+                slot: 0,
+                submesh: 0,
+                material: billboard_material
+            }
+        ]);
+        // 创建广告牌3D对象
+        const billboard_obj = await resources.Object.Create(this.scene);
+        // 设置广告牌地理位置
+        billboard_obj.SetLngLat(dior_lnglat[0] + 0.0025, dior_lnglat[1], 0.0);
+        billboard_obj.localPosition = this.engine.Vector3([0, 50, 0]);
+        // 设置广告牌网格渲染器到3D对象上（自动添加绘制）
+        billboard_obj.meshRenderer = billboard_mesh_renderer;
+        // 因为广告牌网格渲染器不包含网格，因此手动设置包围盒参数（使视锥裁剪正确）
+        billboard_mesh_renderer.view.bbCenter = [0, 0, 0];
+        billboard_mesh_renderer.view.bbExtents = [100, 50, 50];
+        // 创建广告牌2D绘制接口实例
+        const billboard_ctx2d = this.engine.renderer2d.CreateCanvas(1024, 512);
+        // 自定义广告牌绘制方法（直接在广告牌网格上绘制UI）
+        billboard_mesh_renderer.drawCustom = (queue, method, params) => {
+            // 确保当前Canvas2D已添加到2D渲染器（添加后才会写入绘制数据缓存）
+            billboard_ctx2d.Draw(queue, method, params);
+        };
+        // 我们需要在Draw2D函数中将该实例添加到2D渲染器
+        this.billboard_ctx2d = billboard_ctx2d;
+        // 2D画布绘制方法
+        const billboard_ctx2d_draw = () => {
+            const ctx = this.billboard_ctx2d;
+
+            ctx.fillStyle = "red";
+            ctx.fillRect(64, 64, 256, 128);
+
+            ctx.arc(512, 256, 64, 0, Math.PI * 2.0);
+            ctx.fill();
+
+            ctx.lineWidth = 10;
+
+            ctx.arc(768, 128, 64, 0, Math.PI * 2.0);
+            ctx.stroke();
+        };
+        // 执行2D画布绘制（绘制结果可缓存，后续帧添加到2D渲染器即可）
+        billboard_ctx2d_draw();
+
         // 创建地球大气层对象
         await this.CreateAtmosphere(this.scene);
 
@@ -193,7 +254,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         this.DrawFrame(1);
 
         // 绘制6000帧以持续播放动画
-        this.DrawFrame(60000);
+        // this.DrawFrame(60000);
 
         console.log(this);
     }
@@ -217,6 +278,8 @@ export class PloyApp_test extends ploycloud.PloyApp {
      * 绘制场景2D画面。
      */
     Draw2D() {
+        this.engine.renderer2d.AddDraw(this.billboard_ctx2d);
+
         const targetLL = this.engine.gis.GCJ02_WGS84([120.2824892, 30.4876468]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
         const screenPos = this.camera.WorldToScreen(targetWPOS);

@@ -194,6 +194,7 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
             }
             const instance = await this._global.resources.Object.Create(scene);
             instanceList[listBeg + instanceCount++] = instance;
+            instance.name = asset.name;
             if (parent) {
                 instance.SetParent(parent);
             }

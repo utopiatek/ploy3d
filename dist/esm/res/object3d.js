@@ -34,10 +34,10 @@ export class Object3D extends Miaoverse.Resource {
         return this._impl.Get(this._ptr, "readTS");
     }
     get name() {
-        return this._impl.Get(this._ptr, "name");
+        return this._name;
     }
     set name(name) {
-        this._impl.Set(this._ptr, "name", name);
+        this._name = name;
     }
     get active() {
         return this._impl.Get(this._ptr, "enabled") > 0;
@@ -202,6 +202,7 @@ export class Object3D extends Miaoverse.Resource {
         }
     }
     _impl;
+    _name = "object3d";
 }
 export class Object_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {

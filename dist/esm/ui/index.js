@@ -682,7 +682,7 @@ export class Canvas extends Panel {
     get window() {
         let window = this._cur_window || this._window;
         if (!window) {
-            window = this._window = this._system._global.CreateCanvas(this.canvas_width, this.canvas_height);
+            window = this._window = this._system["_global"].CreateCanvas(this.canvas_width, this.canvas_height);
         }
         return window;
     }
@@ -720,7 +720,7 @@ export class Component_image extends Component {
     }
     async Update(style) {
         if (!this._image) {
-            this._image = await this._system._global.LoadImage(this._options.component.image.url, "anonymous");
+            this._image = await this._system["_global"].LoadImage(this._options.component.image.url, "anonymous");
         }
         return this._Update(style);
     }
@@ -833,7 +833,7 @@ export class Component_text extends Component {
                 settings.line_width = 0;
                 settings.line_height = 0;
                 for (let line of settings.default_lines) {
-                    const metrics = this._system._global.MeasureText(line, ctx);
+                    const metrics = this._system["_global"].MeasureText(line, ctx);
                     if (settings.line_width < metrics.width) {
                         settings.line_width = metrics.width;
                     }
@@ -848,7 +848,7 @@ export class Component_text extends Component {
                 settings.text = text.text;
                 settings.default_lines = [text.text];
                 settings.dynamic_lines = [text.text];
-                const metrics = this._system._global.MeasureText(text.text, ctx);
+                const metrics = this._system["_global"].MeasureText(text.text, ctx);
                 settings.line_width = metrics.width;
                 settings.line_height = metrics.height;
                 settings.line_actualBoundingBoxAscent = metrics.actualBoundingBoxAscent;
@@ -857,14 +857,14 @@ export class Component_text extends Component {
         }
         if (!this._options.auto_width) {
             ctx.font = settings.font;
-            const tolerance = this._system._global.MeasureText("我", ctx);
+            const tolerance = this._system["_global"].MeasureText("我", ctx);
             const width = this.get_width();
             const line_width = (width.width - text.padding[0] - text.padding[2]) * this._canvas.canvas_scale - tolerance.width * 0.5;
             if (settings.line_width > line_width) {
                 settings.line_width = line_width;
                 settings.dynamic_lines = [];
                 const Wrap = (text_) => {
-                    const metrics = this._system._global.MeasureText(text_, ctx);
+                    const metrics = this._system["_global"].MeasureText(text_, ctx);
                     if (metrics.width < line_width) {
                         return [text_];
                     }
@@ -874,7 +874,7 @@ export class Component_text extends Component {
                         let cur_line = "";
                         let cur_width = 0;
                         for (let i = 0; i < cur_chars.length; i++) {
-                            const char_width = this._system._global.MeasureText(cur_chars[i], ctx).width;
+                            const char_width = this._system["_global"].MeasureText(cur_chars[i], ctx).width;
                             cur_line += cur_chars[i];
                             cur_width += char_width;
                             if (cur_width > line_width) {
@@ -1053,8 +1053,8 @@ export class Component_echart extends Component {
                 this._last_draw_width = w;
                 this._last_draw_height = h;
                 if (!this._echart) {
-                    this._dom = this._system._global.CreateCanvas(w, h);
-                    this._echart = this._system._global.echarts.init(this._dom, this._options.component.theme);
+                    this._dom = this._system["_global"].CreateCanvas(w, h);
+                    this._echart = this._system["_global"].echarts.init(this._dom, this._options.component.theme);
                     this._echart.setOption(this.echart_option);
                 }
                 else {
@@ -1470,7 +1470,7 @@ const CALYNUI_LAYOUT_FRAME1_BUILTIN_000002 = {
                 cache.center_fill_gradient = center_fill_gradient;
                 cache.center_stroke_gradient = center_stroke_gradient;
                 if (config.bg_image && !cache.bg_image) {
-                    cache.bg_image = await master["_system"]._global.LoadImage(config.bg_image, "anonymous");
+                    cache.bg_image = await master["_system"]["_global"].LoadImage(config.bg_image, "anonymous");
                 }
             }
             ctx.save();

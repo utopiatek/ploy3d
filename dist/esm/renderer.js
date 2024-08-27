@@ -258,12 +258,33 @@ export class DrawQueue {
             const ibFormat = activeMesh.ibFormat;
             const subMesh = activeMesh.triangles[submesh];
             context.SetIndexBuffer(ibFormat, subMesh, this.passEncoder);
-            this.passEncoder.drawIndexed(subMesh.size / ibFormat, instanceCount, 0, 0, firstInstance);
+            if (activeG1.drawCustom) {
+                activeG1.drawCustom(this, "drawIndexed", [
+                    subMesh.size / ibFormat,
+                    instanceCount,
+                    0,
+                    0,
+                    firstInstance,
+                ]);
+            }
+            else {
+                this.passEncoder.drawIndexed(subMesh.size / ibFormat, instanceCount, 0, 0, firstInstance);
+            }
         }
         else {
             const drawCount = activeG2.view.drawCount?.[0];
             if (drawCount) {
-                this.passEncoder.draw(drawCount, instanceCount, 0, firstInstance);
+                if (activeG1.drawCustom) {
+                    activeG1.drawCustom(this, "draw", [
+                        drawCount,
+                        instanceCount,
+                        0,
+                        firstInstance,
+                    ]);
+                }
+                else {
+                    this.passEncoder.draw(drawCount, instanceCount, 0, firstInstance);
+                }
             }
         }
     }

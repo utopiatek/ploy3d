@@ -190,6 +190,8 @@ export declare class Ploy3D {
     worker: Miaoverse.Miaoworker;
     /** GIS系统。 */
     gis: Miaoverse.Gis;
+    /** 2D渲染器接口。 */
+    renderer2d: Miaoverse.Renderer2D;
     /** CalynUI系统。 */
     ui: Miaoverse.CalynUI;
     /** 引擎配置。 */

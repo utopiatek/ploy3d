@@ -71,6 +71,7 @@ export class MeshRenderer extends Miaoverse.Uniform {
     get view() {
         return this._view;
     }
+    drawCustom;
     _view;
 }
 export class MeshRenderer_kernel extends Miaoverse.Base_kernel {

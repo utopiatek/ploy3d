@@ -40,7 +40,7 @@ export declare class CalynUI {
     get canvas(): Canvas;
     set canvas(_canvas: Canvas);
     /** 模块实例对象。 */
-    _global: Miaoverse.Ploy3D;
+    private _global;
     /** 是否显示元素颜色标识（编辑模式使用）。 */
     show_id_color: boolean;
     /** 需高亮提示的元素ID（编辑模式使用）。 */
