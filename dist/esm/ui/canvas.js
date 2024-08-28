@@ -7,7 +7,16 @@ export class Renderer2D {
         this._styleLut = {};
     }
     async Init() {
-        this.CreateStyle2D("white");
+        const colors = {
+            red: 0xff0000,
+            green: 0x00ff00,
+            blue: 0x0000ff,
+            white: 0xffffff,
+        };
+        for (let key in colors) {
+            const style = this.CreateStyle2D(key);
+            style.color = colors[key] | 0xFF000000;
+        }
         return this;
     }
     CreateCanvas(width, height) {
@@ -20,7 +29,7 @@ export class Renderer2D {
         }
         style = new Style2D(this, color);
         style.type = 0;
-        style.color = 0xFF00FF;
+        style.color = 0xFFFFFFFF;
         this._styleLut[color] = style;
         return style;
     }
@@ -65,22 +74,25 @@ export class Renderer2D {
         byteLength += 32 * total_styleCount;
         byteLength = byteLength + 16384;
         byteLength = (byteLength + 0xFFFFF) & 0xFFF00000;
-        if (!this._drawData || byteLength > this._drawData.capacity) {
-            if (this._drawData) {
-                this._global.device.FreeBuffer(this._drawData.bufferID);
+        let drawData = this._drawData;
+        if (!drawData || byteLength > drawData.capacity) {
+            const device = this._global.device;
+            if (drawData) {
+                device.FreeBuffer(drawData.bufferID);
             }
             const buffer = new ArrayBuffer(byteLength);
-            const bufferID = this._global.device.CreateBuffer(1, byteLength);
-            this._drawData = {
+            const bufferID = device.CreateBuffer(1, byteLength);
+            drawData = this._drawData = {
                 buffer,
                 bufferID,
                 capacity: byteLength
             };
         }
-        const instances = this._drawData.instances = new Uint32Array(this._drawData.buffer, instancesPtr, 4 * total_instanceCount);
-        const transforms = this._drawData.transforms = new Float32Array(this._drawData.buffer, transformsPtr, 8 * total_transformCount);
-        const geometries = this._drawData.geometries = new Uint32Array(this._drawData.buffer, geometriesPtr, 4 * total_geometryCount);
-        const styles = this._drawData.styles = new Uint32Array(this._drawData.buffer, stylesPtr, 8 * total_styleCount);
+        const buffer = drawData.buffer;
+        const instances = drawData.instances = new Uint32Array(buffer, instancesPtr, 4 * total_instanceCount);
+        const transforms = drawData.transforms = new Float32Array(buffer, transformsPtr, 8 * total_transformCount);
+        const geometries = drawData.geometries = new Uint32Array(buffer, geometriesPtr, 4 * total_geometryCount);
+        const styles = drawData.styles = new Uint32Array(buffer, stylesPtr, 8 * total_styleCount);
         for (let canvas of this._drawList) {
             const data = canvas["data"];
             let offset = data.instancesOffset * 4;
@@ -88,15 +100,6 @@ export class Renderer2D {
             let array = data.instances;
             for (let i = 0; i < count; i++) {
                 instances[offset + i] = array[i];
-            }
-            offset = data.stylesOffset;
-            count = data.styleCount;
-            for (let i = 0; i < count; i++) {
-                const o8 = (offset + i) * 8;
-                array = data.styles[i]["_data"];
-                for (let j = 0; j < 8; j++) {
-                    styles[o8 + j] = array[j];
-                }
             }
             offset = data.transformsOffset * 8;
             count = data.transformCount * 8;
@@ -109,6 +112,17 @@ export class Renderer2D {
             array = data.geometries;
             for (let i = 0; i < count; i++) {
                 geometries[offset + i] = array[i];
+            }
+            offset = data.stylesOffset * 8;
+            count = data.styleCount;
+            for (let i = 0; i < count; i++) {
+                array = data.styles[i]?.["_data"];
+                if (array) {
+                    const i8 = i * 8;
+                    for (let j = 0; j < 8; j++) {
+                        styles[offset + i8 + j] = array[j];
+                    }
+                }
             }
         }
         this._global.device.WriteBuffer(this._drawData.bufferID, 0, this._drawData.buffer, 0, styles.byteOffset + styles.byteLength);
@@ -128,11 +142,8 @@ export class Renderer2D {
 export class Path2D {
     constructor() {
     }
-    Rect(mode, x, y, w, h) {
-        let n0 = 0;
-        n0 += 0 << 16;
-        n0 += (mode & 3) << 8;
-        n0 += 1;
+    Rect(x, y, w, h) {
+        let n0 = 1;
         w = Math.floor(w * 0.5);
         h = Math.floor(h * 0.5);
         let n2 = (h << 16) + w;
@@ -145,16 +156,32 @@ export class Path2D {
         this.geometryCount = 1;
         this.geometries = [n0, n1, n2, n3];
     }
+    RoundRect(x, y, w, h, radii) {
+        if (!radii) {
+            this.Rect(x, y, w, h);
+            return;
+        }
+        let n0 = 3;
+        w = Math.floor(w * 0.5);
+        h = Math.floor(h * 0.5);
+        let n2 = (h << 16) + w;
+        x = Math.floor(x + w);
+        y = Math.floor(y + h);
+        let n1 = (y << 16) + x;
+        radii = Math.ceil(radii);
+        let n3 = (0 << 16) + radii;
+        this.type = 3;
+        this.applied = false;
+        this.geometryCount = 1;
+        this.geometries = [n0, n1, n2, n3];
+    }
     Arc(x, y, radius, startAngle, endAngle) {
-        let n0 = 0;
-        n0 += 0 << 16;
-        n0 += (0 & 3) << 8;
-        n0 += 2;
+        let n0 = 2;
         x = Math.floor(x);
         y = Math.floor(y);
         let n1 = (y << 16) + x;
-        startAngle = Math.floor(startAngle / (2.0 * Math.PI)) * 65535;
-        endAngle = Math.floor(endAngle / (2.0 * Math.PI)) * 65535;
+        startAngle = Math.floor(startAngle / (2.0 * Math.PI) * 65535);
+        endAngle = Math.floor(endAngle / (2.0 * Math.PI) * 65535);
         let n2 = (endAngle << 16) + startAngle;
         radius = Math.ceil(radius);
         let n3 = (0 << 16) + radius;
@@ -163,11 +190,8 @@ export class Path2D {
         this.geometryCount = 1;
         this.geometries = [n0, n1, n2, n3];
     }
-    set mode(value) {
-        this.geometries[0] = (this.geometries[0] & 0xFFFF00FF) | ((value & 0xFF) << 8);
-    }
-    get mode() {
-        return (this.geometries[0] >> 8) & 0xFF;
+    Mask(transform) {
+        return 0xFFFFFFFF;
     }
     type;
     applied;
@@ -293,6 +317,7 @@ export class Canvas2D {
             geometries: [],
             geometriesOffset: 0,
             geometryCount: 0,
+            geometryCur: 0,
             path: null,
             styles: [],
             stylesOffset: 0,
@@ -304,8 +329,10 @@ export class Canvas2D {
             batch: null
         };
     }
-    Flush() {
+    Flush(drawMode) {
         const data = this.data;
+        const path = data.path;
+        const transform = data.transform;
         if (data.frameTS != this.renderer.frameTS) {
             data.frameTS = this.renderer.frameTS;
             data.instancesOffset = 0;
@@ -314,97 +341,130 @@ export class Canvas2D {
             data.transformCount = 0;
             data.geometriesOffset = 0;
             data.geometryCount = 0;
+            data.geometryCur = 0;
             data.stylesOffset = 0;
             data.styleCount = 0;
             data.batches = [];
             data.batch = null;
             this.renderer.AddDraw(this);
         }
-        if (!data.path) {
+        if (!path) {
             return;
         }
-        if (data.batch == null ||
-            (data.instanceCount - data.batch.instancesOffset) >= 1024 ||
-            (data.transformCount - data.batch.transformsOffset) >= 512 ||
-            (data.geometryCount + data.path.geometryCount - data.batch.geometriesOffset) > 1024 ||
-            Object.keys(data.batch.stylesLut).length > 510) {
+        let batch = data.batch;
+        if (batch == null ||
+            batch.instanceCount == 1024 ||
+            batch.transformCount == 512 ||
+            batch.geometryCount + path.geometryCount > 1024 ||
+            batch.styleCount > 510) {
+            path.applied = false;
+            transform.applied = false;
             data.instanceCount = (data.instanceCount + 15) >> 4 << 4;
             data.transformCount = (data.transformCount + 7) >> 3 << 3;
             data.geometryCount = (data.geometryCount + 15) >> 4 << 4;
             data.styleCount = (data.styleCount + 7) >> 3 << 3;
-            data.batch = {
-                instancesCount: 0,
+            batch = data.batch = {
                 instancesOffset: data.instanceCount,
+                instanceCount: 0,
                 transformsOffset: data.transformCount,
+                transformCount: 0,
                 geometriesOffset: data.geometryCount,
+                geometryCount: 0,
                 stylesOffset: data.styleCount,
-                stylesLut: {}
+                styleCount: 0,
+                styleLut: {}
             };
-            data.batches.push(data.batch);
+            data.instanceCount++;
+            batch.instanceCount++;
+            data.instances[batch.instancesOffset * 4 + 0] = 0;
+            data.instances[batch.instancesOffset * 4 + 1] = 0;
+            data.instances[batch.instancesOffset * 4 + 2] = 0;
+            data.instances[batch.instancesOffset * 4 + 3] = 0;
+            data.batches.push(batch);
         }
-        let instance = data.instanceCount;
-        if (data.transform.applied == false) {
-            data.transform.applied = true;
+        if (transform.applied == false) {
+            transform.applied = true;
             const i8 = data.transformCount * 8;
-            data.transforms[i8 + 0] = data.transform.data[0];
-            data.transforms[i8 + 1] = data.transform.data[1];
-            data.transforms[i8 + 2] = data.transform.data[2];
-            data.transforms[i8 + 3] = data.transform.data[3];
-            data.transforms[i8 + 4] = data.transform.data[4];
-            data.transforms[i8 + 5] = data.transform.data[5];
-            data.transforms[i8 + 6] = data.transform.data[6];
-            data.transforms[i8 + 7] = data.transform.data[7];
+            data.transforms[i8 + 0] = transform.data[0];
+            data.transforms[i8 + 1] = transform.data[1];
+            data.transforms[i8 + 2] = transform.data[2];
+            data.transforms[i8 + 3] = transform.data[3];
+            data.transforms[i8 + 4] = transform.data[4];
+            data.transforms[i8 + 5] = transform.data[5];
+            data.transforms[i8 + 6] = transform.data[6];
+            data.transforms[i8 + 7] = transform.data[7];
             data.transformCount++;
+            batch.transformCount++;
         }
-        let transform = data.transformCount - 1;
-        let geometryBeg = data.geometryCount;
-        let geometryEnd = geometryBeg + data.path.geometryCount;
-        let geometryType = data.path.type;
-        if (data.path.applied == false) {
-            data.path.applied = true;
-            const rcount = data.path.geometryCount;
-            const rarray = data.path.geometries;
-            const warray = data.geometries;
-            const woffset = data.geometryCount;
-            for (let i = 0; i < rcount; i++) {
-                const r4 = i * 4;
-                const w4 = (woffset + i) * 4;
-                warray[w4 + 0] = rarray[r4 + 0];
-                warray[w4 + 1] = rarray[r4 + 1];
-                warray[w4 + 2] = rarray[r4 + 2];
-                warray[w4 + 3] = rarray[r4 + 3];
+        let transformIndex = data.transformCount - 1;
+        if (path.applied == false) {
+            path.applied = true;
+            const offset = data.geometryCount * 4;
+            const count = path.geometryCount * 4;
+            for (let i = 0; i < count; i++) {
+                data.geometries[offset + i] = path.geometries[i];
             }
-            data.geometryCount += rcount;
+            data.geometryCur = data.geometryCount;
+            data.geometryCount += path.geometryCount;
+            batch.geometryCount += path.geometryCount;
         }
-        let fillStyle = data.batch.stylesLut[data.fillStyle.id];
+        let geometryBeg = data.geometryCur;
+        let geometryEnd = data.geometryCount;
+        let geometryType = path.type;
+        let geometryMask = path.Mask(transform.data);
+        let fillStyle = batch.styleLut[data.fillStyle.id];
         if (fillStyle == undefined) {
             fillStyle = data.styleCount;
-            data.batch.stylesLut[data.fillStyle.id] = fillStyle;
+            batch.styleLut[data.fillStyle.id] = fillStyle;
             data.styles[fillStyle] = data.fillStyle;
+            batch.styleCount++;
             data.styleCount++;
         }
-        let strokeStyle = data.batch.stylesLut[data.strokeStyle.id];
+        let strokeStyle = batch.styleLut[data.strokeStyle.id];
         if (strokeStyle == undefined) {
             strokeStyle = data.styleCount;
-            data.batch.stylesLut[data.strokeStyle.id] = strokeStyle;
+            batch.styleLut[data.strokeStyle.id] = strokeStyle;
             data.styles[strokeStyle] = data.strokeStyle;
+            batch.styleCount++;
             data.styleCount++;
         }
-        transform -= data.batch.transformsOffset;
-        geometryBeg -= data.batch.geometriesOffset;
-        geometryEnd -= data.batch.geometriesOffset;
-        fillStyle -= data.batch.stylesOffset;
-        strokeStyle -= data.batch.stylesOffset;
-        data.instances[instance * 4 + 0] = (transform << 16) + geometryType;
-        data.instances[instance * 4 + 1] = (geometryEnd << 16) + geometryBeg;
-        data.instances[instance * 4 + 2] = (strokeStyle << 16) + fillStyle;
-        data.instances[instance * 4 + 3] = this.data.lineWidth & 0xFF;
-        data.batch.instancesCount++;
-        data.instanceCount++;
+        let instance = data.instanceCount;
+        let lineWidth = data.lineWidth;
+        transformIndex -= batch.transformsOffset;
+        geometryBeg -= batch.geometriesOffset;
+        geometryEnd -= batch.geometriesOffset;
+        fillStyle -= batch.stylesOffset;
+        strokeStyle -= batch.stylesOffset;
+        let instance_nx = 0;
         {
-            let index = data.batch.instancesOffset * 4 + 3;
-            let count = (data.instances[index] & 0xFFFF) | (data.batch.instancesCount << 16);
-            data.instances[index] = count;
+            instance_nx += (drawMode & 0x3) << 30;
+            instance_nx += (transformIndex & 0x3FF) << 20;
+            instance_nx += (geometryEnd & 0x3FF) << 10;
+            instance_nx += (geometryBeg & 0x3FF) << 0;
+        }
+        let instance_ny = 0;
+        {
+            instance_ny += (geometryType & 0xF) << 28;
+            instance_ny += (lineWidth & 0xFF) << 20;
+            instance_ny += (strokeStyle & 0x3FF) << 10;
+            instance_ny += (fillStyle & 0x3FF) << 0;
+        }
+        let instance_nz = 0;
+        {
+        }
+        let instance_nw = 0;
+        {
+            instance_nw = geometryMask;
+        }
+        data.instances[instance * 4 + 0] = instance_nx;
+        data.instances[instance * 4 + 1] = instance_ny;
+        data.instances[instance * 4 + 2] = instance_nz;
+        data.instances[instance * 4 + 3] = instance_nw;
+        data.instanceCount++;
+        batch.instanceCount++;
+        {
+            data.instances[batch.instancesOffset * 4 + 0] |= geometryMask;
+            data.instances[batch.instancesOffset * 4 + 1] = batch.instanceCount;
         }
     }
     Draw(queue, method, params) {
@@ -422,49 +482,40 @@ export class Canvas2D {
         const offset1 = data.styles.byteOffset + this.data.stylesOffset * 32;
         const offset2 = data.transforms.byteOffset + this.data.transformsOffset * 32;
         const offset3 = data.geometries.byteOffset + this.data.geometriesOffset * 16;
-        const binding = context.CreateBindGroupCustom(queue.activeG2, [
-            {
-                binding: 0,
-                resource: {
-                    buffer: buffer.buffer,
-                    offset: offset0,
-                    size: 16384
+        for (let batch of this.data.batches) {
+            const offsets = [
+                offset0 + batch.instancesOffset * 16,
+                offset1 + batch.stylesOffset * 32,
+                offset2 + batch.transformsOffset * 32,
+                offset3 + batch.geometriesOffset * 16
+            ];
+            const binding_key = `${data.capacity}-${offsets[0]}-${offsets[1]}-${offsets[2]}-${offsets[3]}`;
+            if (batch.binding_key != binding_key) {
+                const entries = [];
+                for (let i = 0; i < 4; i++) {
+                    entries.push({
+                        binding: i,
+                        resource: {
+                            buffer: buffer.buffer,
+                            offset: offsets[i],
+                            size: 16384
+                        }
+                    });
                 }
-            },
-            {
-                binding: 1,
-                resource: {
-                    buffer: buffer.buffer,
-                    offset: offset1,
-                    size: 16384
+                const binding = context.CreateBindGroupCustom(queue.activeG2, entries);
+                if (!binding) {
+                    continue;
                 }
-            },
-            {
-                binding: 2,
-                resource: {
-                    buffer: buffer.buffer,
-                    offset: offset2,
-                    size: 16384
-                }
-            },
-            {
-                binding: 3,
-                resource: {
-                    buffer: buffer.buffer,
-                    offset: offset3,
-                    size: 16384
-                }
+                batch.binding_key = binding_key;
+                batch.binding = binding.binding;
             }
-        ]);
-        if (!binding) {
-            return;
-        }
-        queue.passEncoder.setBindGroup(3, binding.binding);
-        if (method == "drawIndexed") {
-            queue.passEncoder.drawIndexed(params[0], params[1], params[2], params[3], params[4]);
-        }
-        else if (method == "draw") {
-            queue.passEncoder.draw(params[0], params[1], params[2], params[3]);
+            queue.passEncoder.setBindGroup(3, batch.binding);
+            if (method == "drawIndexed") {
+                queue.passEncoder.drawIndexed(params[0], params[1], params[2], params[3], params[4]);
+            }
+            else if (method == "draw") {
+                queue.passEncoder.draw(params[0], params[1], params[2], params[3]);
+            }
         }
     }
     get canvas() {
@@ -501,8 +552,7 @@ export class Canvas2D {
         if (!this.data.path) {
             return;
         }
-        this.data.path.mode = 1;
-        this.Flush();
+        this.Flush(1);
     }
     isPointInPath(path_or_x, x_or_y, y_or_rule, fillRule) {
         throw "TODO: Canvas.fillStyle!";
@@ -517,8 +567,7 @@ export class Canvas2D {
         if (!this.data.path) {
             return;
         }
-        this.data.path.mode = 2;
-        this.Flush();
+        this.Flush(2);
     }
     set fillStyle(value) {
         if (typeof value == "string") {
@@ -602,10 +651,14 @@ export class Canvas2D {
         throw "TODO: Canvas.quadraticCurveTo!";
     }
     rect(x, y, w, h) {
-        throw "TODO: Canvas.rect!";
+        const path = new Path2D();
+        path.Rect(x, y, w, h);
+        this.data.path = path;
     }
     roundRect(x, y, w, h, radii) {
-        throw "TODO: Canvas.roundRect!";
+        const path = new Path2D();
+        path.RoundRect(x, y, w, h, radii);
+        this.data.path = path;
     }
     set lineCap(value) {
         throw "TODO: Canvas.lineCap!";
@@ -648,12 +701,15 @@ export class Canvas2D {
     }
     fillRect(x, y, w, h) {
         const path = new Path2D();
-        path.Rect(1, x, y, w, h);
+        path.Rect(x, y, w, h);
         this.data.path = path;
-        this.Flush();
+        this.Flush(1);
     }
     strokeRect(x, y, w, h) {
-        throw "TODO: Canvas.strokeRect!";
+        const path = new Path2D();
+        path.Rect(x, y, w, h);
+        this.data.path = path;
+        this.Flush(2);
     }
     set shadowBlur(value) {
         throw "TODO: Canvas.shadowBlur!";

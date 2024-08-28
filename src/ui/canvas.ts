@@ -21,7 +21,20 @@ export class Renderer2D {
      * @returns 返回2D渲染器接口实例。
      */
     public async Init() {
-        this.CreateStyle2D("white");
+        // #AARRGGBB: https://learn.microsoft.com/zh-cn/power-platform/power-fx/reference/function-colors#built-in-colors
+
+        const colors: Record<string, number> = {
+            red: 0xff0000,
+            green: 0x00ff00,
+            blue: 0x0000ff,
+            white: 0xffffff,
+        };
+
+        for (let key in colors) {
+            const style = this.CreateStyle2D(key);
+            style.color = colors[key] | 0xFF000000;
+        }
+
         return this;
     }
 
@@ -48,7 +61,7 @@ export class Renderer2D {
 
         style = new Style2D(this, color);
         style.type = 0;
-        style.color = 0xFF00FF;
+        style.color = 0xFFFFFFFF;
 
         this._styleLut[color] = style;
 
@@ -97,7 +110,7 @@ export class Renderer2D {
             total_geometryCount += data.geometryCount;
             total_styleCount += data.styleCount;
 
-            // 缓存绑定偏移需要256字节对齐
+            // GPU缓存绑定需要256字节对齐
             total_instanceCount = (total_instanceCount + 15) >> 4 << 4;
             total_transformCount = (total_transformCount + 7) >> 3 << 3;
             total_geometryCount = (total_geometryCount + 15) >> 4 << 4;
@@ -112,28 +125,36 @@ export class Renderer2D {
         let geometriesPtr = byteLength; byteLength += 16 * total_geometryCount;
         let stylesPtr = byteLength; byteLength += 32 * total_styleCount;
 
+        // 区别GPU缓存有16384的绑定大小
         byteLength = byteLength + 16384;
+        // 以MB为单位分配缓存空间
         byteLength = (byteLength + 0xFFFFF) & 0xFFF00000;
 
-        if (!this._drawData || byteLength > this._drawData.capacity) {
-            if (this._drawData) {
-                this._global.device.FreeBuffer(this._drawData.bufferID);
+        let drawData = this._drawData;
+
+        if (!drawData || byteLength > drawData.capacity) {
+            const device = this._global.device;
+
+            if (drawData) {
+                device.FreeBuffer(drawData.bufferID);
             }
 
             const buffer = new ArrayBuffer(byteLength);
-            const bufferID = this._global.device.CreateBuffer(Miaoverse.CLASSID.GPU_UNIFORM_BUFFER, byteLength);
+            const bufferID = device.CreateBuffer(Miaoverse.CLASSID.GPU_UNIFORM_BUFFER, byteLength);
 
-            this._drawData = {
+            drawData = this._drawData = {
                 buffer,
                 bufferID,
                 capacity: byteLength
             };
         }
 
-        const instances = this._drawData.instances = new Uint32Array(this._drawData.buffer, instancesPtr, 4 * total_instanceCount);
-        const transforms = this._drawData.transforms = new Float32Array(this._drawData.buffer, transformsPtr, 8 * total_transformCount);
-        const geometries = this._drawData.geometries = new Uint32Array(this._drawData.buffer, geometriesPtr, 4 * total_geometryCount);
-        const styles = this._drawData.styles = new Uint32Array(this._drawData.buffer, stylesPtr, 8 * total_styleCount);
+        const buffer = drawData.buffer;
+
+        const instances = drawData.instances = new Uint32Array(buffer, instancesPtr, 4 * total_instanceCount);
+        const transforms = drawData.transforms = new Float32Array(buffer, transformsPtr, 8 * total_transformCount);
+        const geometries = drawData.geometries = new Uint32Array(buffer, geometriesPtr, 4 * total_geometryCount);
+        const styles = drawData.styles = new Uint32Array(buffer, stylesPtr, 8 * total_styleCount);
 
         // =======================-------------------------------
 
@@ -148,18 +169,7 @@ export class Renderer2D {
                 instances[offset + i] = array[i];
             }
 
-            offset = data.stylesOffset;
-            count = data.styleCount;
-
-            for (let i = 0; i < count; i++) {
-                const o8 = (offset + i) * 8;
-
-                array = data.styles[i]["_data"] as any;
-
-                for (let j = 0; j < 8; j++) {
-                    styles[o8 + j] = array[j];
-                }
-            }
+            // ===========------------------
 
             offset = data.transformsOffset * 8;
             count = data.transformCount * 8;
@@ -169,12 +179,31 @@ export class Renderer2D {
                 transforms[offset + i] = array[i];
             }
 
+            // ===========------------------
+
             offset = data.geometriesOffset * 4;
             count = data.geometryCount * 4;
             array = data.geometries;
 
             for (let i = 0; i < count; i++) {
                 geometries[offset + i] = array[i];
+            }
+
+            // ===========------------------
+
+            offset = data.stylesOffset * 8;
+            count = data.styleCount;
+
+            for (let i = 0; i < count; i++) {
+                array = data.styles[i]?.["_data"] as any;
+
+                if (array) {
+                    const i8 = i * 8;
+
+                    for (let j = 0; j < 8; j++) {
+                        styles[offset + i8 + j] = array[j];
+                    }
+                }
             }
         }
 
@@ -183,7 +212,8 @@ export class Renderer2D {
             0,                                      // 缓存写入偏移
             this._drawData.buffer,                  // 数据源
             0,                                      // 数据源偏移
-            styles.byteOffset + styles.byteLength); // 写入大小
+            styles.byteOffset + styles.byteLength   // 写入大小
+        );
 
         // console.error(this);
     }
@@ -238,21 +268,14 @@ export class Path2D {
 
     /**
      * 构造矩形数据。
-     * @param mode 绘制模式标志集：1-填充，2-描边。
      * @param x 左上角X像素坐标。
      * @param y 左上角Y像素坐标。
      * @param w 矩形像素宽度。
      * @param h 矩形像素高度。
      */
-    public Rect(mode: number, x: number, y: number, w: number, h: number) {
-        // 基本信息
-        let n0 = 0;
-        // 路径点数量
-        n0 += 0 << 16;
-        // 绘制模式标志集
-        n0 += (mode & 3) << 8;
-        // 多边形类型
-        n0 += 1;
+    public Rect(x: number, y: number, w: number, h: number) {
+        // 基本信息（低4位记录图形类型，当前矩形为1）
+        let n0 = 1;
 
         // 半宽高
         w = Math.floor(w * 0.5);
@@ -274,6 +297,38 @@ export class Path2D {
     }
 
     /**
+     * 创建圆角矩形路径。
+     */
+    public RoundRect(x: number, y: number, w: number, h: number, radii: number) {
+        if (!radii) {
+            this.Rect(x, y, w, h);
+            return;
+        }
+
+        // 基本信息（低4位记录图形类型，当前圆角矩形为3）
+        let n0 = 3;
+
+        // 半宽高
+        w = Math.floor(w * 0.5);
+        h = Math.floor(h * 0.5);
+        let n2 = (h << 16) + w;
+
+        // 中心点
+        x = Math.floor(x + w);
+        y = Math.floor(y + h);
+        let n1 = (y << 16) + x;
+
+        // 圆角半径
+        radii = Math.ceil(radii);
+        let n3 = (0 << 16) + radii;
+
+        this.type = 3;
+        this.applied = false;
+        this.geometryCount = 1;
+        this.geometries = [n0, n1, n2, n3];
+    }
+
+    /**
      * 构造圆形数据。
      * @param x 圆形X像素坐标。
      * @param y 圆形Y像素坐标。
@@ -282,14 +337,8 @@ export class Path2D {
      * @param endAngle 终止弧度。
      */
     public Arc(x: number, y: number, radius: number, startAngle: number, endAngle: number) {
-        // 基本信息
-        let n0 = 0;
-        // 路径点数量
-        n0 += 0 << 16;
-        // 绘制模式标志集
-        n0 += (0 & 3) << 8;
-        // 多边形类型
-        n0 += 2;
+        // 基本信息（低4位记录图形类型，当前圆形为2）
+        let n0 = 2;
 
         // 中心点
         x = Math.floor(x);
@@ -297,8 +346,8 @@ export class Path2D {
         let n1 = (y << 16) + x;
 
         // 起止弧度
-        startAngle = Math.floor(startAngle / (2.0 * Math.PI)) * 65535;
-        endAngle = Math.floor(endAngle / (2.0 * Math.PI)) * 65535;
+        startAngle = Math.floor(startAngle / (2.0 * Math.PI) * 65535);
+        endAngle = Math.floor(endAngle / (2.0 * Math.PI) * 65535);
         let n2 = (endAngle << 16) + startAngle;
 
         // 半径
@@ -311,18 +360,16 @@ export class Path2D {
         this.geometries = [n0, n1, n2, n3];
     }
 
-    /** 路径绘制模式。 */
-    public set mode(value) {
-        this.geometries[0] = (this.geometries[0] & 0xFFFF00FF) | ((value & 0xFF) << 8);
-    }
-    public get mode() {
-        return (this.geometries[0] >> 8) & 0xFF;
+    public Mask(transform: number[]) {
+        // // 边界框，变换矩阵，新边界框，掩码
+        return 0xFFFFFFFF;
     }
 
     /** 
      * 当前路径类型：
      * 1-矩形；
      * 2-圆形；
+     * 3-圆角矩形；
      */
     public type: number;
     /** 当前路径是否已应用。*/
@@ -388,7 +435,7 @@ export class Style2D {
     }
 
     /**
-     * 纯色颜色值；
+     * 纯色颜色值（#AARRGGBB）；
      */
     public get color(): number {
         return this._data[1];
@@ -601,6 +648,7 @@ export class Canvas2D {
             geometries: [],
             geometriesOffset: 0,
             geometryCount: 0,
+            geometryCur: 0,
             path: null,
 
             styles: [],
@@ -618,9 +666,12 @@ export class Canvas2D {
 
     /**
      * 刷新绘制实例数据。
+     * @param drawMode 当前绘制模式：1-填充、2-描边
      */
-    public Flush() {
+    public Flush(drawMode: number) {
         const data = this.data;
+        const path = data.path;
+        const transform = data.transform;
 
         // 如果帧时间戳不一致，清除当前绘制实例数据
         if (data.frameTS != this.renderer.frameTS) {
@@ -634,6 +685,7 @@ export class Canvas2D {
 
             data.geometriesOffset = 0;
             data.geometryCount = 0;
+            data.geometryCur = 0;
 
             data.stylesOffset = 0;
             data.styleCount = 0;
@@ -645,139 +697,202 @@ export class Canvas2D {
         }
 
         // 当前未设置几何路径
-        if (!data.path) {
+        if (!path) {
             return;
         }
 
-        if (/** 当前批次未设置 */
-            data.batch == null ||
-            /** 绘制实例数组空间已耗尽 */
-            (data.instanceCount - data.batch.instancesOffset) >= 1024 ||
-            /** 变换矩阵数组空间已耗尽 */
-            (data.transformCount - data.batch.transformsOffset) >= 512 ||
-            /** 几何数据单元数组空间已耗尽 */
-            (data.geometryCount + data.path.geometryCount - data.batch.geometriesOffset) > 1024 ||
-            /** 样式数据数组空间剩余不足2个（1个实例使用2个样式） */
-            Object.keys(data.batch.stylesLut).length > 510
+        // 当前批次数据
+        let batch = data.batch;
+
+        // 因为GPU缓存绑定需要256字节对齐，因此在写入最新数据前，我们需要进行批次数据起始地址对齐
+        if (batch == null ||                                    // 当前批次未设置
+            batch.instanceCount == 1024 ||                      // 当前批次实例数已满（无法写入新数据）
+            batch.transformCount == 512 ||                      // 当前批次变换矩阵数已满（无法写入新数据）
+            batch.geometryCount + path.geometryCount > 1024 ||  // 当前批次几何数据单元数据空间余量不足
+            batch.styleCount > 510                              // 当前批次样式数据空间余量不足（1个实例使用2个样式）
         ) {
-            // 缓存绑定偏移需要256字节对齐
+            // 需要重新应用图形路径数据和变换矩阵数据
+            path.applied = false;
+            transform.applied = false;
+
+            // 进行256字节对齐
             data.instanceCount = (data.instanceCount + 15) >> 4 << 4;
             data.transformCount = (data.transformCount + 7) >> 3 << 3;
             data.geometryCount = (data.geometryCount + 15) >> 4 << 4;
             data.styleCount = (data.styleCount + 7) >> 3 << 3;
 
             // 设置新的绘制批次
-            data.batch = {
-                instancesCount: 0,
+            batch = data.batch = {
                 instancesOffset: data.instanceCount,
+                instanceCount: 0,
+
                 transformsOffset: data.transformCount,
+                transformCount: 0,
+
                 geometriesOffset: data.geometryCount,
+                geometryCount: 0,
+
                 stylesOffset: data.styleCount,
-                stylesLut: {}
+                styleCount: 0,
+                styleLut: {}
             };
 
-            data.batches.push(data.batch);
+            // 使用第1实例保存批次相关信息
+            data.instanceCount++;
+            batch.instanceCount++;
+
+            // 批次图形影响画布区块掩码
+            data.instances[batch.instancesOffset * 4 + 0] = 0;
+            // 批次绘制实例数量
+            data.instances[batch.instancesOffset * 4 + 1] = 0;
+            // 批次保留字段
+            data.instances[batch.instancesOffset * 4 + 2] = 0;
+            // 批次保留字段
+            data.instances[batch.instancesOffset * 4 + 3] = 0;
+
+            // 添加入批次数组
+            data.batches.push(batch);
         }
 
-        // ======================-------------------------------
-
-        // 当前实例索引
-        let instance = data.instanceCount;
-
-        // 应用当前变换矩阵设置
-        if (data.transform.applied == false) {
-            data.transform.applied = true;
+        // 应用最新变换矩阵设置
+        if (transform.applied == false) {
+            transform.applied = true;
 
             const i8 = data.transformCount * 8;
 
-            data.transforms[i8 + 0] = data.transform.data[0];
-            data.transforms[i8 + 1] = data.transform.data[1];
-            data.transforms[i8 + 2] = data.transform.data[2];
-            data.transforms[i8 + 3] = data.transform.data[3];
-            data.transforms[i8 + 4] = data.transform.data[4];
-            data.transforms[i8 + 5] = data.transform.data[5];
-            data.transforms[i8 + 6] = data.transform.data[6];
-            data.transforms[i8 + 7] = data.transform.data[7];
+            data.transforms[i8 + 0] = transform.data[0];
+            data.transforms[i8 + 1] = transform.data[1];
+            data.transforms[i8 + 2] = transform.data[2];
+            data.transforms[i8 + 3] = transform.data[3];
+            data.transforms[i8 + 4] = transform.data[4];
+            data.transforms[i8 + 5] = transform.data[5];
+            data.transforms[i8 + 6] = transform.data[6];
+            data.transforms[i8 + 7] = transform.data[7];
 
             data.transformCount++;
+            batch.transformCount++;
         }
 
-        // 当前实例使用的变换矩阵索引
-        let transform = data.transformCount - 1; // TODO
+        // 引用最新应用的变换矩阵
+        let transformIndex = data.transformCount - 1;
 
-        // 当前实例使用的几何数据单元起始索引
-        let geometryBeg = data.geometryCount;
-        // 当前实例使用的几何数据单元终止索引（不含该索引）
-        let geometryEnd = geometryBeg + data.path.geometryCount;
-        // 当前实例使用的几何类型
-        let geometryType = data.path.type;
+        // 应用最新图形路径设置
+        if (path.applied == false) {
+            path.applied = true;
 
-        // 应用当前路径几何数据
-        if (data.path.applied == false) {
-            data.path.applied = true;
+            const offset = data.geometryCount * 4;
+            const count = path.geometryCount * 4;
 
-            const rcount = data.path.geometryCount;
-            const rarray = data.path.geometries;
-            const warray = data.geometries;
-            const woffset = data.geometryCount;
-
-            for (let i = 0; i < rcount; i++) {
-                const r4 = i * 4;
-                const w4 = (woffset + i) * 4;
-
-                warray[w4 + 0] = rarray[r4 + 0];
-                warray[w4 + 1] = rarray[r4 + 1];
-                warray[w4 + 2] = rarray[r4 + 2];
-                warray[w4 + 3] = rarray[r4 + 3];
+            for (let i = 0; i < count; i++) {
+                data.geometries[offset + i] = path.geometries[i];
             }
 
-            data.geometryCount += rcount;
+            data.geometryCur = data.geometryCount;
+            data.geometryCount += path.geometryCount;
+            batch.geometryCount += path.geometryCount;
         }
 
+        // 引用最新应用的图形路径几何数据
+        let geometryBeg = data.geometryCur;
+        let geometryEnd = data.geometryCount;
+        let geometryType = path.type;
+        let geometryMask = path.Mask(transform.data);
+
         // 添加填充样式实例的使用
-        let fillStyle = data.batch.stylesLut[data.fillStyle.id];
+        let fillStyle = batch.styleLut[data.fillStyle.id];
         if (fillStyle == undefined) {
             fillStyle = data.styleCount;
 
-            data.batch.stylesLut[data.fillStyle.id] = fillStyle;
+            batch.styleLut[data.fillStyle.id] = fillStyle;
             data.styles[fillStyle] = data.fillStyle;
 
+            batch.styleCount++;
             data.styleCount++;
         }
 
         // 添加描边样式实例的使用
-        let strokeStyle = data.batch.stylesLut[data.strokeStyle.id];
+        let strokeStyle = batch.styleLut[data.strokeStyle.id];
         if (strokeStyle == undefined) {
             strokeStyle = data.styleCount;
 
-            data.batch.stylesLut[data.strokeStyle.id] = strokeStyle;
+            batch.styleLut[data.strokeStyle.id] = strokeStyle;
             data.styles[strokeStyle] = data.strokeStyle;
 
+            batch.styleCount++;
             data.styleCount++;
         }
 
-        // =====================-----------------------------------
+        // 当前实例索引
+        let instance = data.instanceCount;
+        // 当前线条宽度
+        let lineWidth = data.lineWidth;
 
-        transform -= data.batch.transformsOffset;
-        geometryBeg -= data.batch.geometriesOffset;
-        geometryEnd -= data.batch.geometriesOffset;
-        fillStyle -= data.batch.stylesOffset;
-        strokeStyle -= data.batch.stylesOffset;
+        transformIndex -= batch.transformsOffset;
+        geometryBeg -= batch.geometriesOffset;
+        geometryEnd -= batch.geometriesOffset;
+        fillStyle -= batch.stylesOffset;
+        strokeStyle -= batch.stylesOffset;
 
-        data.instances[instance * 4 + 0] = (transform << 16) + geometryType;
-        data.instances[instance * 4 + 1] = (geometryEnd << 16) + geometryBeg;
-        data.instances[instance * 4 + 2] = (strokeStyle << 16) + fillStyle;
-        data.instances[instance * 4 + 3] = this.data.lineWidth & 0xFF;
+        // ======================-------------------------------
 
-        data.batch.instancesCount++;
-        data.instanceCount++;
-
-        // 写入当前批次实例数量
+        let instance_nx = 0;
         {
-            let index = data.batch.instancesOffset * 4 + 3;
-            let count = (data.instances[index] & 0xFFFF) | (data.batch.instancesCount << 16);
+            /*/
+            geometry_beg:   10
+            geometry_end:   10
+            transform:      10
+            draw_mode:      2
+            /*/
 
-            data.instances[index] = count;
+            instance_nx += (drawMode & 0x3) << 30;
+            instance_nx += (transformIndex & 0x3FF) << 20;
+            instance_nx += (geometryEnd & 0x3FF) << 10;
+            instance_nx += (geometryBeg & 0x3FF) << 0;
+        }
+
+        let instance_ny = 0;
+        {
+            /*/
+            fill_style:     10
+            stroke_tyle:    10
+            line_width:     8
+            geometry_type:  4
+            /*/
+
+            instance_ny += (geometryType & 0xF) << 28;
+            instance_ny += (lineWidth & 0xFF) << 20;
+            instance_ny += (strokeStyle & 0x3FF) << 10;
+            instance_ny += (fillStyle & 0x3FF) << 0;
+        }
+
+        let instance_nz = 0;
+        {
+            /*/
+            保留字段
+            /*/
+        }
+
+        let instance_nw = 0;
+        {
+            /*/
+            将画布划分为8 * 4 = 32个区块，如果图形影响到某区块，标记区块对应二进制位。以此提升着色器填充效率
+            /*/
+
+            instance_nw = geometryMask;
+        }
+
+        data.instances[instance * 4 + 0] = instance_nx;
+        data.instances[instance * 4 + 1] = instance_ny;
+        data.instances[instance * 4 + 2] = instance_nz;
+        data.instances[instance * 4 + 3] = instance_nw;
+
+        data.instanceCount++;
+        batch.instanceCount++;
+
+        // 更新批次数据
+        {
+            data.instances[batch.instancesOffset * 4 + 0] |= geometryMask;
+            data.instances[batch.instancesOffset * 4 + 1] = batch.instanceCount;
         }
     }
 
@@ -806,68 +921,60 @@ export class Canvas2D {
         const offset2 = data.transforms.byteOffset + this.data.transformsOffset * 32;
         const offset3 = data.geometries.byteOffset + this.data.geometriesOffset * 16;
 
-        const binding = context.CreateBindGroupCustom(queue.activeG2, [
-            {
-                binding: 0,
-                resource: {
-                    buffer: buffer.buffer,
-                    offset: offset0,
-                    size: 16384
+        for (let batch of this.data.batches) {
+            const offsets = [
+                offset0 + batch.instancesOffset * 16,
+                offset1 + batch.stylesOffset * 32,
+                offset2 + batch.transformsOffset * 32,
+                offset3 + batch.geometriesOffset * 16
+            ];
+
+            const binding_key = `${data.capacity}-${offsets[0]}-${offsets[1]}-${offsets[2]}-${offsets[3]}`;
+
+            if (batch.binding_key != binding_key) {
+                const entries: GPUBindGroupEntry[] = [];
+
+                for (let i = 0; i < 4; i++) {
+                    entries.push({
+                        binding: i,
+                        resource: {
+                            buffer: buffer.buffer,
+                            offset: offsets[i],
+                            size: 16384
+                        }
+                    });
                 }
-            },
-            {
-                binding: 1,
-                resource: {
-                    buffer: buffer.buffer,
-                    offset: offset1,
-                    size: 16384
+
+                const binding = context.CreateBindGroupCustom(queue.activeG2, entries);
+
+                if (!binding) {
+                    continue;
                 }
-            },
-            {
-                binding: 2,
-                resource: {
-                    buffer: buffer.buffer,
-                    offset: offset2,
-                    size: 16384
-                }
-            },
-            {
-                binding: 3,
-                resource: {
-                    buffer: buffer.buffer,
-                    offset: offset3,
-                    size: 16384
-                }
+
+                batch.binding_key = binding_key;
+                batch.binding = binding.binding;
             }
-        ]);
 
-        if (!binding) {
-            return;
+            queue.passEncoder.setBindGroup(3, batch.binding);
+
+            if (method == "drawIndexed") {
+                queue.passEncoder.drawIndexed(
+                    params[0],  // indexCount
+                    params[1],  // instanceCount
+                    params[2],  // firstIndex
+                    params[3],  // baseVertex
+                    params[4],  // firstInstance
+                );
+            }
+            else if (method == "draw") {
+                queue.passEncoder.draw(
+                    params[0],  // vertexCount
+                    params[1],  // instanceCount
+                    params[2],  // firstVertex
+                    params[3],  // firstInstance
+                );
+            }
         }
-
-        queue.passEncoder.setBindGroup(3, binding.binding);
-
-        if (method == "drawIndexed") {
-            queue.passEncoder.drawIndexed(
-                params[0],  // indexCount
-                params[1],  // instanceCount
-                params[2],  // firstIndex
-                params[3],  // baseVertex
-                params[4],  // firstInstance
-            );
-        }
-        else if (method == "draw") {
-            // TODO：此处实例化绘制WGSL中的实例索引总为0
-            // 一个实例绘制中绘制所有图形似乎更有效率（集群绘制？）
-            queue.passEncoder.draw(
-                params[0],  // vertexCount
-                params[1],  // instanceCount
-                params[2],  // firstVertex
-                params[3],  // firstInstance
-            );
-        }
-
-        // console.error(method, params);
     }
 
     // CanvasRenderingContext2D =================--------------------------------------------------
@@ -953,9 +1060,7 @@ export class Canvas2D {
             return;
         }
 
-        this.data.path.mode = 1;
-
-        this.Flush();
+        this.Flush(1);
     }
 
     /**
@@ -987,10 +1092,7 @@ export class Canvas2D {
             return;
         }
 
-        this.data.path.mode = 2;
-
-        // TODO: 和FILL的操作重复
-        this.Flush();
+        this.Flush(2);
     }
 
     // CanvasFillStrokeStyles ===================--------------------------------------------------
@@ -1192,7 +1294,11 @@ export class Canvas2D {
      * [MDN Reference](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/rect)
      */
     public rect(x: number, y: number, w: number, h: number): void {
-        throw "TODO: Canvas.rect!";
+        const path = new Path2D();
+
+        path.Rect(x, y, w, h);
+
+        this.data.path = path;
     }
 
     /**
@@ -1200,7 +1306,11 @@ export class Canvas2D {
      * [MDN Reference](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/roundRect)
      */
     public roundRect(x: number, y: number, w: number, h: number, radii?: number | DOMPointInit | (number | DOMPointInit)[]): void {
-        throw "TODO: Canvas.roundRect!";
+        const path = new Path2D();
+
+        path.RoundRect(x, y, w, h, radii as number);
+
+        this.data.path = path;
     }
 
     // CanvasPathDrawingStyles ==================--------------------------------------------------
@@ -1293,10 +1403,11 @@ export class Canvas2D {
     public fillRect(x: number, y: number, w: number, h: number): void {
         const path = new Path2D();
 
-        path.Rect(1, x, y, w, h);
+        path.Rect(x, y, w, h);
 
         this.data.path = path;
-        this.Flush();
+
+        this.Flush(1);
     }
 
     /**
@@ -1304,7 +1415,13 @@ export class Canvas2D {
      * [MDN Reference](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/strokeRect)
      */
     public strokeRect(x: number, y: number, w: number, h: number): void {
-        throw "TODO: Canvas.strokeRect!";
+        const path = new Path2D();
+
+        path.Rect(x, y, w, h);
+
+        this.data.path = path;
+
+        this.Flush(2);
     }
 
     // CanvasShadowStyles =======================--------------------------------------------------
@@ -1656,6 +1773,8 @@ export class Canvas2D {
         geometriesOffset: number;
         /** 几何数据单元数量（最大1024）。 */
         geometryCount: number;
+        /** 最新应用几何数据单元起始索引。 */
+        geometryCur: number;
         /** 当前操作的几何路径实例。 */
         path: Path2D;
 
@@ -1670,7 +1789,7 @@ export class Canvas2D {
         /** 当前用于描边的样式实例。 */
         strokeStyle: Style2D;
 
-        /** 线条宽度。 */
+        /** 当前线条宽度。 */
         lineWidth: number;
 
         /** 绘制批次数组。 */
@@ -1678,17 +1797,31 @@ export class Canvas2D {
         /** 当前绘制批次。 */
         batch: {
             /** 绘制实例数组偏移。 */
-            instancesCount: number;
-            /** 绘制实例数组偏移。 */
             instancesOffset: number;
+            /** 绘制实例数量（最大1024）。 */
+            instanceCount: number;
+
             /** 变换矩阵数组偏移。 */
             transformsOffset: number;
+            /** 变换矩阵数量（最大512）。 */
+            transformCount: number;
+
             /** 几何数据单元数组偏移。 */
             geometriesOffset: number;
+            /** 几何数据单元数量（最大1024）。 */
+            geometryCount: number;
+
             /** 样式实例数组偏移。 */
             stylesOffset: number;
+            /** 样式实例数量（最大512）。 */
+            styleCount: number;
             /** 引用的样式实例查找表。 */
-            stylesLut: Record<string, number>;
+            styleLut: Record<string, number>;
+
+            /** 当前批次资源绑定组实例标识。 */
+            binding_key?: string;
+            /** 当前批次资源绑定组实例。 */
+            binding?: GPUBindGroup;
         };
     };
 }

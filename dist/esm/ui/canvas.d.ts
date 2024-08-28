@@ -1,3 +1,4 @@
+/// <reference types="dist" />
 import * as Miaoverse from "../mod.js";
 /**
  * 2D渲染器接口。
@@ -64,13 +65,16 @@ export declare class Path2D {
     constructor();
     /**
      * 构造矩形数据。
-     * @param mode 绘制模式标志集：1-填充，2-描边。
      * @param x 左上角X像素坐标。
      * @param y 左上角Y像素坐标。
      * @param w 矩形像素宽度。
      * @param h 矩形像素高度。
      */
-    Rect(mode: number, x: number, y: number, w: number, h: number): void;
+    Rect(x: number, y: number, w: number, h: number): void;
+    /**
+     * 创建圆角矩形路径。
+     */
+    RoundRect(x: number, y: number, w: number, h: number, radii: number): void;
     /**
      * 构造圆形数据。
      * @param x 圆形X像素坐标。
@@ -80,13 +84,12 @@ export declare class Path2D {
      * @param endAngle 终止弧度。
      */
     Arc(x: number, y: number, radius: number, startAngle: number, endAngle: number): void;
-    /** 路径绘制模式。 */
-    set mode(value: number);
-    get mode(): number;
+    Mask(transform: number[]): number;
     /**
      * 当前路径类型：
      * 1-矩形；
      * 2-圆形；
+     * 3-圆角矩形；
      */
     type: number;
     /** 当前路径是否已应用。*/
@@ -132,7 +135,7 @@ export declare class Style2D {
      */
     get pattern_texture_layer(): number;
     /**
-     * 纯色颜色值；
+     * 纯色颜色值（#AARRGGBB）；
      */
     get color(): number;
     set color(value: number);
@@ -249,8 +252,9 @@ export declare class Canvas2D {
     constructor(renderer: Renderer2D, width: number, height: number);
     /**
      * 刷新绘制实例数据。
+     * @param drawMode 当前绘制模式：1-填充、2-描边
      */
-    Flush(): void;
+    Flush(drawMode: number): void;
     /**
      * 直接渲染画布到网格。
      * @param queue 渲染队列。
@@ -645,6 +649,8 @@ export declare class Canvas2D {
         geometriesOffset: number;
         /** 几何数据单元数量（最大1024）。 */
         geometryCount: number;
+        /** 最新应用几何数据单元起始索引。 */
+        geometryCur: number;
         /** 当前操作的几何路径实例。 */
         path: Path2D;
         /** 样式实例数组（每个占用2个UVEC4）。 */
@@ -657,24 +663,34 @@ export declare class Canvas2D {
         fillStyle: Style2D;
         /** 当前用于描边的样式实例。 */
         strokeStyle: Style2D;
-        /** 线条宽度。 */
+        /** 当前线条宽度。 */
         lineWidth: number;
         /** 绘制批次数组。 */
         batches: Canvas2D["data"]["batch"][];
         /** 当前绘制批次。 */
         batch: {
             /** 绘制实例数组偏移。 */
-            instancesCount: number;
-            /** 绘制实例数组偏移。 */
             instancesOffset: number;
+            /** 绘制实例数量（最大1024）。 */
+            instanceCount: number;
             /** 变换矩阵数组偏移。 */
             transformsOffset: number;
+            /** 变换矩阵数量（最大512）。 */
+            transformCount: number;
             /** 几何数据单元数组偏移。 */
             geometriesOffset: number;
+            /** 几何数据单元数量（最大1024）。 */
+            geometryCount: number;
             /** 样式实例数组偏移。 */
             stylesOffset: number;
+            /** 样式实例数量（最大512）。 */
+            styleCount: number;
             /** 引用的样式实例查找表。 */
-            stylesLut: Record<string, number>;
+            styleLut: Record<string, number>;
+            /** 当前批次资源绑定组实例标识。 */
+            binding_key?: string;
+            /** 当前批次资源绑定组实例。 */
+            binding?: GPUBindGroup;
         };
     };
 }

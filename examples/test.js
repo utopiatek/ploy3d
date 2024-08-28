@@ -213,12 +213,46 @@ export class PloyApp_test extends ploycloud.PloyApp {
             ctx.fillStyle = "red";
             ctx.fillRect(64, 64, 256, 128);
 
-            ctx.arc(512, 256, 64, 0, Math.PI * 2.0);
+            ctx.lineWidth = 6;
+
+            ctx.strokeRect(128, 128, 512, 128);
+
+            ctx.rect(96, 96, 64, 64);
+            ctx.fillStyle = "blue";
             ctx.fill();
+            ctx.strokeStyle = "green";
+            ctx.stroke();
+
+            ctx.roundRect(64, 256, 256, 128, 16);
+            ctx.fillStyle = "blue";
+            ctx.fill();
+
+            ctx.roundRect(64 - 8, 256 - 8, 256 + 16, 128 + 16, 16);
+            ctx.strokeStyle = "green";
+            ctx.stroke();
+
+            ctx.lineWidth = 4;
+
+            ctx.roundRect(64 + 32, 256 + 32, 64, 64, 16);
+            ctx.fillStyle = "red";
+            ctx.fill();
+            ctx.strokeStyle = "white";
+            ctx.stroke();
+
+            ctx.arc(512, 256, 64, 0, Math.PI * 2.0);
+            ctx.fillStyle = "green";
+            ctx.fill();
+            ctx.strokeStyle = "white";
+            ctx.stroke();
 
             ctx.lineWidth = 10;
 
-            ctx.arc(768, 128, 64, 0, Math.PI * 2.0);
+            ctx.arc(768, 128, 96, 0, Math.PI * 2.0);
+            ctx.strokeStyle = "blue";
+            ctx.stroke();
+
+            ctx.arc(768 + 64, 128 + 64, 96, Math.PI * 0.25, Math.PI * 1.55);
+            ctx.strokeStyle = "red";
             ctx.stroke();
         };
         // 执行2D画布绘制（绘制结果可缓存，后续帧添加到2D渲染器即可）
