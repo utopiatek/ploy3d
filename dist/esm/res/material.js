@@ -230,7 +230,11 @@ export class Material_kernel extends Miaoverse.Base_kernel {
             instance.view[key] = asset.properties.vectors[key];
         }
         for (let key in asset.properties.textures) {
-            instance.SetTexture(key, asset.properties.textures[key]);
+            const prop = asset.properties.textures[key];
+            if (prop.uri && !prop.texture) {
+                prop.texture = await this._global.resources.Texture.Load(prop.uri);
+            }
+            instance.SetTexture(key, prop);
         }
         this._gcList.push(instance);
         if (asset.uuid) {

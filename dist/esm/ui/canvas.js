@@ -5,6 +5,9 @@ export class Renderer2D {
         this._drawList = [];
         this._drawData = null;
         this._styleLut = {};
+        this._rem_font_size = 16;
+        this._font_glyphs_lut = null;
+        this._font_atlas = null;
     }
     async Init() {
         const colors = {
@@ -17,6 +20,54 @@ export class Renderer2D {
             const style = this.CreateStyle2D(key);
             style.color = colors[key] | 0xFF000000;
         }
+        this._font_glyphs_lut = await this._global.Fetch("./assets/fonts/simhei.json", null, "json");
+        if (!this._font_glyphs_lut) {
+            throw "字体文件加载失败！";
+        }
+        const atlas_w = this._font_glyphs_lut.atlas.width;
+        const atlas_h = this._font_glyphs_lut.atlas.height;
+        const lut = this._font_glyphs_lut.lut = {};
+        for (let glyph of this._font_glyphs_lut.glyphs) {
+            if (!glyph.atlasBounds) {
+                continue;
+            }
+            const bounds = glyph.atlasBounds;
+            const left = Math.floor((bounds.left) / atlas_w * 65535.0);
+            const top = Math.floor((atlas_h - bounds.top) / atlas_h * 65535.0);
+            const width = Math.floor((bounds.right - bounds.left) / atlas_w * 65535.0);
+            const height = Math.floor((bounds.top - bounds.bottom) / atlas_h * 65535.0);
+            const nx = ((top << 16) >>> 0) + left;
+            const ny = ((height << 16) >>> 0) + width;
+            const desc = [
+                glyph.unicode,
+                glyph.advance,
+                glyph.planeBounds.left,
+                glyph.planeBounds.top,
+                glyph.planeBounds.right - glyph.planeBounds.left,
+                glyph.planeBounds.top - glyph.planeBounds.bottom,
+                nx,
+                ny
+            ];
+            lut[glyph.unicode] = desc;
+        }
+        const blob = await this._global.Fetch("./assets/fonts/simhei.png", null, "blob");
+        const option = undefined;
+        const bitmap = await createImageBitmap(blob, option);
+        if (!bitmap) {
+            throw "字体字形图集纹理加载失败！";
+        }
+        const tile = this._global.resources.Texture._CreateTile(bitmap.width, bitmap.height, 0);
+        const info = this._global.env.uarrayGet(tile, 12, 8);
+        this._global.resources.Texture._WriteTile(tile, bitmap);
+        bitmap.close();
+        this._font_atlas = {
+            tile_ptr: tile,
+            layer: info[1],
+            x: info[6] * 64,
+            y: info[7] * 64,
+            width: info[2],
+            height: info[3],
+        };
         return this;
     }
     CreateCanvas(width, height) {
@@ -32,6 +83,37 @@ export class Renderer2D {
         style.color = 0xFFFFFFFF;
         this._styleLut[color] = style;
         return style;
+    }
+    CreateString2D(text, x, y, canvas_w, canvas_h) {
+        const glyphs = this._font_glyphs_lut.lut;
+        const em_font_size = this._rem_font_size;
+        for (let i = 0; i < text.length; i++) {
+            const code = text.charCodeAt(i);
+            const glyph = glyphs[code];
+            if (glyph) {
+                let left = x + glyph[2] * em_font_size;
+                let top = (y - glyph[3] * em_font_size);
+                let width = glyph[4] * em_font_size;
+                let height = glyph[5] * em_font_size;
+                left = Math.floor(Math.max(Math.min(left, canvas_w), 0));
+                top = Math.floor(Math.max(Math.min(top, canvas_h), 0));
+                width = Math.ceil(65535 / (width));
+                height = Math.ceil(65535 / (height));
+                const nx = ((top << 16) >>> 0) + left;
+                const ny = ((height << 16) >>> 0) + width;
+                const data = [
+                    nx,
+                    ny,
+                    glyph[6],
+                    glyph[7]
+                ];
+                console.error("-------", data);
+                x += glyph[1] * em_font_size;
+            }
+            else {
+                x += 0.5 * em_font_size;
+            }
+        }
     }
     BeginFrame() {
         this._frameTS++;
@@ -138,6 +220,9 @@ export class Renderer2D {
     _drawList;
     _drawData;
     _styleLut;
+    _rem_font_size;
+    _font_glyphs_lut;
+    _font_atlas;
 }
 export class Path2D {
     constructor() {
@@ -189,6 +274,76 @@ export class Path2D {
         this.applied = false;
         this.geometryCount = 1;
         this.geometries = [n0, n1, n2, n3];
+    }
+    Text(text, x, y, maxWidth, params) {
+        const { em_font_size, atlas, canvas_width, canvas_height } = params;
+        const glyphs = params.glyphs.lut;
+        const geometries = [];
+        let start_x = x;
+        {
+            const start_glyph = glyphs[text.charCodeAt(0)];
+            if (start_glyph) {
+                start_x += start_glyph[2] * em_font_size;
+            }
+        }
+        let char_count = 0;
+        for (let i = 0; i < text.length; i++) {
+            const code = text.charCodeAt(i);
+            const glyph = glyphs[code];
+            if (glyph) {
+                let left = x + glyph[2] * em_font_size;
+                let top = (y - glyph[3] * em_font_size);
+                let width = glyph[4] * em_font_size;
+                let height = glyph[5] * em_font_size;
+                left = Math.floor(Math.max(Math.min(left, canvas_width), 0));
+                top = Math.floor(Math.max(Math.min(top, canvas_height), 0));
+                width = Math.ceil(65535 / (width));
+                height = Math.ceil(65535 / (height));
+                const nx = ((top << 16) >>> 0) + left;
+                const ny = ((height << 16) >>> 0) + width;
+                let i4 = char_count * 4 + 8;
+                geometries[i4 + 0] = nx;
+                geometries[i4 + 1] = ny;
+                geometries[i4 + 2] = glyph[6];
+                geometries[i4 + 3] = glyph[7];
+                x += glyph[1] * em_font_size;
+                char_count += 1;
+            }
+            else {
+                x += 0.5 * em_font_size;
+            }
+            if (maxWidth && maxWidth < (x - start_x)) {
+                break;
+            }
+        }
+        let n0 = (atlas.layer << 16) + (char_count << 4) + 4;
+        let min_x = start_x;
+        let max_x = x;
+        let min_y = y - params.glyphs.metrics.ascender * em_font_size;
+        let max_y = y - params.glyphs.metrics.descender * em_font_size;
+        let rect_center_x = Math.floor((min_x + max_x) * 0.5);
+        let rect_center_y = Math.floor((min_y + max_y) * 0.5);
+        let rect_center_w = Math.floor((max_x - min_x) * 0.5);
+        let rect_center_h = Math.floor((max_y - min_y) * 0.5);
+        let n1 = (rect_center_y << 16) + rect_center_x;
+        let n2 = (rect_center_h << 16) + rect_center_w;
+        let n3 = 0;
+        geometries[0] = n0;
+        geometries[1] = n1;
+        geometries[2] = n2;
+        geometries[3] = n3;
+        let n4 = (atlas.y << 16) + atlas.x;
+        let n5 = (atlas.height << 16) + atlas.width;
+        let n6 = 0;
+        let n7 = 0;
+        geometries[4] = n4;
+        geometries[5] = n5;
+        geometries[6] = n6;
+        geometries[7] = n7;
+        this.type = 4;
+        this.applied = false;
+        this.geometryCount = 2 + char_count;
+        this.geometries = geometries;
     }
     Mask(transform) {
         return 0xFFFFFFFF;
@@ -742,7 +897,16 @@ export class Canvas2D {
         throw "TODO: Canvas.save!";
     }
     fillText(text, x, y, maxWidth) {
-        throw "TODO: Canvas.fillText!";
+        const path = new Path2D();
+        path.Text(text, x, y, maxWidth, {
+            em_font_size: this.renderer["_rem_font_size"],
+            glyphs: this.renderer["_font_glyphs_lut"],
+            atlas: this.renderer["_font_atlas"],
+            canvas_width: this.data.width,
+            canvas_height: this.data.height
+        });
+        this.data.path = path;
+        this.Flush(1);
     }
     measureText(text) {
         throw "TODO: Canvas.measureText!";

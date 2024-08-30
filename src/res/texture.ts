@@ -48,6 +48,70 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
     }
 
     /**
+     * 装载贴图资源。
+     * @param uri 贴图资源URI。
+     * @param pkg 当前资源包注册信息。
+     * @returns 异步返回贴图资源实例。
+     */
+    public async Load(uri: string, pkg?: Miaoverse.PackageReg) {
+        const uuid = this._global.resources.ToUUID(uri, pkg);
+        if (!uuid) {
+            return null;
+        }
+
+        if (this._instanceLut[uuid]) {
+            return this._instanceLut[uuid];
+        }
+
+        // 加载装配贴图资产 ===============-----------------------
+
+        const desc = await this._global.resources.Load_file<ArrayBuffer>("arrayBuffer", uri, true, pkg);
+        if (!desc?.data) {
+            console.error("Texture_kernel::Load failed", desc?.pkg?.key || pkg?.key, uri);
+            return null;
+        }
+
+        let texture = null;
+
+        if (desc.path.endsWith(".ktx2")) {
+            texture = this.LoadTexture2D_KTX2(desc.data, "bc7-rgba-unorm");
+        }
+        else {
+            return null; // TODO: BUG
+            // 引擎初始化前解码图片性能很低
+            // Image.decode()在高分辨率下有无法解码的情况
+            // https://zhuanlan.zhihu.com/p/367345699
+
+            const blob = new Blob([desc.data]);
+            const option: ImageBitmapOptions = undefined;
+            const bitmap = await createImageBitmap(blob, option);
+
+            texture = await this.LoadTexture2D_RAW(bitmap);
+            bitmap.close();
+        }
+
+        // 创建注册实例 ===================-----------------------
+
+        const id = this._instanceIdle;
+
+        this._instanceIdle = this._instanceList[id]?.id || id + 1;
+
+        const instance = this._instanceList[id] = new Texture(this, texture, id, uuid || "");
+
+        this._instanceCount++;
+
+        // 注册垃圾回收 ===============-----------------------
+
+        this._gcList.push(instance);
+
+        if (uuid) {
+            this._instanceLut[uuid] = instance;
+        }
+
+        return instance;
+    }
+
+    /**
      * 创建贴图资源实例。
      * @param asset 贴图资源描述符。
      * @returns 异步返回贴图资源实例。

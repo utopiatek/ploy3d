@@ -14,6 +14,9 @@ export class Renderer2D {
         this._drawList = [];
         this._drawData = null;
         this._styleLut = {};
+        this._rem_font_size = 16;
+        this._font_glyphs_lut = null;
+        this._font_atlas = null;
     }
 
     /**
@@ -34,6 +37,78 @@ export class Renderer2D {
             const style = this.CreateStyle2D(key);
             style.color = colors[key] | 0xFF000000;
         }
+
+        this._font_glyphs_lut = await this._global.Fetch<any>("./assets/fonts/simhei.json", null, "json");
+        if (!this._font_glyphs_lut) {
+            throw "字体文件加载失败！";
+        }
+
+        const atlas_w = this._font_glyphs_lut.atlas.width;
+        const atlas_h = this._font_glyphs_lut.atlas.height;
+
+        const lut: Record<number, number[]> = this._font_glyphs_lut.lut = {};
+
+        for (let glyph of this._font_glyphs_lut.glyphs) {
+            if (!glyph.atlasBounds) {
+                continue;
+            }
+
+            // 字形数据在图集中的像素矩形范围（原点在左上角）
+            const bounds = glyph.atlasBounds;
+            const left = Math.floor((bounds.left) / atlas_w * 65535.0);
+            const top = Math.floor((atlas_h - bounds.top) / atlas_h * 65535.0);
+            const width = Math.floor((bounds.right - bounds.left) / atlas_w * 65535.0);
+            const height = Math.floor((bounds.top - bounds.bottom) / atlas_h * 65535.0);
+
+            const nx = ((top << 16) >>> 0) + left;
+            const ny = ((height << 16) >>> 0) + width;
+
+            /*/
+            lt_bias |
+                    |
+                  --|------
+                            rb_bias
+            绘制时传入几点像素坐标，加上lt_bias得左上角坐标
+            /*/
+
+            const desc = [
+                glyph.unicode,
+                glyph.advance,
+
+                glyph.planeBounds.left,
+                glyph.planeBounds.top,
+                glyph.planeBounds.right - glyph.planeBounds.left,
+                glyph.planeBounds.top - glyph.planeBounds.bottom,
+
+                nx,
+                ny
+            ];
+
+            lut[glyph.unicode] = desc;
+        }
+
+        const blob = await this._global.Fetch<Blob>("./assets/fonts/simhei.png", null, "blob");
+        const option: ImageBitmapOptions = undefined;
+        const bitmap = await createImageBitmap(blob, option);
+        if (!bitmap) {
+            throw "字体字形图集纹理加载失败！";
+        }
+
+        const tile = this._global.resources.Texture._CreateTile(bitmap.width, bitmap.height, 0);
+        const info = this._global.env.uarrayGet(tile, 12, 8);
+
+        this._global.resources.Texture._WriteTile(tile, bitmap);
+
+        bitmap.close();
+
+        this._font_atlas = {
+            tile_ptr: tile,
+            layer: info[1],
+            x: info[6] * 64,
+            y: info[7] * 64,
+            width: info[2],
+            height: info[3],
+        };
 
         return this;
     }
@@ -66,6 +141,57 @@ export class Renderer2D {
         this._styleLut[color] = style;
 
         return style;
+    }
+
+    /**
+     * 创建字符串图形路径数据。
+     * @param text 字符串。
+     * @param x 起始光标像素坐标。
+     * @param y 文本行基线像素坐标。
+     * @param canvas_w 画布宽度。
+     * @param canvas_h 画布高度。
+     */
+    public CreateString2D(text: string, x: number, y: number, canvas_w: number, canvas_h: number) {
+        const glyphs = this._font_glyphs_lut.lut;
+        const em_font_size = this._rem_font_size;
+
+        for (let i = 0; i < text.length; i++) {
+            const code = text.charCodeAt(i);
+            const glyph = glyphs[code];
+
+            if (glyph) {
+                let left = x + glyph[2] * em_font_size;
+                let top = (y - glyph[3] * em_font_size);
+
+                let width = glyph[4] * em_font_size;
+                let height = glyph[5] * em_font_size;
+
+                left = Math.floor(Math.max(Math.min(left, canvas_w), 0));
+                top = Math.floor(Math.max(Math.min(top, canvas_h), 0));
+
+                width = Math.ceil(65535 / (width));
+                height = Math.ceil(65535 / (height));
+
+                const nx = ((top << 16) >>> 0) + left;
+                const ny = ((height << 16) >>> 0) + width;
+
+                const data = [
+                    nx,
+                    ny,
+                    glyph[6],
+                    glyph[7]
+                ];
+
+                console.error("-------", data);
+
+                // 横向推进光标移动
+                x += glyph[1] * em_font_size;
+            }
+            else {
+                // 横向推进光标移到
+                x += 0.5 * em_font_size;
+            }
+        }
     }
 
     /**
@@ -254,6 +380,25 @@ export class Renderer2D {
     };
     /** 样式实例查找表。 */
     private _styleLut: Record<string, Style2D>;
+    /** 1REM对应的像素数（Renderer2D统一以EM为单位）。 */
+    private _rem_font_size: number;
+    /** 字形数据查找表。 */
+    private _font_glyphs_lut: FontAtlas;
+    /** 字形图集纹理数据。 */
+    private _font_atlas: {
+        /** 图块实例指针。 */
+        tile_ptr: Miaoverse.io_ptr;
+        /** 图块所在图层。 */
+        layer: number;
+        /** 图块左上角X像素坐标。 */
+        x: number;
+        /** 图块左上角Y像素坐标。 */
+        y: number;
+        /** 图块像素宽度。 */
+        width: number;
+        /** 图块像素高度。 */
+        height: number;
+    };
 }
 
 /**
@@ -360,6 +505,142 @@ export class Path2D {
         this.geometries = [n0, n1, n2, n3];
     }
 
+    /**
+     * 构造文本图形数据。
+     * @param text 字符串行。
+     * @param x 光标位置。
+     * @param y 基线位置。
+     * @param maxWidth 最大绘制行宽。
+     * @param params 字体数据。
+     */
+    public Text(text: string, x: number, y: number, maxWidth?: number, params?: {
+        /** 1EM对应像素数。 */
+        em_font_size: number;
+        /** 字形数据查找表。 */
+        glyphs: FontAtlas;
+        /** 字形图集信息。 */
+        atlas: Renderer2D["_font_atlas"];
+        /** 画布宽度。 */
+        canvas_width: number;
+        /** 画布高度。 */
+        canvas_height: number;
+    }) {
+        const { em_font_size, atlas, canvas_width, canvas_height } = params;
+        const glyphs = params.glyphs.lut;
+        const geometries: number[] = [];
+
+        // 起始光标X像素坐标
+        let start_x = x;
+        {
+            const start_glyph = glyphs[text.charCodeAt(0)];
+            if (start_glyph) {
+                start_x += start_glyph[2] * em_font_size;
+            }
+        }
+
+        // 实际绘制字符数量
+        let char_count = 0;
+
+        // 逐一添加字符绘制
+        for (let i = 0; i < text.length; i++) {
+            const code = text.charCodeAt(i);
+            const glyph = glyphs[code];
+
+            if (glyph) {
+                let left = x + glyph[2] * em_font_size;
+                let top = (y - glyph[3] * em_font_size);
+
+                let width = glyph[4] * em_font_size;
+                let height = glyph[5] * em_font_size;
+
+                left = Math.floor(Math.max(Math.min(left, canvas_width), 0));
+                top = Math.floor(Math.max(Math.min(top, canvas_height), 0));
+
+                width = Math.ceil(65535 / (width));
+                height = Math.ceil(65535 / (height));
+
+                const nx = ((top << 16) >>> 0) + left;
+                const ny = ((height << 16) >>> 0) + width;
+
+                let i4 = char_count * 4 + 8;
+
+                geometries[i4 + 0] = nx;
+                geometries[i4 + 1] = ny;
+                geometries[i4 + 2] = glyph[6];
+                geometries[i4 + 3] = glyph[7];
+
+                // 横向推进光标移动
+                x += glyph[1] * em_font_size;
+
+                // 统计实际绘制字符数量
+                char_count += 1;
+            }
+            else {
+                // 横向推进光标移到
+                x += 0.5 * em_font_size;
+            }
+
+            // 达到行宽限制，忽略后续字符绘制
+            if (maxWidth && maxWidth < (x - start_x)) {
+                break;
+            }
+        }
+
+        // ====================--------------------------------
+
+        // 基本信息
+        // type         :4
+        // char_count   :12
+        // atlas_layer  :8
+
+        let n0 = (atlas.layer << 16) + (char_count << 4) + 4;
+
+        // ====================--------------------------------
+
+        let min_x = start_x;
+        let max_x = x;
+        let min_y = y - params.glyphs.metrics.ascender * em_font_size;
+        let max_y = y - params.glyphs.metrics.descender * em_font_size;
+
+        let rect_center_x = Math.floor((min_x + max_x) * 0.5);
+        let rect_center_y = Math.floor((min_y + max_y) * 0.5);
+        let rect_center_w = Math.floor((max_x - min_x) * 0.5);
+        let rect_center_h = Math.floor((max_y - min_y) * 0.5);
+
+        // 文本行中心点
+        let n1 = (rect_center_y << 16) + rect_center_x;
+
+        // 文本行半宽高
+        let n2 = (rect_center_h << 16) + rect_center_w;
+
+        // 保留字段
+        let n3 = 0;
+
+        geometries[0] = n0;
+        geometries[1] = n1;
+        geometries[2] = n2;
+        geometries[3] = n3;
+
+        // ====================--------------------------------
+
+        let n4 = (atlas.y << 16) + atlas.x;
+        let n5 = (atlas.height << 16) + atlas.width;
+        let n6 = 0;
+        let n7 = 0;
+
+        geometries[4] = n4;
+        geometries[5] = n5;
+        geometries[6] = n6;
+        geometries[7] = n7;
+
+        // ====================--------------------------------
+
+        this.type = 4;
+        this.applied = false;
+        this.geometryCount = 2 + char_count;
+        this.geometries = geometries;
+    }
+
     public Mask(transform: number[]) {
         // // 边界框，变换矩阵，新边界框，掩码
         return 0xFFFFFFFF;
@@ -370,6 +651,7 @@ export class Path2D {
      * 1-矩形；
      * 2-圆形；
      * 3-圆角矩形；
+     * 4-字符串；
      */
     public type: number;
     /** 当前路径是否已应用。*/
@@ -1495,7 +1777,19 @@ export class Canvas2D {
      * [MDN Reference](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/fillText)
      */
     public fillText(text: string, x: number, y: number, maxWidth?: number): void {
-        throw "TODO: Canvas.fillText!";
+        const path = new Path2D();
+
+        path.Text(text, x, y, maxWidth, {
+            em_font_size: this.renderer["_rem_font_size"],
+            glyphs: this.renderer["_font_glyphs_lut"],
+            atlas: this.renderer["_font_atlas"],
+            canvas_width: this.data.width,
+            canvas_height: this.data.height
+        });
+
+        this.data.path = path;
+
+        this.Flush(1);
     }
 
     /**
@@ -1826,10 +2120,169 @@ export class Canvas2D {
     };
 }
 
-
+/**
+ * 字体图集字符布局数据查找表。
+ * https://github.com/Chlumsky/msdf-atlas-gen
+ */
+export interface FontAtlas {
+    /**
+     * 图集纹理的元数据。
+     */
+    atlas: {
+        /**
+         * 距离场的类型。
+         */
+        type: string;
+        /**
+         * 距离场精确的像素范围。
+         */
+        distanceRange: number;
+        /**
+         * 距离场像素范围中值。
+         */
+        distanceRangeMiddle: number;
+        /**
+         * 在图集纹理中保存字形信息时，1em对应的纹理像素数量。
+         */
+        size: number;
+        /**
+         * 图集纹理的宽度。
+         */
+        width: number;
+        /**
+         * 图集纹理的高度。
+         */
+        height: number;
+        /**
+         * 图集纹理的起始行在底部还是顶部。
+         */
+        yOrigin: "bottom" | "top";
+    };
+    /**
+     * 定义应用于所有字符的全局字体度量。
+     */
+    metrics: {
+        /**
+         * 字形的轮廓信息是基于字体设计单位（EM）的。
+         * 为了将这些值转换为可用于渲染的坐标，通常需要将这些单位转换为像素单位。
+         * 这个转换取决于字体的unitsPerEm和目标渲染的尺寸。
+         * 1em等于多少像素取决于使用的字体大小。em是一个相对单位，其值基于当前字体的font-size。
+         * 如果当前font-size为16像素：1em = 16px；
+         * h1 { font-size: 20px } 1em == 20px
+         * p { font - size: 16px } 1em == 16px
+         * h1 { font-size: 2em } 这里的h1元素字体像素大小根据父级的font-size决定，大多数浏览器的默认font-size为16像素；
+         * 相对根元素字体大小的设置rem，h1 { font-size: 2rem }；
+         * 如果属性尺寸要根据元素字体进行缩放（比如字间距），则使用em，否则使用rem是比较好的设计思路。
+         * https://zhuanlan.zhihu.com/p/37956549
+         */
+        emSize: number;
+        /**
+         * 两行文本的基线之间的垂直距离。
+         * 字形的轮廓通常相对于基线来定义，基线是字体中字符对齐的参考线。
+         * 通常，字母的底部在基线上。
+         * 字形的top和bottom值表示的是字形最高点和最低点相对于基线的距离。
+         */
+        lineHeight: number;
+        /**
+         * 超出基线的字形最大高度。
+         */
+        ascender: number;
+        /**
+         * 低于基线的字形最大深度。
+         */
+        descender: number;
+        /**
+         * 相对于基线的下划线位置。
+         */
+        underlineY: number;
+        /**
+         * 相对于基线的下划线厚度。
+         */
+        underlineThickness: number;
+    },
+    /**
+     * 包含图集中每个字形（字符）信息的数组。
+     */
+    glyphs: {
+        /**
+         * 字形的Unicode编码。
+         */
+        unicode: number;
+        /**
+         * 渲染字形后水平前进的距离，用于定位下一个字形。
+         */
+        advance: number;
+        /**
+         * 描述字形在字体设计单位中的边界框（相对于基线，以EM为单位）。
+         * X原点位于光标位置。
+         */
+        planeBounds: {
+            left: number;
+            bottom: number;
+            right: number;
+            top: number;
+        };
+        /**
+         * 字形在图集纹理中的边界框。
+         */
+        atlasBounds: {
+            left: number;
+            bottom: number;
+            right: number;
+            top: number;
+        };
+    }[];
+    /**
+     * 解析后字形数据查找表。
+     */
+    lut?: Record<number, number[]>;
+}
 
 
 /*/
+
+canvas 原点在左上角
+fillText(text: string, x: number, y: number, maxWidth?: number): void;
+文本根据 font、textAlign、textBaseline 和 direction 属性所定义的字体和文本布局来渲染。
+开始横向坐标，起始光标位置，每绘制一个字偏移一次光标
+开始绘制文本的基线的 Y 轴坐标，单位为像素。
+文本渲染后的最大像素宽度。如果未指定，则文本宽度没有限制。
+font 使用rem或em作为单位
+textAlign 
+对齐是相对于fillText方法的x值的
+如果textAlign是"center"，那么该文本的左侧边界会是x - (textWidth / 2)
+"start"、"end"依赖文本方向
+textBaseline
+"alphabetic"
+文本基线是标准的字母基线。默认值。仅支持这个
+direction
+从左向右还是从右向左
+
+定义X，定义Y，Y是基线位置，X逐字推进
+根据ascender、descender定义行的上限和下限
+换行是每次偏移lineHeight
+所有计算都以emSize * font_size为单位
+起始X偏移1个
+
+        const rem_font_size = 16;
+
+        for (let i = 0; i < 6; i++) {
+            const glyph = this._font_glyphs_lut.glyphs[3];
+
+            // 计算出插值点，在atlasBounds的left、right，bottom，top插值出采样像素点
+            // 当前填充左下角像素点，像素宽高
+
+            // 包围框在左下角
+            //const top = 
+        }
+
+        //c
+        //const em_font_size
+        //Text(, maxWidth ?: number)
+
+
+        let n = "伴"//20276
+        console.error(n.charCodeAt(0));
 
 m_nMode:4
 m_nCount:4

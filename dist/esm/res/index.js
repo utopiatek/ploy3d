@@ -132,7 +132,7 @@ export class Resources {
             if (pkg.resid_path) {
                 path = pkg.resid_path[resid];
                 if (typeof path != "string") {
-                    return { pkg, data: path };
+                    return { pkg, data: path, path: resid };
                 }
             }
         }
@@ -148,7 +148,7 @@ export class Resources {
         }
         let data = cache.files[path];
         if (data) {
-            return { pkg, data: data };
+            return { pkg, data: data, path };
         }
         if (pkg.zip) {
             if (!cache.zip) {
@@ -179,7 +179,7 @@ export class Resources {
         if (!not_cache) {
             cache.files[path] = data;
         }
-        return { pkg, data: data };
+        return { pkg, data: data, path };
     }
     ToUUID(uri, cur_pkg) {
         const keys = this.ParseUri(uri, cur_pkg);

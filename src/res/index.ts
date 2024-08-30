@@ -227,7 +227,7 @@ export class Resources {
 
                 // 子类资源数据直接保存在描述文件中，直接返回
                 if (typeof path != "string") {
-                    return { pkg, data: path };
+                    return { pkg, data: path, path: resid };
                 }
             }
         }
@@ -246,7 +246,7 @@ export class Resources {
 
         let data = cache.files[path];
         if (data) {
-            return { pkg, data: data as T };
+            return { pkg, data: data as T, path };
         }
 
         if (pkg.zip) {
@@ -283,7 +283,7 @@ export class Resources {
             cache.files[path] = data;
         }
 
-        return { pkg, data: data as T };
+        return { pkg, data: data as T, path };
     }
 
     /**

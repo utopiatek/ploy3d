@@ -407,7 +407,7 @@ export class Importer_gltf {
             const texture = textures[i];
             const state = samplers[texture.sampler];
             const wrapper = {
-                uri: ":/" + images[texture.source]?.uri,
+                uri: ":/" + images[texture.source]?.extras.uri,
                 uvts: [0, 0, 1, 1],
                 color: [255, 255, 255, 255],
                 sampler: {}
@@ -485,7 +485,10 @@ export class Importer_gltf {
     }
     async LoadImage(index) {
         const image = this._data.images[index];
-        const name = `${29}-${index}_${image.name || ""}`;
+        if (!image.name && image.uri) {
+            image.name = image.uri.substring(image.uri.lastIndexOf("/") + 1, image.uri.lastIndexOf("."));
+        }
+        const name = `${29}-${index}_${image.name || "unnamed"}`;
         let data = null;
         let mime = "";
         let has_alpha = false;

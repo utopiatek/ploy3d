@@ -576,7 +576,7 @@ export class Importer_gltf {
             const state = samplers[texture.sampler];
 
             const wrapper: Miaoverse.TextureNode = {
-                uri: ":/" + images[texture.source]?.uri,
+                uri: ":/" + images[texture.source]?.extras.uri,
                 uvts: [0, 0, 1, 1],
                 color: [255, 255, 255, 255],
                 sampler: {}
@@ -665,7 +665,12 @@ export class Importer_gltf {
      */
     private async LoadImage(index: number) {
         const image = this._data.images[index];
-        const name = `${CLASSID.ASSET_TEXTURE_FILE}-${index}_${image.name || ""}`;
+
+        if (!image.name && image.uri) {
+            image.name = image.uri.substring(image.uri.lastIndexOf("/") + 1, image.uri.lastIndexOf("."));
+        }
+
+        const name = `${CLASSID.ASSET_TEXTURE_FILE}-${index}_${image.name || "unnamed"}`;
 
         let data: Uint8Array = null;
         let mime = "";

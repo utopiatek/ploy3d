@@ -22,6 +22,7 @@ export declare class Resources {
     Load_file<T>(type: "text" | "arrayBuffer" | "json", uri: string, not_cache?: boolean, cur_pkg?: PackageReg): Promise<{
         pkg: Miaoverse.PackageReg;
         data: T;
+        path: string;
     }>;
     /**
      * 资源URI转资源UUID。

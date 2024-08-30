@@ -31,6 +31,13 @@ export declare class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> 
      */
     constructor(_global: Miaoverse.Ploy3D);
     /**
+     * 装载贴图资源。
+     * @param uri 贴图资源URI。
+     * @param pkg 当前资源包注册信息。
+     * @returns 异步返回贴图资源实例。
+     */
+    Load(uri: string, pkg?: Miaoverse.PackageReg): Promise<Miaoverse.Texture>;
+    /**
      * 创建贴图资源实例。
      * @param asset 贴图资源描述符。
      * @returns 异步返回贴图资源实例。

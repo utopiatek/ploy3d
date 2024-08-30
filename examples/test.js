@@ -242,14 +242,19 @@ export class PloyApp_test extends ploycloud.PloyApp {
             ctx.arc(512, 256, 64, 0, Math.PI * 2.0);
             ctx.fillStyle = "green";
             ctx.fill();
-            ctx.strokeStyle = "white";
-            ctx.stroke();
+
+            ctx.fillStyle = "green";
+            ctx.fillText("你好，世界！", 512, 256 + 128);
 
             ctx.lineWidth = 10;
 
             ctx.arc(768, 128, 96, 0, Math.PI * 2.0);
             ctx.strokeStyle = "blue";
             ctx.stroke();
+
+            ctx.arc(768 + 64, 128 + 64, 96, 0, Math.PI * 2);
+            ctx.fillStyle = "green";
+            ctx.fill();
 
             ctx.arc(768 + 64, 128 + 64, 96, Math.PI * 0.25, Math.PI * 1.55);
             ctx.strokeStyle = "red";
@@ -282,7 +287,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         // 跳转查看指定地理位置方法（北京天安门经纬度: [116.397459, 39.908796]）
         const targetLL = this.engine.gis.GCJ02_WGS84([120.2824892, 30.4876468]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
-        this.camera.Set3D(targetWPOS, 1000);
+        this.camera.Set3D([targetWPOS[0] + 600, targetWPOS[1], targetWPOS[2] + 500], 300, 10);
 
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(1);
@@ -313,7 +318,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
      */
     Draw2D() {
         this.engine.renderer2d.AddDraw(this.billboard_ctx2d);
-
+        /*
         const targetLL = this.engine.gis.GCJ02_WGS84([120.2824892, 30.4876468]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
         const screenPos = this.camera.WorldToScreen(targetWPOS);
@@ -323,6 +328,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         this.ui_ctx.font = "32px Arial";
         this.ui_ctx.fillStyle = "red";
         this.ui_ctx.fillText("经纬度转屏幕空间测试", pixelX, pixelY);
+        */
     }
 
     /**

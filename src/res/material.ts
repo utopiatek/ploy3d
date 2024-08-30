@@ -413,8 +413,13 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
         }
 
         for (let key in asset.properties.textures) {
-            // 贴图运行时根据材质LOD动态装载卸载，材质创建之初并不需要装载材质引用的贴图
-            instance.SetTexture(key, asset.properties.textures[key]);
+            // TODO：可以优化，贴图运行时根据材质LOD动态装载卸载，材质创建之初并不需要装载材质引用的贴图
+            const prop = asset.properties.textures[key];
+            if (prop.uri && !prop.texture) {
+                prop.texture = await this._global.resources.Texture.Load(prop.uri);
+            }
+
+            instance.SetTexture(key, prop);
         }
 
         // 注册垃圾回收 ===============-----------------------

@@ -64,6 +64,10 @@ tsc --declaration true --emitDeclarationOnly true --removeComments false -p ./ts
 ```
 deno run --allow-env --allow-read --allow-write --allow-net --allow-ffi --unstable-ffi --unstable-webgpu --unstable-sloppy-imports ./native.js
 ```
+* 生成新字体 [生成工具](https://github.com/Chlumsky/msdf-atlas-gen)
+```
+msdf-atlas-gen -font simhei.ttf -charset chinese.txt -format png -imageout simhei.png -json simhei.json
+```
 
 #### 坐标系说明：
 笛卡尔坐标系：使用X轴朝右，Y轴朝上，Z轴朝外的右手坐标系（与WebGL，ThreeJS，Filament相同）；  

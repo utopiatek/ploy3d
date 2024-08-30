@@ -1590,9 +1590,12 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
                 const texid = var_.decl.texture;
                 if (texid !== undefined) {
                     const binding = texid * 2 + 2;
+                    const resid = uniform.view[var_.decl.name][0];
+                    const res = this._global.resources.Texture.GetInstanceByID(resid);
+                    const tex = res ? this._global.device.GetTexture2D(res.internalID) : default2D;
                     entries.push({
                         binding: binding + 0,
-                        resource: default2D.view
+                        resource: tex.view
                     });
                     entries.push({
                         binding: binding + 1,

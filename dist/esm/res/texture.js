@@ -22,6 +22,41 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
         super(_global, {});
     }
+    async Load(uri, pkg) {
+        const uuid = this._global.resources.ToUUID(uri, pkg);
+        if (!uuid) {
+            return null;
+        }
+        if (this._instanceLut[uuid]) {
+            return this._instanceLut[uuid];
+        }
+        const desc = await this._global.resources.Load_file("arrayBuffer", uri, true, pkg);
+        if (!desc?.data) {
+            console.error("Texture_kernel::Load failed", desc?.pkg?.key || pkg?.key, uri);
+            return null;
+        }
+        let texture = null;
+        if (desc.path.endsWith(".ktx2")) {
+            texture = this.LoadTexture2D_KTX2(desc.data, "bc7-rgba-unorm");
+        }
+        else {
+            return null;
+            const blob = new Blob([desc.data]);
+            const option = undefined;
+            const bitmap = await createImageBitmap(blob, option);
+            texture = await this.LoadTexture2D_RAW(bitmap);
+            bitmap.close();
+        }
+        const id = this._instanceIdle;
+        this._instanceIdle = this._instanceList[id]?.id || id + 1;
+        const instance = this._instanceList[id] = new Texture(this, texture, id, uuid || "");
+        this._instanceCount++;
+        this._gcList.push(instance);
+        if (uuid) {
+            this._instanceLut[uuid] = instance;
+        }
+        return instance;
+    }
     async CreateTexture(asset) {
         let texture = null;
         if (asset.bitmap) {

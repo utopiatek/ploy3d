@@ -91,7 +91,7 @@ fn varyings_init(frag: InputFS) {
         inputs_vftMat[1] = cross(inputs_vftMat[2], inputs_vftMat[0]) * sign(frag.viewTangent.w);
     }
 
-    if (VARIANT_HAS_DOUBLESIDED && gl_FrontFacing) {
+    if (VARIANT_HAS_DOUBLESIDED && !gl_FrontFacing) {
         inputs_vftMat[0] = -inputs_vftMat[0];
         inputs_vftMat[1] = -inputs_vftMat[1];
         inputs_vftMat[2] = -inputs_vftMat[2];

@@ -28,6 +28,15 @@ export declare class Renderer2D {
      */
     CreateStyle2D(color: string): Miaoverse.Style2D;
     /**
+     * 创建字符串图形路径数据。
+     * @param text 字符串。
+     * @param x 起始光标像素坐标。
+     * @param y 文本行基线像素坐标。
+     * @param canvas_w 画布宽度。
+     * @param canvas_h 画布高度。
+     */
+    CreateString2D(text: string, x: number, y: number, canvas_w: number, canvas_h: number): void;
+    /**
      * 开始UI帧绘制预备工作。
      */
     BeginFrame(): void;
@@ -54,6 +63,12 @@ export declare class Renderer2D {
     private _drawData;
     /** 样式实例查找表。 */
     private _styleLut;
+    /** 1REM对应的像素数（Renderer2D统一以EM为单位）。 */
+    private _rem_font_size;
+    /** 字形数据查找表。 */
+    private _font_glyphs_lut;
+    /** 字形图集纹理数据。 */
+    private _font_atlas;
 }
 /**
  * UI路径实例。
@@ -84,12 +99,33 @@ export declare class Path2D {
      * @param endAngle 终止弧度。
      */
     Arc(x: number, y: number, radius: number, startAngle: number, endAngle: number): void;
+    /**
+     * 构造文本图形数据。
+     * @param text 字符串行。
+     * @param x 光标位置。
+     * @param y 基线位置。
+     * @param maxWidth 最大绘制行宽。
+     * @param params 字体数据。
+     */
+    Text(text: string, x: number, y: number, maxWidth?: number, params?: {
+        /** 1EM对应像素数。 */
+        em_font_size: number;
+        /** 字形数据查找表。 */
+        glyphs: FontAtlas;
+        /** 字形图集信息。 */
+        atlas: Renderer2D["_font_atlas"];
+        /** 画布宽度。 */
+        canvas_width: number;
+        /** 画布高度。 */
+        canvas_height: number;
+    }): void;
     Mask(transform: number[]): number;
     /**
      * 当前路径类型：
      * 1-矩形；
      * 2-圆形；
      * 3-圆角矩形；
+     * 4-字符串；
      */
     type: number;
     /** 当前路径是否已应用。*/
@@ -693,4 +729,121 @@ export declare class Canvas2D {
             binding?: GPUBindGroup;
         };
     };
+}
+/**
+ * 字体图集字符布局数据查找表。
+ * https://github.com/Chlumsky/msdf-atlas-gen
+ */
+export interface FontAtlas {
+    /**
+     * 图集纹理的元数据。
+     */
+    atlas: {
+        /**
+         * 距离场的类型。
+         */
+        type: string;
+        /**
+         * 距离场精确的像素范围。
+         */
+        distanceRange: number;
+        /**
+         * 距离场像素范围中值。
+         */
+        distanceRangeMiddle: number;
+        /**
+         * 在图集纹理中保存字形信息时，1em对应的纹理像素数量。
+         */
+        size: number;
+        /**
+         * 图集纹理的宽度。
+         */
+        width: number;
+        /**
+         * 图集纹理的高度。
+         */
+        height: number;
+        /**
+         * 图集纹理的起始行在底部还是顶部。
+         */
+        yOrigin: "bottom" | "top";
+    };
+    /**
+     * 定义应用于所有字符的全局字体度量。
+     */
+    metrics: {
+        /**
+         * 字形的轮廓信息是基于字体设计单位（EM）的。
+         * 为了将这些值转换为可用于渲染的坐标，通常需要将这些单位转换为像素单位。
+         * 这个转换取决于字体的unitsPerEm和目标渲染的尺寸。
+         * 1em等于多少像素取决于使用的字体大小。em是一个相对单位，其值基于当前字体的font-size。
+         * 如果当前font-size为16像素：1em = 16px；
+         * h1 { font-size: 20px } 1em == 20px
+         * p { font - size: 16px } 1em == 16px
+         * h1 { font-size: 2em } 这里的h1元素字体像素大小根据父级的font-size决定，大多数浏览器的默认font-size为16像素；
+         * 相对根元素字体大小的设置rem，h1 { font-size: 2rem }；
+         * 如果属性尺寸要根据元素字体进行缩放（比如字间距），则使用em，否则使用rem是比较好的设计思路。
+         * https://zhuanlan.zhihu.com/p/37956549
+         */
+        emSize: number;
+        /**
+         * 两行文本的基线之间的垂直距离。
+         * 字形的轮廓通常相对于基线来定义，基线是字体中字符对齐的参考线。
+         * 通常，字母的底部在基线上。
+         * 字形的top和bottom值表示的是字形最高点和最低点相对于基线的距离。
+         */
+        lineHeight: number;
+        /**
+         * 超出基线的字形最大高度。
+         */
+        ascender: number;
+        /**
+         * 低于基线的字形最大深度。
+         */
+        descender: number;
+        /**
+         * 相对于基线的下划线位置。
+         */
+        underlineY: number;
+        /**
+         * 相对于基线的下划线厚度。
+         */
+        underlineThickness: number;
+    };
+    /**
+     * 包含图集中每个字形（字符）信息的数组。
+     */
+    glyphs: {
+        /**
+         * 字形的Unicode编码。
+         */
+        unicode: number;
+        /**
+         * 渲染字形后水平前进的距离，用于定位下一个字形。
+         */
+        advance: number;
+        /**
+         * 描述字形在字体设计单位中的边界框（相对于基线，以EM为单位）。
+         * X原点位于光标位置。
+         */
+        planeBounds: {
+            left: number;
+            bottom: number;
+            right: number;
+            top: number;
+        };
+        /**
+         * 字形在图集纹理中的边界框。
+         */
+        atlasBounds: {
+            left: number;
+            bottom: number;
+            right: number;
+            top: number;
+        };
+    }[];
+    /**
+     * 解析后字形数据查找表。
+     */
+    lut?: Record<number, number[]>;
 }
