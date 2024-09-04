@@ -30,6 +30,13 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
             params
         };
     }
+    Raycast(camera, point, layerMask = 0xFFFFFFFF) {
+        const ptr = this._Raycast(camera.internalPtr, point[0], point[1], layerMask >>> 0);
+        if (ptr) {
+            return this._global.resources.Object.GetInstanceByPtr(ptr);
+        }
+        return null;
+    }
     async InstancePrefab(scene, uri, pkg, master, listBeg) {
         const prefab = {
             uuid: "",
@@ -204,6 +211,7 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
     _Create;
     _Destroy;
     _Culling;
+    _Raycast;
 }
 export const Scene_member_index = {
     ...Miaoverse.Binary_member_index,

@@ -285,6 +285,25 @@ export class PloyApp_test extends ploycloud.PloyApp {
             }
         });
 
+        // 注册鼠标点击事件监听器
+        this.AddEventListener("click", (e) => {
+            const point = [
+                (e.layerX * this.engine.config.devicePixelRatio) / this.engine.width,
+                (e.layerY * this.engine.config.devicePixelRatio) / this.engine.height
+            ];
+
+            // 基于屏幕拾取射线与对象包围盒相交拾取最近对象。
+            const hitObj = this.engine.resources.Scene.Raycast(this.camera, point);
+            if (hitObj) {
+                // hitObj.active = false;
+                // hitObj.highlight = true;
+
+                this.DrawFrame(1);
+
+                console.error(point, hitObj);
+            }
+        });
+
         // 跳转查看指定地理位置方法（北京天安门经纬度: [116.397459, 39.908796]）
         const targetLL = this.engine.gis.GCJ02_WGS84([120.2824892, 30.4876468]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);

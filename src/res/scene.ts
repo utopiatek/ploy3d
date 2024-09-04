@@ -69,6 +69,22 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
     }
 
     /**
+     * 基于屏幕拾取射线与对象包围盒相交法拾取最近对象。
+     * @param camera 相机组件实例。
+     * @param point 屏幕坐标[0, 1]。
+     * @param layerMask 3D对象层掩码。
+     * @returns 返回拾取到的最近对象。
+     */
+    public Raycast(camera: Miaoverse.Camera, point: number[], layerMask: number = 0xFFFFFFFF) {
+        const ptr = this._Raycast(camera.internalPtr, point[0], point[1], layerMask >>> 0);
+        if (ptr) {
+            return this._global.resources.Object.GetInstanceByPtr(ptr);
+        }
+
+        return null;
+    }
+
+    /**
      * 实例化预制件。
      * @param scene 实例化出的3D对象所属场景。
      * @param uri 预制件URI。
@@ -326,7 +342,7 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
             instanceList[listBeg + instanceCount++] = instance;
 
             instance.name = asset.name;
-            
+
             // 构建父子关系
             if (parent) {
                 instance.SetParent(parent);
@@ -356,6 +372,11 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
      * @returns 返回绘制列表长度和指针。 
      */
     protected _Culling: (camera: Miaoverse.io_ptr, layerMask: number) => [number, Miaoverse.io_ptr];
+
+    /**
+     * 基于屏幕拾取射线与对象包围盒相交法拾取最近对象。
+     */
+    protected _Raycast: (camera: Miaoverse.io_ptr, screenX: number, screenY: number, layerMask: number) => Miaoverse.io_ptr;
 }
 
 /** 场景内核实现的数据结构成员列表。 */
