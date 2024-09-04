@@ -38,10 +38,10 @@ export declare class Volume extends Miaoverse.Resource<Volume> {
     /** 太阳圆盘参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP。 */
     get sunParams(): Float32Array;
     set sunParams(value: ArrayLike<number>);
-    /** IBL主光照颜色和强度。 */
-    get iblColorIntensity(): Float32Array;
-    /** IBL主光照全局空间方向光方向。 */
-    get iblDirection(): Float32Array;
+    /** 太阳光照颜色和强度。 */
+    get sunlitColorIntensity(): Float32Array;
+    /** 太阳光照全局空间方向光方向。 */
+    get sunlitDirection(): Float32Array;
     /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
     get lightFarAttenuationParams(): Float32Array;
     set lightFarAttenuationParams(value: ArrayLike<number>);
@@ -184,10 +184,10 @@ export declare const Volume_member_index: {
     readonly fogColor: Miaoverse.Kernel_member;
     /** 太阳圆盘参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP。 */
     readonly sunParams: Miaoverse.Kernel_member;
-    /** IBL主光照颜色和强度。 */
-    readonly iblColorIntensity: Miaoverse.Kernel_member;
-    /** IBL主光照全局空间方向光方向。 */
-    readonly iblDirection: Miaoverse.Kernel_member;
+    /** 太阳光照颜色和强度。 */
+    readonly sunlitColorIntensity: Miaoverse.Kernel_member;
+    /** 太阳光照全局空间方向光方向。 */
+    readonly sunlitDirection: Miaoverse.Kernel_member;
     /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
     readonly lightFarAttenuationParams: Miaoverse.Kernel_member;
     /** IBL，亮度。 */

@@ -955,7 +955,7 @@ export class Device {
             sampleCount: 1,
             dimension: "2d",
             format: format,
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | (bindable ? GPUTextureUsage.TEXTURE_BINDING : 0)
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST | (bindable ? GPUTextureUsage.TEXTURE_BINDING : 0)
         });
 
         if (!texture) {

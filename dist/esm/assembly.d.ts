@@ -1,3 +1,4 @@
+/// <reference types="dist" />
 import * as Miaoverse from "./mod.js";
 /** 渲染管线装配器。 */
 export declare class Assembly {
@@ -32,6 +33,8 @@ export declare class Assembly {
      * @returns 返回帧绘制资源组G0实例。
      */
     GetFrameUniforms(key: string): Miaoverse.FrameUniforms;
+    /** 默认IBL高光反射贴图资源视图。 */
+    get default_iblSpecular(): GPUTextureView;
     /** 模块实例对象。 */
     private _global;
     /** 渲染管线装配器配置。 */
@@ -97,4 +100,35 @@ export interface Assembly_config {
         /** 渲染管线使用的帧通道列表。 */
         framePass?: Miaoverse.GLFramePass[];
     }>;
+    /** IBL默认资源配置。 */
+    ibl: {
+        /** DFG数据配置。 */
+        dfg: {
+            /** 数据文件URI。 */
+            uri: string;
+            /** 数据写入目标贴图。 */
+            writeRT: string;
+            /** 数据写入目标贴图层索引。 */
+            writeLayer: number;
+            /** 数据写入目标贴图LOD级别。 */
+            writeLevel: number;
+            /** 数据写入目标贴图X偏移。 */
+            writeOffsetX: number;
+            /** 数据写入目标贴图Y偏移。 */
+            writeOffsetY: number;
+            /** 数据写入目标贴图宽度。 */
+            writeWidth: number;
+            /** 数据写入目标贴图高度。 */
+            writeHeight: number;
+        };
+        /** 高光反射贴图。 */
+        specular: {
+            /** 高光反射贴图URI。 */
+            uri: string;
+            /** 高光反射贴图资源实例。 */
+            texture?: Miaoverse.Texture;
+        };
+        /** 漫反射球谐系数。 */
+        diffuse: number[];
+    };
 }

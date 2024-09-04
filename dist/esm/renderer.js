@@ -147,8 +147,11 @@ export class DrawQueue {
         }
         device.queue.submit([this.cmdEncoder.finish()]);
     }
-    BindFrameUniforms(frameUniforms) {
+    BindFrameUniforms(frameUniforms, shadow_cast_index = -1) {
         frameUniforms.UpdateFrameUniforms(this.camera, this.volume);
+        if (shadow_cast_index > -1) {
+            frameUniforms.ComputeLightSpaceMatrixes(shadow_cast_index);
+        }
         frameUniforms.Bind(this.passEncoder);
         this.activeG0 = frameUniforms;
     }

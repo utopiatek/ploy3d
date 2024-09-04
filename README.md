@@ -68,6 +68,18 @@ deno run --allow-env --allow-read --allow-write --allow-net --allow-ffi --unstab
 ```
 msdf-atlas-gen -font simhei.ttf -charset chinese.txt -format png -imageout simhei.png -json simhei.json
 ```
+* 生成环境高光反射贴图和漫反射球谐系数
+```
+# 不能直接使用HDR贴图直接压缩生成MIPMAP，原理是不同的
+# 使用我们定制修改的CMGEN工具生成，会同步生成球谐系数文件
+# 生成后使用PVRTexTool压缩为我们引擎支持的BASISU ETC1S UINT SRGB KTX2格式
+# 压缩时不要勾选Generate MIPMaps，工具会在原MIPMaps各级内容上压缩
+# 我们修改了cmgen的源码实现，使--format=ktx时，默认使用equirect投影而非cube的投影
+cmgen --type=equirect --format=ktx --size=1024 --deploy=.\noon_grass_2k .\noon_grass_2k.hdr
+
+# 单独生成球谐系数
+cmgen --sh-shader --sh-irradiance --sh-output=sh.txt color_box.hdr
+```
 
 #### 坐标系说明：
 笛卡尔坐标系：使用X轴朝右，Y轴朝上，Z轴朝外的右手坐标系（与WebGL，ThreeJS，Filament相同）；  

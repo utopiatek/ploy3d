@@ -13,7 +13,7 @@ var<private> material_alpha: f32 = 1.0;
 var<private> material_baseColor: vec3f = vec3f(0.0);
 
 fn material_fs() {
-    let lightDir = frameUniforms.iblDirection.xyz;
+    let lightDir = frameUniforms.sunlitDirection.xyz;
 
     let v_viewDir = inputs_position;
 	let v_scattering = inputs_clipPosition.xyz;

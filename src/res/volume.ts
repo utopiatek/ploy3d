@@ -100,16 +100,16 @@ export class Volume extends Miaoverse.Resource<Volume> {
         this.updated = true;
     }
 
-    /** IBL主光照颜色和强度。 */
-    public get iblColorIntensity(): Float32Array {
+    /** 太阳光照颜色和强度。 */
+    public get sunlitColorIntensity(): Float32Array {
         // TODO: 需要先应用参数更新
-        return this._impl.Get(this._ptr, "iblColorIntensity");
+        return this._impl.Get(this._ptr, "sunlitColorIntensity");
     }
 
-    /** IBL主光照全局空间方向光方向。 */
-    public get iblDirection(): Float32Array {
+    /** 太阳光照全局空间方向光方向。 */
+    public get sunlitDirection(): Float32Array {
         // TODO: 需要先应用参数更新
-        return this._impl.Get(this._ptr, "iblDirection");
+        return this._impl.Get(this._ptr, "sunlitDirection");
     }
 
     /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
@@ -455,10 +455,10 @@ export const Volume_member_index = {
 
     /** 太阳圆盘参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP。 */
     sunParams: ["farrayGet", "farraySet", 4, 60] as Miaoverse.Kernel_member,
-    /** IBL主光照颜色和强度。 */
-    iblColorIntensity: ["farrayGet", "farraySet", 4, 64] as Miaoverse.Kernel_member,
-    /** IBL主光照全局空间方向光方向。 */
-    iblDirection: ["farrayGet", "farraySet", 3, 68] as Miaoverse.Kernel_member,
+    /** 太阳光照颜色和强度。 */
+    sunlitColorIntensity: ["farrayGet", "farraySet", 4, 64] as Miaoverse.Kernel_member,
+    /** 太阳光照全局空间方向光方向。 */
+    sunlitDirection: ["farrayGet", "farraySet", 3, 68] as Miaoverse.Kernel_member,
 
     /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
     lightFarAttenuationParams: ["farrayGet", "farraySet", 2, 112] as Miaoverse.Kernel_member,

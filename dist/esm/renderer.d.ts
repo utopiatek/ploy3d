@@ -62,8 +62,9 @@ export declare class DrawQueue {
     /**
      * 绑定帧统一资源组实例（G0）。
      * @param frameUniforms 帧统一资源组实例（G0）。
+     * @param shadow_cast_index 阴影投射通道索引（Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵））。
      */
-    BindFrameUniforms(frameUniforms: Miaoverse.FrameUniforms): void;
+    BindFrameUniforms(frameUniforms: Miaoverse.FrameUniforms, shadow_cast_index?: number): void;
     /**
      * 绑定网格渲染器组件。
      * @param meshRenderer 网格渲染器组件实例。
@@ -231,7 +232,7 @@ export interface GLFramePass extends GPURenderPassDescriptor {
          * GPUColorWrite.ALL: 0xF
          */
         writeMask?: GPUColorWriteFlags;
-        /** 颜色渲染目标混合模式（若此处不设置则取材质的混合模式设置）。 */
+        /** 颜色渲染目标混合模式（若此处不设置则取材质的混合模式设置，null表示不启用混合，undefined表示不指定由材质指定）。 */
         blend?: GPUBlendState;
         /** 颜色渲染目标贴图视图（多重采样时作为中间目标）。 */
         view: GPUTextureView;
@@ -327,7 +328,7 @@ export interface GLFramePass extends GPURenderPassDescriptor {
         instance?: Miaoverse.Material;
     };
     /** 特别指定着色器通道宏定义。 */
-    shaderMacro?: any;
+    shaderMacro?: Record<string, number>;
     /** 帧绘制资源组G0。 */
     frameUniforms: string;
     /** 渲染队列范围。 */

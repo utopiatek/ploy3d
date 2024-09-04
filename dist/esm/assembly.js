@@ -55,7 +55,12 @@ export class Assembly {
                 const frameUniforms = frameUniformsLut[queue.framePass.frameUniforms].g0;
                 const vp = queue.framePass.viewport;
                 queue.passEncoder.setViewport(vp[0], vp[1], vp[2], vp[3], vp[4], vp[5]);
-                queue.BindFrameUniforms(frameUniforms);
+                if (queue.framePass.label.startsWith("shadow_cast")) {
+                    queue.BindFrameUniforms(frameUniforms, 0);
+                }
+                else {
+                    queue.BindFrameUniforms(frameUniforms);
+                }
                 if (queue.framePass.mode == "shading") {
                     queue.Draw(queue);
                 }
@@ -114,6 +119,25 @@ export class Assembly {
                 }
             }
         }
+        {
+            const dfg_cfg = this._config.ibl.dfg;
+            const dfg_ab = await resources.Load_file("arrayBuffer", dfg_cfg.uri, true);
+            device.WriteTexture2D_RAW(renderTargetsLut[dfg_cfg.writeRT].id, true, {
+                data: dfg_ab.data,
+                dataLayout: {
+                    offset: 0,
+                    bytesPerRow: 2 * 4 * dfg_cfg.writeWidth,
+                    rowsPerImage: dfg_cfg.writeHeight
+                },
+                xoffset: dfg_cfg.writeOffsetX,
+                yoffset: dfg_cfg.writeOffsetY,
+                layer: dfg_cfg.writeLayer,
+                level: dfg_cfg.writeLevel,
+                width: dfg_cfg.writeWidth,
+                height: dfg_cfg.writeHeight
+            });
+            this._config.ibl.specular.texture = await resources.Texture.Load(this._config.ibl.specular.uri);
+        }
         return this;
     }
     GetFramePassList(key) {
@@ -121,6 +145,11 @@ export class Assembly {
     }
     GetFrameUniforms(key) {
         return this._config.frameUniforms.lut[key]?.g0;
+    }
+    get default_iblSpecular() {
+        const id = this._config.ibl.specular.texture.internalID;
+        const texture = this._global.device.GetTexture2D(id);
+        return texture.view;
     }
     _global;
     _config = {
@@ -187,6 +216,7 @@ export class Assembly {
                 {
                     label: "shadow_cast",
                     mode: "shading",
+                    shaderMacro: { SHADING_TYPE_SHADOW: 1 },
                     frameUniforms: "C1_D1_G0",
                     queueRange: 3,
                     rect: [0.0, 0.5, 0.5, 0.5],
@@ -194,7 +224,7 @@ export class Assembly {
                         {
                             format: "rgba16float",
                             writeMask: 0x3,
-                            blend: undefined,
+                            blend: null,
                             target: {
                                 name: "C0",
                                 layer: 0,
@@ -645,10 +675,27 @@ export class Assembly {
                 deferred: false,
                 rt_scale: 1.0,
                 framePassName: [
+                    "shadow_cast",
                     "opaque",
                     "blit",
                 ]
             }
+        },
+        ibl: {
+            dfg: {
+                uri: "1-1-1.miaokit.builtins:/16-0_dfg.bin",
+                writeRT: "C0",
+                writeLayer: 0,
+                writeLevel: 1,
+                writeOffsetX: 0,
+                writeOffsetY: 0,
+                writeWidth: 128,
+                writeHeight: 128
+            },
+            specular: {
+                uri: "1-1-1.miaokit.builtins:/ibl/25-1_graffiti_shelter_2k.ktx2"
+            },
+            diffuse: null
         }
     };
 }

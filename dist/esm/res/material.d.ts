@@ -82,6 +82,11 @@ export declare class FrameUniforms extends Miaoverse.Uniform<Material_kernel> {
      * @param volume 体积组件实例。
      */
     UpdateFrameUniforms(camera: Miaoverse.Camera, volume: Miaoverse.Volume): void;
+    /**
+     * 计算用于阴影投影的相关矩阵。
+     * @param cascadeIndex Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵）。
+     */
+    ComputeLightSpaceMatrixes(cascadeIndex: number): void;
     /** 相关状态标志集。 */
     get enableFlags(): number;
     set enableFlags(value: number);
@@ -176,6 +181,12 @@ export declare class Material_kernel extends Miaoverse.Base_kernel<Material | Fr
      * @param volume 体积组件内核实例指针。
      */
     protected _UpdateFrameUniforms: (uniform: Miaoverse.io_ptr, camera: Miaoverse.io_ptr, volume: Miaoverse.io_ptr) => void;
+    /**
+     * 计算用于阴影投影的相关矩阵。
+     * @param uniform G0资源内核实例指针。
+     * @param cascadeIndex Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵）。
+     */
+    protected _ComputeLightSpaceMatrixes: (uniform: Miaoverse.io_ptr, cascadeIndex: number) => void;
 }
 /** 材质资源内核实现的数据结构成员列表。 */
 export declare const Material_member_index: {

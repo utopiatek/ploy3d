@@ -122,7 +122,8 @@
                 "includes": [
                     ":/shader/wgsl/20-0_common.wgsl",
                     ":/shader/wgsl/20-1_common.vertex.wgsl",
-                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                    ":/shader/wgsl/20-2_common.varyings.wgsl",
+                    ":/shader/wgsl/20-5_common.shadowing.wgsl"
                 ],
                 "main": ":/shader/wgsl/20-6_standard.vertex.wgsl"
             },
@@ -135,7 +136,10 @@
                 "main": ":/shader/wgsl/20-7_standard.material.wgsl"
             },
             "shading": {
-                "includes": [],
+                "includes": [
+                    ":/shader/wgsl/20-5_common.shadowing.wgsl",
+                    ":/shader/wgsl/20-27_common.pbr.wgsl"
+                ],
                 "main": ":/shader/wgsl/20-8_standard.shading.wgsl"
             }
         }

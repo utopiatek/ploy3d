@@ -111,24 +111,6 @@ fn skinNormal(n: vec3f, ids: vec4<u32>, weights: vec4f) -> vec3f {
 
 // ======================================================================================================
 
-// 计算指定相机空间点的灯光空间位置
-fn computeLightSpacePosition(viewPosition: vec3f, viewNormal: vec3f, cascade: u32) ->vec4f {
-    var vPos = viewPosition;
-
-    if (VARIANT_HAS_VSM) {
-        // 将全局空间光照向量转到相机空间
-        let viewLit = normalize(mulMat3x3Float3(frameUniforms.vfgMat, frameUniforms.iblDirection.xyz));
-        let NoL = saturate(dot(viewNormal, viewLit));
-        let sinTheta = sqrt(1.0 - NoL * NoL);
-        // 将坐标沿法线偏移一定距离（由frameUniforms.shadowBias指定），避免出现自遮挡问题（acne），VSM阴影不需要偏移
-        vPos += viewNormal * (sinTheta * frameUniforms.shadowBias);
-    }
-
-    return mulMat4x4Float3((frameUniforms.lfgMat/*TODO:[cascade]*/ * frameUniforms.gfvMat), vPos);
-}
-
-// ======================================================================================================
-
 // 实例化绘制中当前实例索引
 var<private> gl_InstanceID: u32 = 0u;
 // 当前处理顶点索引

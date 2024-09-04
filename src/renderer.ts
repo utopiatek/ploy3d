@@ -265,9 +265,15 @@ export class DrawQueue {
     /**
      * 绑定帧统一资源组实例（G0）。
      * @param frameUniforms 帧统一资源组实例（G0）。
+     * @param shadow_cast_index 阴影投射通道索引（Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵））。
      */
-    public BindFrameUniforms(frameUniforms: Miaoverse.FrameUniforms) {
+    public BindFrameUniforms(frameUniforms: Miaoverse.FrameUniforms, shadow_cast_index = -1) {
         frameUniforms.UpdateFrameUniforms(this.camera, this.volume);
+
+        if (shadow_cast_index > -1) {
+            frameUniforms.ComputeLightSpaceMatrixes(shadow_cast_index);
+        }
+
         frameUniforms.Bind(this.passEncoder);
 
         this.activeG0 = frameUniforms;
@@ -642,7 +648,7 @@ export interface GLFramePass extends GPURenderPassDescriptor {
          * GPUColorWrite.ALL: 0xF
          */
         writeMask?: GPUColorWriteFlags;
-        /** 颜色渲染目标混合模式（若此处不设置则取材质的混合模式设置）。 */
+        /** 颜色渲染目标混合模式（若此处不设置则取材质的混合模式设置，null表示不启用混合，undefined表示不指定由材质指定）。 */
         blend?: GPUBlendState;
 
         // GPURenderPassColorAttachment 在 GPURenderPassDescriptor 使用 ==========--------------------------------
@@ -756,7 +762,7 @@ export interface GLFramePass extends GPURenderPassDescriptor {
     /** 指定固定使用的材质绘制帧（通常在后处理帧通道使用）。 */
     materialSpec?: Miaoverse.Asset_material & { instance?: Miaoverse.Material; };
     /** 特别指定着色器通道宏定义。 */
-    shaderMacro?: any;
+    shaderMacro?: Record<string, number>;
 
     /** 帧绘制资源组G0。 */
     frameUniforms: string;

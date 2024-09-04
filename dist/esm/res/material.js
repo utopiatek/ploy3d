@@ -130,6 +130,9 @@ export class FrameUniforms extends Miaoverse.Uniform {
     UpdateFrameUniforms(camera, volume) {
         this._impl["_UpdateFrameUniforms"](this.internalPtr, camera.internalPtr, volume.internalPtr);
     }
+    ComputeLightSpaceMatrixes(cascadeIndex) {
+        this._impl["_ComputeLightSpaceMatrixes"](this.internalPtr, cascadeIndex);
+    }
     get enableFlags() {
         return this._impl.Get(this._ptr, "enableFlags");
     }
@@ -281,6 +284,7 @@ export class Material_kernel extends Miaoverse.Base_kernel {
     _Create;
     _CreateFrameUniforms;
     _UpdateFrameUniforms;
+    _ComputeLightSpaceMatrixes;
 }
 export const Material_member_index = {
     ...Miaoverse.Uniform_member_index,

@@ -35,20 +35,15 @@ fn material_vs() ->OutputVS {
     output.clipPosition = frameUniforms.cfvMat * output.viewPosition;
     output.gl_Position = output.clipPosition;
     
-    output.litPosition = vec4f(0.0);
-    if (VARIANT_HAS_DIRECTIONAL_LIGHTING && VARIANT_HAS_SHADOWING) {
-        output.litPosition = computeLightSpacePosition(output.viewPosition.xyz, output.viewNormal, 0u);
-    }
+    output.litPosition = computeLightSpacePosition(output.viewPosition.xyz, output.viewNormal, 0u);
 
-    if (VARIANT_HAS_VSM) {
-        // 对于VSM，我们使用线性光照空间Z坐标作为深度度量，它适用于平行光和聚光灯，并且可以安全地进行插值
-        // 在相机空间中，该值保证在[-znear，-zfar]之间，使用output.viewPosition.w存储内插光照空间深度
-        let z = output.viewPosition.z;
-        // 重新缩放 [near, far] 到 [0, 1]
-        let depth = -z * frameUniforms.camera_params.y/*oneOverFarMinusNear*/ - frameUniforms.camera_params.z/*nearOverFarMinusNear*/;
-        // EVSM pre-mapping，结果在[-vsmExponent, +vsmExponent]之间，表示指数，其后用exp方法转换为曲线
-        output.viewPosition.w = frameUniforms.vsmExponent * (depth * 2.0 - 1.0);
-    }
+    // 对于VSM，我们使用线性光照空间Z坐标作为深度度量，它适用于平行光和聚光灯，并且可以安全地进行插值
+    // 在相机空间中，该值保证在[-znear，-zfar]之间，使用output.viewPosition.w存储内插光照空间深度
+    let z = output.viewPosition.z;
+    // 重新缩放 [near, far] 到 [0, 1]
+    let depth = -z * frameUniforms.camera_params.y/*oneOverFarMinusNear*/ - frameUniforms.camera_params.z/*nearOverFarMinusNear*/;
+    // EVSM pre-mapping，结果在[-vsmExponent, +vsmExponent]之间，表示指数，其后用exp方法转换为曲线
+    output.viewPosition.w = frameUniforms.vsmExponent * (depth * 2.0 - 1.0);
 
     return output;
 }

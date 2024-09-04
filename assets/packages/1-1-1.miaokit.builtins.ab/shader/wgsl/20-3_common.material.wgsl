@@ -3,10 +3,6 @@
 // 材质定义模块通用代码
 //------------------------------------------------------------------------------
 
-// 片段的屏幕空间坐标
-// 在WGSL中，gl_FragCoord的等价内置变量是@builtin(position)
-var<private> gl_FragCoord: vec4f = vec4f(0.0);
-
 // 材质需要完整定义以下值，并标记出实际启用了哪些值
 // 材质表面不透明度（material_alpha = computeMaskedAlpha(inputs_alpha、inputs_maskThreshold)）
 // #MATERIAL_HAS_ALPHA
@@ -142,52 +138,6 @@ fn prepareShading(clipPosition: vec4f, normal: vec3f, bentNormal: vec3f, clearCo
     if (material_anisotropy != 0.0 && MATERIAL_HAS_ANISOTROPY_DIRECTION) {
         shading_anisotropicT = normalize(shading_tangentToView * anisotropyDirection);
     }
-}
-
-// VSM需要知道深度值的方差，而深度值的方差=深度值平方的期望-深度值期望的平方，需要额外写入深度值的平方，期望（均值）通过SAT计算
-// 有了以上几个值，利用切比雪夫不等式估计范围内深度大于当前片元深度的概率，该概率即为遮挡率
-// https://blog.csdn.net/qq_39300235/article/details/118338139
-// 受到直接光照的片元的方差非常小，且t - E(x)的值始终在零的附近，分母接近0，因此容易产生明暗交加的条纹
-// 可以使用一个最小方差来解决该问题，也可以使用下面方法来移除最小方差
-fn computeDepthMomentsVSM(depth: f32) -> vec2f {
-    // computes the moments
-    // See GPU Gems 3
-    // https://developer.nvidia.com/gpugems/gpugems3/part-ii-light-and-shadows/chapter-8-summed-area-variance-shadow-maps
-    var moments: vec2f;
-
-    // the first moment is just the depth (average)
-    moments.x = depth;
-
-    // compute the 2nd moment over the pixel extents.
-    let dx = dpdx(depth);
-    let dy = dpdy(depth);
-    moments.y = depth * depth + 0.25 * (dx * dx + dy * dy);
-
-    return moments;
-}
-
-// 编码阴影贴图
-// 线性深度值[-vsmExponent, +vsmExponent]存储在vertex_viewPosition.w中，经过内插
-// linearDepth = vertex_viewPosition.w
-fn encodeShadow(linearDepth: f32, alpha: f32) -> vec4f {
-    if (BLEND_MODE_TRANSPARENT || BLEND_MODE_FADE) {
-        // 半透明对象投射阴影时，阴影强度要弱于不透明对象投射阴影
-        // 要弱化阴影强度，使阴影密度降低，从而避免在阴影贴图中记录阴影强度
-        let noise = interleavedGradientNoise(gl_FragCoord.xy);
-        if (noise >= alpha) {
-            discard;
-        }
-    }
-
-    // 我们使用指数方差阴影EVSM，可以优化VSM在高方差区域的漏光问题，并且可以使用图像空间的Blur实现软阴影
-    // https://www.cnblogs.com/X-Jun/p/16269653.html
-    // 线性深度值[-vsmExponent, +vsmExponent]存储在vertex_viewPosition.w中，经过内插
-    // 线性深度值vsmExponent表示指数，通过exp方法转换为曲线，指数小于0时，结果小于1，结果始终大于0
-    let depth = exp(linearDepth);
-    // 写入深度和深度的平方，对深度的平方做一个优化以避免方差过小产生副作用
-    // 启用EVSM4（需要更大的Blurs，需要RGBA16F格式）
-    // fragColor.zw = computeDepthMomentsVSM(-1.0 / depth);
-    return vec4f(computeDepthMomentsVSM(depth), vec2f(0.0));
 }
 
 struct DataGB {

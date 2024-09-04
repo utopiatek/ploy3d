@@ -137,7 +137,7 @@ fn material_vs() ->OutputVS {
 
     // 在此可以添加一些用户代码来修改或提供世界空间顶点属性 ...
 
-    atmosphereVertex(worldPosition.xyz, frameUniforms.camera_wPos.xyz, frameUniforms.iblDirection.xyz);
+    atmosphereVertex(worldPosition.xyz, frameUniforms.camera_wPos.xyz, frameUniforms.sunlitDirection.xyz);
     
     output.viewPosition = instance_vfwMat * worldPosition;
     // 我们不需要在这里对向量进行归一化，即使矩阵中包含缩放

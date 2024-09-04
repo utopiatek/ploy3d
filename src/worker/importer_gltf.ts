@@ -239,6 +239,8 @@ export class Importer_gltf {
         const normals = (channels & 4) == 4 ? env.farrayRef(data_ptr, normalsOffset, 3 * vCount) : null;
         const uvs = (channels & 8) == 8 ? env.farrayRef(data_ptr, uvsOffset, 2 * vCount) : null;
 
+        // TODO: 优先获取模型自带切线数据，因为它带有镜像标记
+
         const bones = (channels & 16) == 16 ? env.uarrayRef(data_ptr, bonesOffset, vCount) : null;
         const weights = (channels & 32) == 32 ? env.uarrayRef(data_ptr, weightsOffset, vCount) : null;
 

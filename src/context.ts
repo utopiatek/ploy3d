@@ -468,7 +468,7 @@ export class Context {
 
         // 特殊标记查找表
         const specLut: Record<string, number> = {
-            // TODO ...
+            normalTex_uuid: RENDER_FLAGS.HAS_NORMAL_TEXTURE
         };
 
         // 特殊的赋值方法，会额外进行标志集标志
@@ -818,10 +818,10 @@ export class Context {
 
             // 128===================----------------------------------
 
-            "lfgMat": { note: "CASCADES阴影各级光照空间矩阵：全局->灯光。", sign: "mat4x4<f32>" },
-            "lfgMat1": { note: "CASCADES阴影各级光照空间矩阵：全局->灯光。", sign: "mat4x4<f32>" },
-            "lfgMat2": { note: "CASCADES阴影各级光照空间矩阵：全局->灯光。", sign: "mat4x4<f32>" },
-            "lfgMat3": { note: "CASCADES阴影各级光照空间矩阵：全局->灯光。", sign: "mat4x4<f32>" },
+            "sm_uvfwMat": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
+            "sm_uvfwMat1": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
+            "sm_uvfwMat2": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
+            "sm_uvfwMat3": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
 
             // 384===================----------------------------------
 
@@ -875,8 +875,8 @@ export class Context {
             "fogColor": { note: "雾，颜色（W位不使用）。", sign: "vec4<f32>" },
 
             "sunParams": { note: " 太阳圆盘参数：cos(sunAngle), sin(sunAngle), 1/(sunAngle*HALO_SIZE-sunAngle), HALO_EXP。", sign: "vec4<f32>", value: [0.999848, 0.017452, -2188.808350, 80.0] },
-            "iblColorIntensity": { note: "IBL主光照颜色和强度。", sign: "vec4<f32>", value: [1.0, 1.0, 1.0, 1.0] },
-            "iblDirection": { note: "IBL主光照全局空间方向光方向（W位不使用）。", sign: "vec4<f32>", value: [0.0, 1.0, 0.0, 0.0] },
+            "sunlitColorIntensity": { note: "太阳光照颜色和强度。", sign: "vec4<f32>", value: [1.0, 1.0, 1.0, 1.0] },
+            "sunlitDirection": { note: "太阳光照全局空间方向光方向（W位不使用）。", sign: "vec4<f32>", value: [0.0, 1.0, 0.0, 0.0] },
 
             "m_reserved208": { note: "预留空间。", sign: "vec4<f32>" },
             "m_reserved224": { note: "预留空间。", sign: "vec4<f32>" },
@@ -1055,6 +1055,7 @@ struct LightList {
             `;
 
             propLayout.fscode += froxel_buffer_code;
+            propLayout.vscode += froxel_buffer_code;
         }
 
         const groupDesc: GPUBindGroupLayoutDescriptor = {
@@ -1262,6 +1263,7 @@ struct ObjectUniforms {
 @group(1) @binding(1) var<uniform> objectUniforms : ObjectUniforms;
 
 @group(1) @binding(3) var morphTG : texture_2d<f32>;
+@group(1) @binding(4) var iblSpecular : texture_2d<f32>;
             `;
         }
 
@@ -1436,6 +1438,14 @@ struct ObjectUniforms {
                 {// morphTG
                     binding: 3,
                     visibility: GPUShaderStage.VERTEX,
+                    texture: {
+                        sampleType: "float",
+                        viewDimension: "2d"
+                    }
+                },
+                {// iblSpecular
+                    binding: 4,
+                    visibility: GPUShaderStage.FRAGMENT,
                     texture: {
                         sampleType: "float",
                         viewDimension: "2d"
@@ -1740,7 +1750,7 @@ struct ObjectUniforms {
                 targets.push({
                     format: target.format,
                     writeMask: target.writeMask,
-                    blend: target.blend || blend
+                    blend: target.blend === undefined ? blend : (target.blend ? target.blend : undefined)
                 });
             }
         }
@@ -1779,6 +1789,18 @@ struct ObjectUniforms {
             };
         }
 
+        if (framePass.shaderMacro) {
+            pipelineDesc.vertex.constants = {
+                ...pipelineDesc.vertex.constants,
+                ...framePass.shaderMacro
+            };
+
+            pipelineDesc.fragment.constants = {
+                ...pipelineDesc.fragment.constants,
+                ...framePass.shaderMacro
+            };
+        }
+
         pipeline = entry.pipelines[framePass.index] = this._global.device.device.createRenderPipeline(pipelineDesc);
 
         // ==========================---------------------------------------------
@@ -1802,7 +1824,6 @@ struct ObjectUniforms {
 const MATERIAL_HAS_ANISOTROPY_DIRECTION = false;
 const MATERIAL_HAS_POST_LIGHTING_COLOR = false;
 const MATERIAL_HAS_SUBSURFACECOLOR = false;
-const MATERIAL_HAS_SHEENCOLOR = false;
 const MATERIAL_HAS_BENT_NORMAL = false;
 const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
         `;
@@ -1841,7 +1862,15 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 
     material_fs();
 
-    shading_fs();
+    if (SHADING_TYPE_SHADOW) {
+        // 线性深度值： [near, far] 到 [0, 1]
+        // let depth = ((inputs_depth / frameUniforms.vsmExponent) + 1.0) * 0.5;
+
+        fragColor0 = encodeShadow(inputs_depth, material_alpha, 1.0);
+    }
+    else {
+        shading_fs();
+    }
 
     return fragColor0;
 }
@@ -2060,6 +2089,11 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
             entries.push({
                 binding: 3,
                 resource: morphTargets.view
+            });
+
+            entries.push({
+                binding: 4,
+                resource: this._global.assembly.default_iblSpecular
             });
         }
         else if (uniform.group == 2) {

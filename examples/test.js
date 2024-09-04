@@ -91,6 +91,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         const chara_prefab = await this.engine.resources.Scene.InstancePrefab(this.scene, "65-0", chara_pkg.pkg);
         chara_prefab.root.SetLngLat(dior_lnglat[0] + 0.0025, dior_lnglat[1] + 0.0025, 0.0);
         chara_prefab.root.localScale = this.engine.Vector3([100, 100, 100]);
+        chara_prefab.root.localPosition = this.engine.Vector3([0, 0, 400]);
         console.error(chara_pkg, chara_prefab);
         /*
         // 导入DAZ文件，依赖的其它DAZ文件会同时导入，每个DAZ文件转换为一个资源包
@@ -287,7 +288,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         // 跳转查看指定地理位置方法（北京天安门经纬度: [116.397459, 39.908796]）
         const targetLL = this.engine.gis.GCJ02_WGS84([120.2824892, 30.4876468]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
-        this.camera.Set3D([targetWPOS[0] + 600, targetWPOS[1], targetWPOS[2] + 500], 300, 10);
+        this.camera.Set3D([targetWPOS[0] + 600, targetWPOS[1], targetWPOS[2] + 500], 700, 10);
 
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(1);

@@ -119,7 +119,8 @@
                 "includes": [
                     ":/shader/wgsl/20-0_common.wgsl",
                     ":/shader/wgsl/20-1_common.vertex.wgsl",
-                    ":/shader/wgsl/20-2_common.varyings.wgsl"
+                    ":/shader/wgsl/20-2_common.varyings.wgsl",
+                    ":/shader/wgsl/20-5_common.shadowing.wgsl"
                 ],
                 "main": ":/shader/wgsl/20-18_standard_gis.vertex.wgsl"
             },
@@ -131,7 +132,9 @@
                 "main": ":/shader/wgsl/20-19_standard_gis.material.wgsl"
             },
             "shading": {
-                "includes": [],
+                "includes": [
+                    ":/shader/wgsl/20-5_common.shadowing.wgsl"
+                ],
                 "main": ":/shader/wgsl/20-20_standard_gis.shading.wgsl"
             }
         }

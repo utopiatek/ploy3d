@@ -34,6 +34,8 @@ struct OutputVS {
 struct InputFS {
     // 片元是否朝向正面
     @builtin(front_facing) gl_FrontFacing: bool,
+    // 片元坐标
+    @builtin(position) gl_FragCoord: vec4<f32>,
     
     // 顶点裁剪空间坐标
     @location(0) clipPosition: vec4f,
@@ -58,6 +60,7 @@ struct InputFS {
 };
 
 var<private> gl_FrontFacing: bool = false;
+var<private> gl_FragCoord: vec4f = vec4f(0.0);
 
 var<private> inputs_instanceID: u32 = 0u;
 
@@ -75,6 +78,7 @@ var<private> inputs_custom2: vec4<f32> = vec4<f32>(0.0);
 
 fn varyings_init(frag: InputFS) {
     gl_FrontFacing = frag.gl_FrontFacing;
+    gl_FragCoord = frag.gl_FragCoord;
 
     inputs_instanceID = frag.instanceID;
 
@@ -84,10 +88,10 @@ fn varyings_init(frag: InputFS) {
     inputs_depth = frag.viewPosition.w;
     inputs_position = frag.viewPosition.xyz;
     inputs_uv = frag.uv;
-    inputs_vftMat[2] = frag.viewNormal;
+    inputs_vftMat[2] = normalize(frag.viewNormal);
 
     if (MATERIAL_NEEDS_TBN) {
-        inputs_vftMat[0] = frag.viewTangent.xyz;
+        inputs_vftMat[0] = normalize(frag.viewTangent.xyz);
         inputs_vftMat[1] = cross(inputs_vftMat[2], inputs_vftMat[0]) * sign(frag.viewTangent.w);
     }
 

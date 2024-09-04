@@ -71,11 +71,11 @@ export class Volume extends Miaoverse.Resource {
         this._impl.Set(this._ptr, "sunParams", value);
         this.updated = true;
     }
-    get iblColorIntensity() {
-        return this._impl.Get(this._ptr, "iblColorIntensity");
+    get sunlitColorIntensity() {
+        return this._impl.Get(this._ptr, "sunlitColorIntensity");
     }
-    get iblDirection() {
-        return this._impl.Get(this._ptr, "iblDirection");
+    get sunlitDirection() {
+        return this._impl.Get(this._ptr, "sunlitDirection");
     }
     get lightFarAttenuationParams() {
         return this._impl.Get(this._ptr, "lightFarAttenuationParams");
@@ -308,8 +308,8 @@ export const Volume_member_index = {
     iblSH: ["farrayGet", "farraySet", 36, 20],
     fogColor: ["farrayGet", "farraySet", 3, 56],
     sunParams: ["farrayGet", "farraySet", 4, 60],
-    iblColorIntensity: ["farrayGet", "farraySet", 4, 64],
-    iblDirection: ["farrayGet", "farraySet", 3, 68],
+    sunlitColorIntensity: ["farrayGet", "farraySet", 4, 64],
+    sunlitDirection: ["farrayGet", "farraySet", 3, 68],
     lightFarAttenuationParams: ["farrayGet", "farraySet", 2, 112],
     iblLuminance: ["fscalarGet", "fscalarSet", 1, 116],
     iblRoughnessOneLevel: ["fscalarGet", "fscalarSet", 1, 117],
