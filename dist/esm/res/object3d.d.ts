@@ -25,6 +25,10 @@ export declare class Object3D extends Miaoverse.Resource<Object3D> {
      * @param altitude 海拔高度。
      */
     SetLngLat(lng: number, lat: number, altitude: number): void;
+    /**
+     * 销毁对象。
+     */
+    Destroy(): void;
     /** 变换组件更新时间戳。 */
     get writeTS(): number;
     /** 变换组件应用时间戳。 */
@@ -93,6 +97,7 @@ export declare class Object3D extends Miaoverse.Resource<Object3D> {
     get root(): Object3D;
     /** 网格渲染器组件。 */
     set meshRenderer(component: Miaoverse.MeshRenderer);
+    get meshRenderer(): Miaoverse.MeshRenderer;
     /** 动画组件。 */
     set animator(component: Miaoverse.Animator);
     /** 内核实现。 */
@@ -167,6 +172,12 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      * @param meshRenderer 网格渲染器组件内核实例指针。
      */
     protected _SetMeshRenderer: (object3d: Miaoverse.io_ptr, meshRenderer: Miaoverse.io_ptr) => void;
+    /**
+     * 获取网格渲染器组件。
+     * @param object3d 3D对象内核实例指针。
+     * @returns 返回网格渲染器组件ID。
+     */
+    protected _GetMeshRenderer: (object3d: Miaoverse.io_ptr) => number;
     /**
      * 设置动画组件。
      * @param object3d 3D对象内核实例指针。

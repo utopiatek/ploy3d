@@ -226,7 +226,8 @@ export class Context {
         if (asset.instance) {
             return this._shaders.list[asset.instance];
         }
-        const layout = this.GenerateGroupLayout_G2(asset.properties);
+        const hide_textures = ["anisotropyTexture", "clearcoatTexture", "clearcoatNormalTexture", "iridescenceTexture", "iridescenceThicknessTexture", "sheenRoughnessTexture", "transmissionTexture", "thicknessTexture"];
+        const layout = this.GenerateGroupLayout_G2(asset.properties, hide_textures);
         let id = this._shaders.freeId;
         let entry = this._shaders.list[id];
         if (entry) {
@@ -260,7 +261,7 @@ export class Context {
         }
         return entry;
     }
-    GenerateMaterialPropTuple(properties, uniformGroup) {
+    GenerateMaterialPropTuple(properties, uniformGroup, hide_textures) {
         const groups = [[], [], [], [], [], [], [], []];
         const list = [];
         const texs = [];
@@ -325,7 +326,12 @@ export class Context {
                 });
                 groups[4].push(index);
                 index++;
-                texs.push(key);
+                if (hide_textures && -1 < hide_textures?.indexOf(key)) {
+                    decl.texture = undefined;
+                }
+                else {
+                    texs.push(key);
+                }
             }
         }
         class PropView {
@@ -336,9 +342,7 @@ export class Context {
         }
         const env = this._global.env;
         const resources = this._global.resources;
-        const specLut = {
-            normalTex_uuid: 4096
-        };
+        const specLut = {};
         function specSet(var_) {
             const name = var_.decl.name;
             const textureIdx = var_.decl.texture;
@@ -545,14 +549,14 @@ export class Context {
             fscode: code,
         };
     }
-    GenerateGroupLayout_G2(properties) {
+    GenerateGroupLayout_G2(properties, hide_textures) {
         const propLayout = this.GenerateMaterialPropTuple(properties, {
             group: 2,
             binding: 0,
             tname: "MaterialParams",
             vname: "materialParams",
             alignSize: 256
-        });
+        }, hide_textures);
         const groupDesc = {
             label: "g2",
             entries: [
@@ -820,7 +824,7 @@ struct LightList {
                     binding: 5,
                     visibility: GPUShaderStage.FRAGMENT,
                     texture: {
-                        sampleType: "depth",
+                        sampleType: "unfilterable-float",
                         viewDimension: "2d"
                     }
                 },
@@ -1196,23 +1200,16 @@ struct ObjectUniforms {
         const shaderModules = this.CompileShaderModule(g2, g0, g1, g3);
         const blendMode = desc.flags >> 28;
         const constants = {
-            "SHADING_AS_UNLIT": (desc.flags & 16777216) ? 1 : 0,
             "VARIANT_NEEDS_MORPHING": (desc.flags & 128) ? 1 : 0,
             "VARIANT_NEEDS_SKINNING": (desc.flags & 64) ? 1 : 0,
-            "VARIANT_HAS_DOUBLESIDED": (desc.flags & 1048576) ? 1 : 0,
-            "VARIANT_HAS_DIRECTIONAL_LIGHTING": 1,
+            "VARIANT_HAS_DOUBLESIDED": (desc.flags & 8388608) ? 1 : 0,
             "VARIANT_HAS_SHADOWING": ((desc.flags & 16) || (desc.flags & 32)) ? 1 : 0,
-            "VARIANT_HAS_VSM": 1,
             "BLEND_MODE_MASKED": (blendMode == 1) ? 1 : 0,
             "BLEND_MODE_TRANSPARENT": (blendMode == 2) ? 1 : 0,
             "BLEND_MODE_FADE": (blendMode == 3) ? 1 : 0,
-            "MATERIAL_NEEDS_TBN": ((desc.flags & 4096) || (desc.flags & 8388608)) ? 1 : 0,
-            "MATERIAL_HAS_NORMAL": (desc.flags & 4096) ? 1 : 0,
-            "MATERIAL_HAS_EMISSIVE": (desc.flags & 524288) ? 1 : 0,
-            "MATERIAL_HAS_ANISOTROPY": (desc.flags & 8388608) ? 1 : 0
         };
         let vsmain = "vsmain_0";
-        let fsmain = "fsmain_shading";
+        let fsmain = "";
         let vbLayout = [];
         if ((desc.flags & 1) == 1) {
             vbLayout.push({
@@ -1309,12 +1306,16 @@ struct ObjectUniforms {
         this._pipelines.usedCount += 1;
         return id;
     }
-    GetRenderPipeline(id, framePass) {
+    GetRenderPipeline(id, framePass, materialSlot) {
         const entry = this._pipelines.list[id];
         if (!entry) {
             return null;
         }
-        let pipeline = entry.pipelines[framePass.index];
+        materialSlot = Math.min(materialSlot || 0, 255);
+        if (!entry.pipelines[framePass.index]) {
+            entry.pipelines[framePass.index] = [];
+        }
+        let pipeline = entry.pipelines[framePass.index][materialSlot];
         if (pipeline) {
             return pipeline;
         }
@@ -1327,6 +1328,7 @@ struct ObjectUniforms {
                 cullMode = entry.params.cullMode == 1 ? "back" : "front";
             }
         }
+        let fsmain = framePass.depthCtrl ? "fsmain_d" : "fsmain_";
         const targets = [];
         const blendMode = entry.params.flags >> 28;
         if (framePass.colorAttachments) {
@@ -1367,6 +1369,7 @@ struct ObjectUniforms {
                     break;
             }
             for (let target of framePass.colorAttachments) {
+                fsmain += target.format.endsWith("uint") ? "u" : "f";
                 targets.push({
                     format: target.format,
                     writeMask: target.writeMask,
@@ -1378,7 +1381,9 @@ struct ObjectUniforms {
         const pipelineDesc = {
             label: framePass.label + ":" + pipelineDesc_.label,
             layout: pipelineDesc_.layout,
-            vertex: pipelineDesc_.vertex,
+            vertex: {
+                ...pipelineDesc_.vertex
+            },
             primitive: {
                 topology: pipelineDesc_.primitive.topology,
                 frontFace: pipelineDesc_.primitive.frontFace,
@@ -1391,7 +1396,7 @@ struct ObjectUniforms {
             pipelineDesc.fragment = {
                 targets: targets,
                 module: pipelineDesc_.fragment.module,
-                entryPoint: pipelineDesc_.fragment.entryPoint,
+                entryPoint: fsmain,
                 constants: pipelineDesc_.fragment.constants
             };
         }
@@ -1411,8 +1416,10 @@ struct ObjectUniforms {
                 ...framePass.shaderMacro
             };
         }
-        pipeline = entry.pipelines[framePass.index] = this._global.device.device.createRenderPipeline(pipelineDesc);
-        console.info("create new pipeline");
+        pipelineDesc.vertex.constants["MATERIAL_SLOT"] = materialSlot;
+        pipelineDesc.fragment.constants["MATERIAL_SLOT"] = materialSlot;
+        pipeline = entry.pipelines[framePass.index][materialSlot] = this._global.device.device.createRenderPipeline(pipelineDesc);
+        console.info("create new pipeline", fsmain, pipeline.label);
         return pipeline;
     }
     CompileShaderModule(shader, g0, g1, g3) {
@@ -1420,15 +1427,28 @@ struct ObjectUniforms {
             return shader.module;
         }
         const macro = `
-const MATERIAL_HAS_ANISOTROPY_DIRECTION = false;
-const MATERIAL_HAS_POST_LIGHTING_COLOR = false;
-const MATERIAL_HAS_SUBSURFACECOLOR = false;
-const MATERIAL_HAS_BENT_NORMAL = false;
-const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
+let SHADING_CAST_SHADOW_ = SHADING_CAST_SHADOW;
+let SHADING_EARLYZ_ = SHADING_EARLYZ;
+let SHADING_ONLY_OPACITY_ = SHADING_ONLY_OPACITY;
+let SHADING_DITHERING_TRANSPARENT_ = SHADING_DITHERING_TRANSPARENT;
+let SHADING_MASKED_ALPHA_TO_COVERAGE_ = SHADING_MASKED_ALPHA_TO_COVERAGE;
+let SHADING_OUTPUT_LINEAR_ = SHADING_OUTPUT_LINEAR;
+let SHADING_SKIP_ = SHADING_SKIP;
+
+let VARIANT_NEEDS_MORPHING_ = VARIANT_NEEDS_MORPHING;
+let VARIANT_NEEDS_SKINNING_ = VARIANT_NEEDS_SKINNING;
+let VARIANT_HAS_DOUBLESIDED_ = VARIANT_HAS_DOUBLESIDED;
+let VARIANT_HAS_SHADOWING_ = VARIANT_HAS_SHADOWING;
+
+let BLEND_MODE_MASKED_ = BLEND_MODE_MASKED;
+let BLEND_MODE_TRANSPARENT_ = BLEND_MODE_TRANSPARENT;
+let BLEND_MODE_FADE_ = BLEND_MODE_FADE;
+
+let MATERIAL_SLOT_ = MATERIAL_SLOT;
         `;
         const vsmain = `
 @vertex fn vsmain_0(vertex: InputVS_0) ->OutputVS {
-    save_override();
+    ${macro}
 
     init_vertex_0(vertex);
 
@@ -1436,7 +1456,7 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 }
 
 @vertex fn vsmain_1(vertex: InputVS_1) ->OutputVS {
-    save_override();
+    ${macro}
 
     init_vertex_1(vertex);
 
@@ -1444,32 +1464,76 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 }
 
 @vertex fn vsmain_3(vertex: InputVS_3) ->OutputVS {
-    save_override();
+    ${macro}
 
     init_vertex_3(vertex);
 
     return material_vs();
 }
         `;
-        const fsmain = `
-@fragment fn fsmain_shading(frag: InputFS) -> @location(0) vec4f {
-    save_override();
+        const fs_output = `
+var<private> fragColor0: vec4f = vec4f(0.0, 0.0, 0.0, 1.0);
+var<private> fragColor1: vec4f = vec4f(0.0, 0.0, 0.0, 1.0);
+
+var<private> fragData0: vec4<u32> = vec4<u32>(0u);
+var<private> fragData1: vec4<u32> = vec4<u32>(0u);
+
+var<private> fragDepth: f32 = 1.0;
+        `;
+        const fs_common_body = `
+    ${macro}
 
     varyings_init(frag);
 
     material_fs();
 
-    if (SHADING_TYPE_SHADOW) {
-        // 线性深度值： [near, far] 到 [0, 1]
-        // let depth = ((inputs_depth / frameUniforms.vsmExponent) + 1.0) * 0.5;
-
-        fragColor0 = encodeShadow(inputs_depth, material_alpha, 1.0);
-    }
-    else {
+    // 非已经在材质方法中设置了输出值（比如SHADING_CAST_SHADOW、SHADING_EARLYZ帧通道）
+    if (!SHADING_SKIP) {
         shading_fs();
     }
-
+        `;
+        const fsmain = `
+@fragment fn fsmain_f(frag: InputFS) -> @location(0) vec4f {
+    ${fs_common_body}
     return fragColor0;
+}
+
+@fragment fn fsmain_u(frag: InputFS) -> @location(0) vec4<u32> {
+    ${fs_common_body}
+    return fragData0;
+}
+
+@fragment fn fsmain_d(frag: InputFS) -> @builtin(frag_depth) f32 {
+    ${fs_common_body}
+    return fragDepth;
+}
+
+struct OutputFS_DF {
+    @location(0) gl_FragColor: vec4<f32>,
+    @builtin(frag_depth) gl_FragDepth: f32,
+};
+
+@fragment fn fsmain_df(frag: InputFS) -> OutputFS_DF {
+    ${fs_common_body}
+    var output: OutputFS_DF;
+    output.gl_FragColor = fragColor0;
+    output.gl_FragDepth = fragDepth;
+
+    return output;
+}
+
+struct OutputFS_DU {
+    @location(0) gl_FragData: vec4<u32>,
+    @builtin(frag_depth) gl_FragDepth: f32,
+};
+
+@fragment fn fsmain_du(frag: InputFS) -> OutputFS_DU {
+    ${fs_common_body}
+    var output: OutputFS_DU;
+    output.gl_FragData = fragData0;
+    output.gl_FragDepth = fragDepth;
+
+    return output;
 }
         `;
         const vsg0 = g0?.vscode || "";
@@ -1480,8 +1544,8 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
         const fsg1 = g1?.fscode || "";
         const fsg2 = shader?.fscode || "";
         const fsg3 = g3?.fscode || "";
-        const vscode = [macro, vsg0, vsg1, vsg2, vsg3, shader.asset.codes.vertex.code, vsmain].join("");
-        const fscode = [macro, fsg0, fsg1, fsg2, fsg3, shader.asset.codes.material.code, shader.asset.codes.shading.code, fsmain].join("");
+        const vscode = [vsg0, vsg1, vsg2, vsg3, shader.asset.codes.vertex.code, vsmain].join("");
+        const fscode = [fs_output, fsg0, fsg1, fsg2, fsg3, shader.asset.codes.material.code, shader.asset.codes.shading.code, fsmain].join("");
         const vsmodule = this._global.device.device.createShaderModule({
             code: vscode,
         });

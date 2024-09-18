@@ -553,7 +553,7 @@ export class Importer_daz {
                 name: entry.id || "",
                 label: entry.name || "",
 
-                shader: "1-1-1.miaokit.builtins:/shader/17-0_standard_specular.json",
+                shader: "1-1-1.miaokit.builtins:/shader/gltf_sketchfab/17-10_gltf_sketchfab.json",
                 flags: 0,
                 properties: properties
             };

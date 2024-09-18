@@ -7,6 +7,10 @@ export class MeshRenderer extends Miaoverse.Uniform {
     SetMaterial(slot, submesh, material) {
         this._impl["_SetMaterial"](this._ptr, slot, submesh, material.internalPtr);
     }
+    GetMaterial(slot) {
+        const id = this._impl["_GetMaterial"](this._ptr, slot);
+        return this._global.resources.Material.GetInstanceByID(id);
+    }
     BindSkeleton(joints) {
         const enabled = this._impl.Get(this._ptr, "skeleton_skin_enabled");
         const array_ptr = this._impl.Get(this._ptr, "skeleton_skin_joints");
@@ -119,6 +123,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
     }
     _Create;
     _SetMaterial;
+    _GetMaterial;
     _GetInstanceSlot;
     _VerifyInstance;
     _UpdateG1;

@@ -13,7 +13,7 @@ export declare class Material extends Miaoverse.Uniform<Material_kernel> {
      * @param enable 启用或禁用材质特性。
      * @param flag 材质特性标志。
      */
-    Enable(enable: boolean, flag: Miaoverse.RENDER_FLAGS.DRAW_ARRAYS | Miaoverse.RENDER_FLAGS.HAS_DOUBLE_SIDED | Miaoverse.RENDER_FLAGS.HAS_REFLECTIONS | Miaoverse.RENDER_FLAGS.HAS_CLEAR_COAT | Miaoverse.RENDER_FLAGS.HAS_ANISOTROPY | Miaoverse.RENDER_FLAGS.SHADING_AS_UNLIT | Miaoverse.RENDER_FLAGS.SHADING_AS_CLOTH | Miaoverse.RENDER_FLAGS.SHADING_AS_SUBSURFACE | Miaoverse.RENDER_FLAGS.SPECULAR_GLOSSINESS_PARAMS): void;
+    Enable(enable: boolean, flag: Miaoverse.RENDER_FLAGS.DRAW_ARRAYS | Miaoverse.RENDER_FLAGS.HAS_DOUBLE_SIDED | Miaoverse.RENDER_FLAGS.HAS_EMISSIVE | Miaoverse.RENDER_FLAGS.HAS_REFLECTIONS | Miaoverse.RENDER_FLAGS.HAS_CLEAR_COAT | Miaoverse.RENDER_FLAGS.HAS_ANISOTROPY): void;
     /**
      * 设置材质混合模式。
      * @param blendMode 材质混合模式。
@@ -202,7 +202,6 @@ export declare const Material_member_index: {
     readonly enableFlags: Miaoverse.Kernel_member;
     readonly buffer_bufferID: Miaoverse.Kernel_member;
     readonly buffer_size: Miaoverse.Kernel_member;
-    /** 材质使用的着色器资源。 */
     readonly buffer_addr: Miaoverse.Kernel_member;
     readonly buffer_next: Miaoverse.Kernel_member;
     readonly bn_buffer: Miaoverse.Kernel_member;

@@ -1,6 +1,7 @@
 import type * as Miaoverse from "../mod.js"
 import type { Miaoworker } from './worker.js';
 import { CLASSID, MAGIC_INVALID, BLEND_MODE, RENDER_FLAGS } from "../mod.js"
+import { number } from "echarts/types/dist/echarts.js";
 
 /** GLTF导入器。 */
 export class Importer_gltf {
@@ -313,10 +314,32 @@ export class Importer_gltf {
 
                 if (weights) {
                     if (warray) {
-                        let weight0 = warray.get(index4 + 0); weight0 = Math.round(weight0 * 255.0);
-                        let weight1 = warray.get(index4 + 1); weight1 = Math.round(weight1 * 255.0);
-                        let weight2 = warray.get(index4 + 2); weight2 = Math.round(weight2 * 255.0);
-                        let weight3 = warray.get(index4 + 3); weight3 = Math.round(weight3 * 255.0);
+                        let weight0 = warray.get(index4 + 0);
+                        weight0 = Math.round(weight0 * 255.0);
+
+                        let weight1 = warray.get(index4 + 1);
+                        if (weight1 == 0) {
+                            weight0 = 255;
+                        }
+                        else {
+                            weight1 = Math.round(weight1 * 255.0);
+                        }
+
+                        let weight2 = warray.get(index4 + 2);
+                        if (weight2 == 0) {
+                            weight1 = 255 - weight0;
+                        }
+                        else {
+                            weight2 = Math.round(weight2 * 255.0);
+                        }
+
+                        let weight3 = warray.get(index4 + 3);
+                        if (weight3 == 0) {
+                            weight2 = 255 - weight1 - weight0;
+                        }
+                        else {
+                            weight3 = 255 - weight2 - weight1 - weight0;
+                        }
 
                         weights[vert1] = (weight3 << 24) + (weight2 << 16) + (weight1 << 8) + weight0;
                     }
@@ -760,6 +783,28 @@ export class Importer_gltf {
         const material_library: Miaoverse.Package["material_library"] = [];
         const materials = this._data.materials || [];
         const count = materials.length;
+        const base_list: [string[], string[]] = [["alphaCutoff", "emissiveFactor"], ["normalTexture", "occlusionTexture", "emissiveTexture"]];
+        const pbr_list: [string[], string[]] = [["baseColorFactor", "metallicFactor", "roughnessFactor"], ["baseColorTexture", "metallicRoughnessTexture"]];
+        const extension_lut: Record<string, [number, string[], string[], string[]]> = {
+            // 因为 KHR_materials_pbrSpecularGlossiness 扩展与 pbrMetallicRoughness 互斥，且功能类似，因此使用 pbrMetallicRoughness.baseColorTexture 代表 KHR_materials_pbrSpecularGlossiness.diffuseTexture
+            // 因为 KHR_materials_pbrSpecularGlossiness 扩展已经被 KHR_materials_specular 扩展取代，且两个扩展互斥，因此使用 KHR_materials_specular.specularColorTexture 代表 KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture
+            KHR_materials_pbrSpecularGlossiness: [0x1, ["diffuseFactor", "specularFactor", "glossinessFactor"], ["diffuseTexture", "specularGlossinessTexture"], ["baseColorTexture", "specularColorTexture"]],
+            // TODO: GLTF标准材质定义贴图属性过多，我们隐藏部分贴图属性：["anisotropyTexture", "clearcoatTexture", "clearcoatNormalTexture", "iridescenceTexture", "iridescenceThicknessTexture", "sheenRoughnessTexture", "transmissionTexture", "thicknessTexture"];
+            KHR_materials_anisotropy: [0x10, ["anisotropyStrength", "anisotropyRotation"], ["anisotropyTexture"], ["anisotropyTexture"]],
+            KHR_materials_clearcoat: [0x20, ["clearcoatFactor", "clearcoatRoughnessFactor"], ["clearcoatTexture", "clearcoatRoughnessTexture", "clearcoatNormalTexture"], ["clearcoatTexture", "clearcoatRoughnessTexture", "clearcoatNormalTexture"]],
+            KHR_materials_dispersion: [0x40, ["dispersion"], [], []],
+            KHR_materials_emissive_strength: [0x80, ["emissiveStrength"], [], []],
+
+            KHR_materials_ior: [0x100, ["ior"], [], []],
+            KHR_materials_iridescence: [0x200, ["iridescenceFactor", "iridescenceIor", "iridescenceThicknessMinimum", "iridescenceThicknessMaximum"], ["iridescenceTexture", "iridescenceThicknessTexture"], ["iridescenceTexture", "iridescenceThicknessTexture"]],
+            KHR_materials_sheen: [0x400, ["sheenColorFactor", "sheenRoughnessFactor",], ["sheenColorTexture", "sheenRoughnessTexture"], ["sheenColorTexture", "sheenRoughnessTexture"]],
+            KHR_materials_specular: [0x800, ["specularFactor", "specularColorFactor"], ["specularTexture", "specularColorTexture"], ["specularTexture", "specularColorTexture"]],
+
+            KHR_materials_transmission: [0x1000, ["transmissionFactor"], ["transmissionTexture"], ["transmissionTexture"]],
+            KHR_materials_unlit: [0x2000, [], [], []],
+            KHR_materials_variants: [0x4000, [], [], []],
+            KHR_materials_volume: [0x8000, ["thicknessFactor", "attenuationDistance", "attenuationColor"], ["thicknessTexture"], ["thicknessTexture"]],
+        };
 
         for (let i = 0; i < count; i++) {
             const material = materials[i];
@@ -770,7 +815,7 @@ export class Importer_gltf {
                 name: material.name || "",
                 label: material.name || "",
 
-                shader: "1-1-1.miaokit.builtins:/shader/17-0_standard_specular.json",
+                shader: "1-1-1.miaokit.builtins:/shader/gltf_sketchfab/17-10_gltf_sketchfab.json",
                 flags: 0,
                 properties: {
                     textures: {},
@@ -781,12 +826,15 @@ export class Importer_gltf {
             if (material.alphaMode) {
                 if (material.alphaMode == "OPAQUE") {
                     asset.flags |= BLEND_MODE.OPAQUE << RENDER_FLAGS.BLEND_MODE_INDEX;
+                    asset.properties.vectors["alphaMode"] = [0];
                 }
                 else if (material.alphaMode == "MASK") {
                     asset.flags |= BLEND_MODE.MASKED << RENDER_FLAGS.BLEND_MODE_INDEX;
+                    asset.properties.vectors["alphaMode"] = [1];
                 }
                 else if (material.alphaMode == "BLEND") {
                     asset.flags |= BLEND_MODE.TRANSPARENT << RENDER_FLAGS.BLEND_MODE_INDEX;
+                    asset.properties.vectors["alphaMode"] = [2];
                 }
                 else {
                     this._worker.Track("gltf alphaMode unsupported " + material.alphaMode, 3);
@@ -795,111 +843,92 @@ export class Importer_gltf {
 
             if (material.doubleSided) {
                 asset.flags |= RENDER_FLAGS.HAS_DOUBLE_SIDED;
+                asset.properties.vectors["doubleSided"] = [1];
             }
 
-            const pbr = material.pbrMetallicRoughness;
+            for (let key of base_list[0]) {
+                const value = (material as any)[key];
+
+                if (value !== undefined) {
+                    if (typeof value == "number") {
+                        asset.properties.vectors[key] = [value];
+                    }
+                    else {
+                        asset.properties.vectors[key] = value;
+                    }
+                }
+            }
+
+            for (let key of base_list[1]) {
+                const value = (material as any)[key];
+
+                if (value) {
+                    asset.properties.textures[key] = getTexture(value.index);
+                }
+            }
+
+            const pbr: any = material.pbrMetallicRoughness;
             if (pbr) {
-                if (pbr.baseColorFactor) {
-                    asset.properties.vectors["baseColor"] = pbr.baseColorFactor;
+                for (let key of pbr_list[0]) {
+                    const value = pbr[key];
+
+                    if (value !== undefined) {
+                        if (typeof value == "number") {
+                            asset.properties.vectors[key] = [value];
+                        }
+                        else {
+                            asset.properties.vectors[key] = value;
+                        }
+                    }
                 }
 
-                if (pbr.baseColorTexture) {
-                    asset.properties.textures["baseTex"] = getTexture(pbr.baseColorTexture.index);
+                for (let key of pbr_list[1]) {
+                    const value = pbr[key];
+
+                    if (value) {
+                        asset.properties.textures[key] = getTexture(value.index);
+                    }
                 }
-
-                if (undefined !== pbr.metallicFactor) {
-                    asset.properties.vectors["metallicFactor"] = [pbr.metallicFactor];
-                }
-                else {
-                    asset.properties.vectors["metallicFactor"] = [1];
-                }
-
-                if (undefined !== pbr.roughnessFactor) {
-                    asset.properties.vectors["glossinessFactor"] = [1.0 - pbr.roughnessFactor];
-                }
-                else {
-                    asset.properties.vectors["glossinessFactor"] = [1.0];
-                }
-
-                if (pbr.metallicRoughnessTexture) {
-                    // TODO: asset.flags |= RENDER_FLAGS.Props_combining_roughness_metallic;
-
-                    asset.properties.textures["glossinessTex"] = getTexture(pbr.metallicRoughnessTexture.index);
-                    asset.properties.textures["specularTex"] = getTexture(pbr.metallicRoughnessTexture.index);
-                }
-            }
-
-            const normal = material.normalTexture;
-            if (normal) {
-                // TODO: asset.flags |= RENDER_FLAGS.Props_normalTexFlipY;
-
-                asset.properties.textures["normalTex"] = getTexture(normal.index);
-            }
-
-            const ao = material.occlusionTexture;
-            if (ao) {
-                asset.properties.textures["aoTex"] = getTexture(ao.index);
-            }
-
-            if (material.emissiveFactor) {
-                asset.properties.vectors["emissiveFactor"] = material.emissiveFactor;
-                asset.properties.vectors["emissiveIntensity"] = [1.0];
-            }
-
-            const emissive = material.emissiveTexture;
-            if (emissive) {
-                asset.properties.textures["emissiveTex"] = getTexture(emissive.index);
-                asset.properties.vectors["emissiveIntensity"] = [1.0];
             }
 
             const extensions = material.extensions;
             if (extensions) {
-                const KHR_materials_clearcoat = extensions.KHR_materials_clearcoat;
-                if (KHR_materials_clearcoat) {
-                    asset.properties.vectors["clearcoatFactor"] = [KHR_materials_clearcoat.clearcoatFactor];
-                    asset.properties.vectors["clearcoatRoughnessFactor"] = [KHR_materials_clearcoat.clearcoatRoughnessFactor];
-                }
+                let flags = 0;
 
-                const KHR_materials_unlit = extensions.KHR_materials_unlit;
-                if (KHR_materials_unlit) {
-                    asset.flags |= RENDER_FLAGS.SHADING_AS_UNLIT;
-                }
+                for (let ext_key in extensions) {
+                    const list = extension_lut[ext_key];
+                    if (list) {
+                        const ext = extensions[ext_key];
 
-                const KHR_materials_pbrSpecularGlossiness = extensions.KHR_materials_pbrSpecularGlossiness;
-                if (KHR_materials_pbrSpecularGlossiness) {
-                    asset.flags |= RENDER_FLAGS.SPECULAR_GLOSSINESS_PARAMS;
+                        flags |= list[0];
 
-                    if (KHR_materials_pbrSpecularGlossiness.diffuseFactor) {
-                        asset.properties.vectors["baseColor"] = KHR_materials_pbrSpecularGlossiness.diffuseFactor;
+                        for (let key of list[1]) {
+                            const value = ext[key];
+
+                            if (value !== undefined) {
+                                if (typeof value == "number") {
+                                    asset.properties.vectors[key] = [value];
+                                }
+                                else {
+                                    asset.properties.vectors[key] = value;
+                                }
+                            }
+                        }
+
+                        for (let i = 0; i < list[2].length; i++) {
+                            const value = ext[list[2][i]];
+
+                            if (value) {
+                                asset.properties.textures[list[3][i]] = getTexture(value.index);
+                            }
+                        }
                     }
-
-                    if (KHR_materials_pbrSpecularGlossiness.diffuseTexture) {
-                        asset.properties.textures["baseTex"] = getTexture(KHR_materials_pbrSpecularGlossiness.diffuseTexture.index);
-                    }
-
-                    if (KHR_materials_pbrSpecularGlossiness.specularFactor) {
-                        asset.properties.vectors["specularFactor"] = KHR_materials_pbrSpecularGlossiness.specularFactor;
-                    }
-
-                    if (KHR_materials_pbrSpecularGlossiness.glossinessFactor) {
-                        asset.properties.vectors["glossinessFactor"] = [KHR_materials_pbrSpecularGlossiness.glossinessFactor];
-                    }
-
-                    if (KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture) {
-                        asset.properties.textures["specularTex"] = getTexture(KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture.index);
-                        asset.properties.textures["glossinessTex"] = getTexture(KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture.index);
+                    else {
+                        console.warn("不支持的GLTF材质扩展！", ext_key);
                     }
                 }
 
-                const MV_sssTexture = extensions.MV_sssTexture;
-                if (MV_sssTexture) {
-                    asset.properties.textures["sssTex"] = getTexture(MV_sssTexture.index);
-                }
-
-                const MV_subsurface = extensions.MV_sssTexture;
-                if (MV_subsurface) {
-                    asset.flags |= RENDER_FLAGS.SHADING_AS_SUBSURFACE;
-                }
+                asset.properties.vectors["extensions"] = [flags];
             }
 
             material.extras = asset;

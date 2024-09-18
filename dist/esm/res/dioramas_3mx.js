@@ -122,7 +122,7 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         const passEncoder = queue.passEncoder;
         queue.BindMeshRenderer(this._meshRenderer);
         queue.BindMaterial(this._material);
-        queue.SetPipeline(this._pipeline);
+        queue.SetPipeline(this._pipeline, 0);
         for (let i = 0; i < this._drawCount; i++) {
             const instance = this._drawList[i];
             const vbuffer = instance.vbuffer;

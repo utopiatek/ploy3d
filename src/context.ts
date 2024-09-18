@@ -290,7 +290,9 @@ export class Context {
             return this._shaders.list[asset.instance];
         }
 
-        const layout = this.GenerateGroupLayout_G2(asset.properties);
+        // TODO: GLTF标准材质定义贴图属性过多，我们隐藏部分贴图属性
+        const hide_textures = ["anisotropyTexture", "clearcoatTexture", "clearcoatNormalTexture", "iridescenceTexture", "iridescenceThicknessTexture", "sheenRoughnessTexture", "transmissionTexture", "thicknessTexture"];
+        const layout = this.GenerateGroupLayout_G2(asset.properties, hide_textures);
 
         let id = this._shaders.freeId;
         let entry = this._shaders.list[id];
@@ -352,7 +354,7 @@ export class Context {
         vname: string;
         /** 统一缓存大小对齐。*/
         alignSize: number;
-    }): Miaoverse.PropLayout {
+    }, hide_textures?: string[]): Miaoverse.PropLayout {
 
         // 按属性类型（PropType）进行分组，之后进行重组，使缓存结构紧密
         const groups: (number[])[] = [[], [], [], [], [], [], [], []];
@@ -449,7 +451,12 @@ export class Context {
 
                 // =======================--------------------------------
 
-                texs.push(key);
+                if (hide_textures && -1 < hide_textures?.indexOf(key)) {
+                    decl.texture = undefined;
+                }
+                else {
+                    texs.push(key);
+                }
             }
         }
 
@@ -468,7 +475,7 @@ export class Context {
 
         // 特殊标记查找表
         const specLut: Record<string, number> = {
-            normalTex_uuid: RENDER_FLAGS.HAS_NORMAL_TEXTURE
+            // ...
         };
 
         // 特殊的赋值方法，会额外进行标志集标志
@@ -752,14 +759,14 @@ export class Context {
      * 构建资源绑定组布局。
      * @returns 返回资源绑定组布局ID。
      */
-    public GenerateGroupLayout_G2(properties: Miaoverse.ShaderAsset["properties"]) {
+    public GenerateGroupLayout_G2(properties: Miaoverse.ShaderAsset["properties"], hide_textures?: string[]) {
         const propLayout = this.GenerateMaterialPropTuple(properties, {
             group: 2,
             binding: 0,
             tname: "MaterialParams",
             vname: "materialParams",
             alignSize: 256
-        });
+        }, hide_textures);
 
         const groupDesc: GPUBindGroupLayoutDescriptor = {
             label: "g2",
@@ -1096,7 +1103,7 @@ struct LightList {
                     binding: 5,
                     visibility: GPUShaderStage.FRAGMENT,
                     texture: {
-                        sampleType: "depth",
+                        sampleType: "unfilterable-float",
                         viewDimension: "2d"
                     }
                 },
@@ -1524,29 +1531,20 @@ struct ObjectUniforms {
         const blendMode = desc.flags >> RENDER_FLAGS.BLEND_MODE_INDEX;
 
         const constants: Record<string, number> = {
-            "SHADING_AS_UNLIT": (desc.flags & RENDER_FLAGS.SHADING_AS_UNLIT) ? 1 : 0,
-
             "VARIANT_NEEDS_MORPHING": (desc.flags & RENDER_FLAGS.MORPHING) ? 1 : 0,
             "VARIANT_NEEDS_SKINNING": (desc.flags & RENDER_FLAGS.SKINNING) ? 1 : 0,
             "VARIANT_HAS_DOUBLESIDED": (desc.flags & RENDER_FLAGS.HAS_DOUBLE_SIDED) ? 1 : 0,
-            "VARIANT_HAS_DIRECTIONAL_LIGHTING": 1,
             "VARIANT_HAS_SHADOWING": ((desc.flags & RENDER_FLAGS.CAST_SHADOWS) || (desc.flags & RENDER_FLAGS.RECEIVE_SHADOWS)) ? 1 : 0,
-            "VARIANT_HAS_VSM": 1,
 
             "BLEND_MODE_MASKED": (blendMode == BLEND_MODE.MASKED) ? 1 : 0,
             "BLEND_MODE_TRANSPARENT": (blendMode == BLEND_MODE.TRANSPARENT) ? 1 : 0,
             "BLEND_MODE_FADE": (blendMode == BLEND_MODE.FADE) ? 1 : 0,
-
-            "MATERIAL_NEEDS_TBN": ((desc.flags & RENDER_FLAGS.HAS_NORMAL_TEXTURE) || (desc.flags & RENDER_FLAGS.HAS_ANISOTROPY)) ? 1 : 0,
-            "MATERIAL_HAS_NORMAL": (desc.flags & RENDER_FLAGS.HAS_NORMAL_TEXTURE) ? 1 : 0,
-            "MATERIAL_HAS_EMISSIVE": (desc.flags & RENDER_FLAGS.HAS_DOUBLE_EMISSIVE) ? 1 : 0,
-            "MATERIAL_HAS_ANISOTROPY": (desc.flags & RENDER_FLAGS.HAS_ANISOTROPY) ? 1 : 0
         };
 
         // ==========================---------------------------------------------
 
         let vsmain = "vsmain_0";
-        let fsmain = "fsmain_shading";
+        let fsmain = "";
         let vbLayout: GPUVertexBufferLayout[] = [];
 
         if ((desc.flags & RENDER_FLAGS.ATTRIBUTES0) == RENDER_FLAGS.ATTRIBUTES0) {
@@ -1676,15 +1674,22 @@ struct ObjectUniforms {
      * 获取对应帧通道使用的GPU着色器管线实例。
      * @param id 着色器管线实例ID。
      * @param framePass 帧通道配置。
+     * @param materialSlot 材质槽索引。
      * @returns 返回GPU着色器管线实例。
      */
-    public GetRenderPipeline(id: number, framePass: Miaoverse.GLFramePass) {
+    public GetRenderPipeline(id: number, framePass: Miaoverse.GLFramePass, materialSlot: number) {
         const entry = this._pipelines.list[id];
         if (!entry) {
             return null;
         }
 
-        let pipeline = entry.pipelines[framePass.index];
+        materialSlot = Math.min(materialSlot || 0, 255);
+
+        if (!entry.pipelines[framePass.index]) {
+            entry.pipelines[framePass.index] = [];
+        }
+
+        let pipeline = entry.pipelines[framePass.index][materialSlot];
         if (pipeline) {
             return pipeline;
         }
@@ -1703,6 +1708,8 @@ struct ObjectUniforms {
         }
 
         // ==========================---------------------------------------------
+
+        let fsmain = framePass.depthCtrl ? "fsmain_d" : "fsmain_";
 
         const targets: GPUColorTargetState[] = [];
         const blendMode = entry.params.flags >> RENDER_FLAGS.BLEND_MODE_INDEX;
@@ -1747,6 +1754,8 @@ struct ObjectUniforms {
             }
 
             for (let target of framePass.colorAttachments) {
+                fsmain += target.format.endsWith("uint") ? "u" : "f";
+
                 targets.push({
                     format: target.format,
                     writeMask: target.writeMask,
@@ -1762,7 +1771,9 @@ struct ObjectUniforms {
         const pipelineDesc: GPURenderPipelineDescriptor = {
             label: framePass.label + ":" + pipelineDesc_.label,
             layout: pipelineDesc_.layout,
-            vertex: pipelineDesc_.vertex,
+            vertex: {
+                ...pipelineDesc_.vertex
+            },
             primitive: {
                 topology: pipelineDesc_.primitive.topology,
                 frontFace: pipelineDesc_.primitive.frontFace,
@@ -1777,7 +1788,7 @@ struct ObjectUniforms {
                 targets: targets,
 
                 module: pipelineDesc_.fragment.module,
-                entryPoint: pipelineDesc_.fragment.entryPoint,
+                entryPoint: fsmain,
                 constants: pipelineDesc_.fragment.constants
             };
         }
@@ -1801,11 +1812,14 @@ struct ObjectUniforms {
             };
         }
 
-        pipeline = entry.pipelines[framePass.index] = this._global.device.device.createRenderPipeline(pipelineDesc);
+        pipelineDesc.vertex.constants["MATERIAL_SLOT"] = materialSlot;
+        pipelineDesc.fragment.constants["MATERIAL_SLOT"] = materialSlot;
+
+        pipeline = entry.pipelines[framePass.index][materialSlot] = this._global.device.device.createRenderPipeline(pipelineDesc);
 
         // ==========================---------------------------------------------
 
-        console.info("create new pipeline");
+        console.info("create new pipeline", fsmain, pipeline.label);
 
         return pipeline;
     }
@@ -1821,16 +1835,29 @@ struct ObjectUniforms {
         }
 
         const macro = `
-const MATERIAL_HAS_ANISOTROPY_DIRECTION = false;
-const MATERIAL_HAS_POST_LIGHTING_COLOR = false;
-const MATERIAL_HAS_SUBSURFACECOLOR = false;
-const MATERIAL_HAS_BENT_NORMAL = false;
-const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
+let SHADING_CAST_SHADOW_ = SHADING_CAST_SHADOW;
+let SHADING_EARLYZ_ = SHADING_EARLYZ;
+let SHADING_ONLY_OPACITY_ = SHADING_ONLY_OPACITY;
+let SHADING_DITHERING_TRANSPARENT_ = SHADING_DITHERING_TRANSPARENT;
+let SHADING_MASKED_ALPHA_TO_COVERAGE_ = SHADING_MASKED_ALPHA_TO_COVERAGE;
+let SHADING_OUTPUT_LINEAR_ = SHADING_OUTPUT_LINEAR;
+let SHADING_SKIP_ = SHADING_SKIP;
+
+let VARIANT_NEEDS_MORPHING_ = VARIANT_NEEDS_MORPHING;
+let VARIANT_NEEDS_SKINNING_ = VARIANT_NEEDS_SKINNING;
+let VARIANT_HAS_DOUBLESIDED_ = VARIANT_HAS_DOUBLESIDED;
+let VARIANT_HAS_SHADOWING_ = VARIANT_HAS_SHADOWING;
+
+let BLEND_MODE_MASKED_ = BLEND_MODE_MASKED;
+let BLEND_MODE_TRANSPARENT_ = BLEND_MODE_TRANSPARENT;
+let BLEND_MODE_FADE_ = BLEND_MODE_FADE;
+
+let MATERIAL_SLOT_ = MATERIAL_SLOT;
         `;
 
         const vsmain = `
 @vertex fn vsmain_0(vertex: InputVS_0) ->OutputVS {
-    save_override();
+    ${macro}
 
     init_vertex_0(vertex);
 
@@ -1838,7 +1865,7 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 }
 
 @vertex fn vsmain_1(vertex: InputVS_1) ->OutputVS {
-    save_override();
+    ${macro}
 
     init_vertex_1(vertex);
 
@@ -1846,7 +1873,7 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 }
 
 @vertex fn vsmain_3(vertex: InputVS_3) ->OutputVS {
-    save_override();
+    ${macro}
 
     init_vertex_3(vertex);
 
@@ -1854,25 +1881,71 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
 }
         `;
 
-        const fsmain = `
-@fragment fn fsmain_shading(frag: InputFS) -> @location(0) vec4f {
-    save_override();
+        const fs_output = `
+var<private> fragColor0: vec4f = vec4f(0.0, 0.0, 0.0, 1.0);
+var<private> fragColor1: vec4f = vec4f(0.0, 0.0, 0.0, 1.0);
+
+var<private> fragData0: vec4<u32> = vec4<u32>(0u);
+var<private> fragData1: vec4<u32> = vec4<u32>(0u);
+
+var<private> fragDepth: f32 = 1.0;
+        `;
+
+        const fs_common_body = `
+    ${macro}
 
     varyings_init(frag);
 
     material_fs();
 
-    if (SHADING_TYPE_SHADOW) {
-        // 线性深度值： [near, far] 到 [0, 1]
-        // let depth = ((inputs_depth / frameUniforms.vsmExponent) + 1.0) * 0.5;
-
-        fragColor0 = encodeShadow(inputs_depth, material_alpha, 1.0);
-    }
-    else {
+    // 非已经在材质方法中设置了输出值（比如SHADING_CAST_SHADOW、SHADING_EARLYZ帧通道）
+    if (!SHADING_SKIP) {
         shading_fs();
     }
+        `;
 
+        const fsmain = `
+@fragment fn fsmain_f(frag: InputFS) -> @location(0) vec4f {
+    ${fs_common_body}
     return fragColor0;
+}
+
+@fragment fn fsmain_u(frag: InputFS) -> @location(0) vec4<u32> {
+    ${fs_common_body}
+    return fragData0;
+}
+
+@fragment fn fsmain_d(frag: InputFS) -> @builtin(frag_depth) f32 {
+    ${fs_common_body}
+    return fragDepth;
+}
+
+struct OutputFS_DF {
+    @location(0) gl_FragColor: vec4<f32>,
+    @builtin(frag_depth) gl_FragDepth: f32,
+};
+
+@fragment fn fsmain_df(frag: InputFS) -> OutputFS_DF {
+    ${fs_common_body}
+    var output: OutputFS_DF;
+    output.gl_FragColor = fragColor0;
+    output.gl_FragDepth = fragDepth;
+
+    return output;
+}
+
+struct OutputFS_DU {
+    @location(0) gl_FragData: vec4<u32>,
+    @builtin(frag_depth) gl_FragDepth: f32,
+};
+
+@fragment fn fsmain_du(frag: InputFS) -> OutputFS_DU {
+    ${fs_common_body}
+    var output: OutputFS_DU;
+    output.gl_FragData = fragData0;
+    output.gl_FragDepth = fragDepth;
+
+    return output;
 }
         `;
 
@@ -1886,8 +1959,8 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
         const fsg2 = shader?.fscode || "";
         const fsg3 = g3?.fscode || "";
 
-        const vscode = [macro, vsg0, vsg1, vsg2, vsg3, shader.asset.codes.vertex.code, vsmain].join("");
-        const fscode = [macro, fsg0, fsg1, fsg2, fsg3, shader.asset.codes.material.code, shader.asset.codes.shading.code, fsmain].join("");
+        const vscode = [vsg0, vsg1, vsg2, vsg3, shader.asset.codes.vertex.code, vsmain].join("");
+        const fscode = [fs_output, fsg0, fsg1, fsg2, fsg3, shader.asset.codes.material.code, shader.asset.codes.shading.code, fsmain].join("");
 
         const vsmodule = this._global.device.device.createShaderModule({
             code: vscode,
@@ -2239,7 +2312,7 @@ const MATERIAL_HAS_CLEAR_COAT_NORMAL = false;
             /** 着色器管线描述符。 */
             pipelineDesc: GPURenderPipelineDescriptor;
             /** GPU着色器管线实例列表（每个帧通道对应使用一个实例）。 */
-            pipelines: GPURenderPipeline[];
+            pipelines: GPURenderPipeline[][];
         }[],
         /** 着色器管线实例查找表。 */
         lut: {} as Record<string, number>,
@@ -2357,48 +2430,17 @@ export const enum RENDER_FLAGS {
 
     // 上半部分为网格渲染器级别定义，下半部分为材质级别定义 ============-------------------------
 
-    /** 包含基础贴图（非金属表面的漫反射反照率，金属表面的镜面反射颜色）。 */
-    HAS_BASE_TEXTURE = 0x100,
-    /** 包含不透明度贴图。 */
-    HAS_ALPHA_TEXTURE = 0x200,
-    /** 包含金属度贴图（SPECULAR_GLOSSINESS_PARAMS参数模型下表示包含镜面反射率贴图：HAS_SPECULAR_TEXTURE）。 */
-    HAS_METALLIC_TEXTURE = 0x400,
-    /** 包含粗糙度贴图（SPECULAR_GLOSSINESS_PARAMS参数模型下表示包含光泽度贴图：HAS_GLOSSINESS_TEXTURE） */
-    HAS_ROUGHNESS_TEXTURE = 0x800,
-
-    /** 包含法线贴图。 */
-    HAS_NORMAL_TEXTURE = 0x1000,
-    /** 包含环境光遮蔽贴图。 */
-    HAS_AO_TEXTURE = 0x2000,
-    /** 包含自发光贴图。 */
-    HAS_EMISSIVE_TEXTURE = 0x4000,
-    /** 是否合并打包AO、ROUGHNESS、METALLIC贴图。 */
-    COMBINE_AO_ROUGHNESS_METALLIC_TEXTURE = 0x8000,
-
-    // 预留0x10000、0x20000、0x40000标志位
+    /** 启用双面渲染。 */
+    HAS_DOUBLE_SIDED = 0x800000,
 
     /** 启用自发光效果。 */
-    HAS_DOUBLE_EMISSIVE = 0x80000,
-
-    /** 启用双面渲染。 */
-    HAS_DOUBLE_SIDED = 0x100000,
+    HAS_EMISSIVE = 0x1000000,
     /** 启用反射效果。 */
-    HAS_REFLECTIONS = 0x200000,
+    HAS_REFLECTIONS = 0x2000000,
     /** 启用清漆层效果。 */
-    HAS_CLEAR_COAT = 0x400000,
+    HAS_CLEAR_COAT = 0x4000000,
     /** 启用各向异性效果。 */
-    HAS_ANISOTROPY = 0x800000,
-
-    // 上半部分为网格渲染器级别定义，下半部分为材质级别定义 ============-------------------------
-
-    /** 启用非光照着色模型。 */
-    SHADING_AS_UNLIT = 0x1000000,
-    /** 启用布料光照模型。 */
-    SHADING_AS_CLOTH = 0x2000000,
-    /** 启用次表面光照模型。 */
-    SHADING_AS_SUBSURFACE = 0x4000000,
-    /** 使用SPECULAR_GLOSSINESS参数模型，内部将转换为标准PBR参数。  */
-    SPECULAR_GLOSSINESS_PARAMS = 0x8000000,
+    HAS_ANISOTROPY = 0x8000000,
 
     /** 最高4位记录混合模式索引。 */
     BLEND_MODE_INDEX = 28,

@@ -252,6 +252,7 @@ export class Ploy3D {
     kernelUrl = "./lib/ploycloud.wasm";
     workerUrl = "./lib/ploycloud.worker.wasm";
     workerUrlJS = "./lib/ploycloud.worker.js";
+    baseURI = document.baseURI;
     dazServ = ".";
     uid = 1;
     started = false;
@@ -394,8 +395,8 @@ export class PloyApp {
             classid: 32,
             name: "atmosphere",
             label: "atmosphere",
-            shader: "1-1-1.miaokit.builtins:/shader/17-5_standard_atmosphere.json",
-            flags: 1 | 16777216,
+            shader: "1-1-1.miaokit.builtins:/shader/atmosphere_ulit/17-14_atmosphere_ulit.json",
+            flags: 1,
             properties: {
                 textures: {},
                 vectors: {}
@@ -425,6 +426,10 @@ export class PloyApp {
             }
         };
         return this._atmosphere;
+    }
+    async CreateTransformCtrl(scene) {
+        this._transformCtrl = new Miaoverse.TransformCtrl(this.engine);
+        return this._transformCtrl.Build(scene);
     }
     async InitEvent() {
         if (!this.engine.config.web) {
@@ -497,9 +502,10 @@ export class PloyApp {
                 if (!this.engine.device.Resize()) {
                     return false;
                 }
-                this.engine.env.Tick(this.engine.gis.enable_terrain ? 2 : 1, [
-                    this.engine.gis["_originLL"][0], this.engine.gis["_originLL"][1],
-                    this.engine.gis["_originMC"][0], this.engine.gis["_originMC"][1]
+                const gis = this.engine.gis;
+                this.engine.env.Tick(gis.enable ? (gis.enable_terrain ? 2 : 1) : 0, [
+                    gis["_originLL"][0], gis["_originLL"][1],
+                    gis["_originMC"][0], gis["_originMC"][1]
                 ]);
                 this.Update(flags);
                 if ((++this._steps % 60) == 0) {
@@ -558,6 +564,7 @@ export class PloyApp {
     ui_ctx;
     event_listener = {};
     _atmosphere;
+    _transformCtrl;
     _loop2d = 0;
     _loop3d = 0;
     _draw3d = false;

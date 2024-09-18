@@ -141,6 +141,10 @@ export class DrawQueue {
                 colorAttachments: framePass.colorAttachments,
                 depthStencilAttachment: framePass.depthStencilAttachment,
             });
+            this.activeG0 = null;
+            this.activeG1 = null;
+            this.activeG2 = null;
+            this.activeG3 = null;
             this.computeEncoder = null;
             framePass.Execute(v, this);
             this.passEncoder.end();
@@ -170,10 +174,10 @@ export class DrawQueue {
             g3: 0,
             ...config
         });
-        this.SetPipeline(id);
+        this.SetPipeline(id, 0);
     }
-    SetPipeline(pipelineID) {
-        const activePipeline = this._global.context.GetRenderPipeline(pipelineID, this.framePass);
+    SetPipeline(pipelineID, materialSlot) {
+        const activePipeline = this._global.context.GetRenderPipeline(pipelineID, this.framePass, materialSlot);
         if (this.activePipeline != activePipeline) {
             this.activePipeline = activePipeline;
             this.passEncoder.setPipeline(activePipeline);
@@ -222,7 +226,7 @@ export class DrawQueue {
     DrawList() {
         const parts = this.drawList.drawParts;
         for (let params of parts) {
-            this.DrawPart(params[0], params[1], params[2], params[3], params[4], params[5], params[6]);
+            this.DrawPart(params[0], params[1], params[2], params[3], params[4], params[5], params[6], params[7]);
         }
         const parts2 = this.drawList.drawParts2;
         if (parts2) {
@@ -233,13 +237,13 @@ export class DrawQueue {
             }
             else {
                 for (let i = 0; i < count; i++) {
-                    const i7 = i * 7;
-                    this.DrawPart(params[i7 + 0], params[i7 + 1], params[i7 + 2], params[i7 + 3], params[i7 + 4], params[i7 + 5], params[i7 + 6]);
+                    const i8 = i * 8;
+                    this.DrawPart(params[i8 + 0], params[i8 + 1], params[i8 + 2], params[i8 + 3], params[i8 + 4], params[i8 + 5], params[i8 + 6], params[i8 + 7]);
                 }
             }
         }
     }
-    DrawPart(g1, g2, pipeline, mesh, submesh, instanceCount = 1, firstInstance = 0) {
+    DrawPart(g1, g2, pipeline, mesh, submesh, instanceCount = 1, firstInstance = 0, materialSlot = 0) {
         const resources = this._global.resources;
         const context = this._global.context;
         const activeG1 = resources.MeshRenderer.GetInstanceByID(g1);
@@ -251,7 +255,7 @@ export class DrawQueue {
         if (this.activeG2 != activeG2) {
             this.BindMaterial(activeG2);
         }
-        this.SetPipeline(pipeline);
+        this.SetPipeline(pipeline, materialSlot);
         if (activeMesh) {
             if (this.activeMesh != activeMesh) {
                 const vertices = activeMesh.vertices;

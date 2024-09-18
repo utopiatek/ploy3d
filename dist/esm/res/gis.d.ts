@@ -106,6 +106,9 @@ export declare class Gis {
      * @returns 当前世界空间坐标。
      */
     LL2WPOS(ll: number[]): number[];
+    /** 是否启用GIS系统。 */
+    get enable(): boolean;
+    set enable(b: boolean);
     /** 当前中心经度。 */
     get lng(): number;
     /** 当前中心纬度。 */
@@ -194,6 +197,8 @@ export declare class Gis {
     set force_terrain(enable: boolean);
     /** 引擎实例。 */
     private _global;
+    /** 是否启用GIS系统。 */
+    private _enable;
     /** GIS金字塔结构。 */
     private _pyramid;
     /** GIS网格。 */

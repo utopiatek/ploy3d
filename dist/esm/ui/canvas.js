@@ -345,6 +345,33 @@ export class Path2D {
         this.geometryCount = 2 + char_count;
         this.geometries = geometries;
     }
+    BeginPath() {
+        this.type = 5;
+        this.applied = false;
+        this.geometryCount = 1;
+        this.geometries = [0, 0, 0, 0];
+    }
+    MoveTo(x, y) {
+        if (this.type == 5 && this.applied == false) {
+            x = Math.floor(x);
+            y = Math.floor(y);
+            this.geometries[this.geometries[0] + 4] = (y << 16) + x;
+            this.geometries[0]++;
+            this.geometries[this.geometries[0] + 4] = 1;
+            this.geometries[0]++;
+            this.geometries[1]++;
+        }
+    }
+    LineTo(x, y) {
+        if (this.type == 5 && this.applied == false) {
+            x = Math.floor(x);
+            y = Math.floor(y);
+            this.geometries[this.geometries[0] + 4] = (y << 16) + x;
+            this.geometries[0]++;
+        }
+    }
+    ClosePath() {
+    }
     Mask(transform) {
         return 0xFFFFFFFF;
     }
@@ -695,7 +722,7 @@ export class Canvas2D {
         throw "TODO: Canvas.drawImage!";
     }
     beginPath() {
-        throw "TODO: Canvas.beginPath!";
+        this.data.path.BeginPath();
     }
     clip(path_or_rule, fillRule) {
         throw "TODO: Canvas.clip!";
@@ -800,7 +827,7 @@ export class Canvas2D {
         throw "TODO: Canvas.lineTo!";
     }
     moveTo(x, y) {
-        throw "TODO: Canvas.moveTo!";
+        this.data.path.MoveTo(x, y);
     }
     quadraticCurveTo(cpx, cpy, x, y) {
         throw "TODO: Canvas.quadraticCurveTo!";

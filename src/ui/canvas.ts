@@ -641,8 +641,63 @@ export class Path2D {
         this.geometries = geometries;
     }
 
+    /**
+     * 开始路径设置。
+     */
+    public BeginPath() {
+        this.type = 5;
+        this.applied = false;
+        this.geometryCount = 1;
+        // X: 节点数量
+        // Y: 子路径数量（MoveTo调用次数）
+        this.geometries = [0, 0, 0, 0];
+    }
+
+    /**
+     * 指定子路径起点坐标。
+     */
+    public MoveTo(x: number, y: number) {
+        if (this.type == 5 && this.applied == false) {
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+            // 第1个UINT记录顶点坐标
+            this.geometries[this.geometries[0] + 4] = (y << 16) + x;
+            this.geometries[0]++;
+
+            // 第2个UINT第1BIT记录开始新子路径
+            this.geometries[this.geometries[0] + 4] = 1;
+            this.geometries[0]++;
+            this.geometries[1]++; 
+        }
+    }
+
+    /**
+     * 指定路径下一节点坐标。
+     */
+    public LineTo(x: number, y: number) {
+        if (this.type == 5 && this.applied == false) {
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+            //0x7FFF
+            //0x8000
+            this.geometries[this.geometries[0] + 4] = (y << 16) + x;
+            this.geometries[0]++;
+        }
+    }
+
+    /**
+     * 闭合当前子路径。
+     */
+    public ClosePath(): void {
+        // TODO
+        // 不闭合也能填充，不闭合最后一条边不绘制
+        // 如果已闭合则不进行任何操作
+    }
+
     public Mask(transform: number[]) {
-        // // 边界框，变换矩阵，新边界框，掩码
+        // 边界框，变换矩阵，新边界框，掩码
         return 0xFFFFFFFF;
     }
 
@@ -652,6 +707,7 @@ export class Path2D {
      * 2-圆形；
      * 3-圆角矩形；
      * 4-字符串；
+     * 5-路径；
      */
     public type: number;
     /** 当前路径是否已应用。*/
@@ -1318,7 +1374,7 @@ export class Canvas2D {
      * [MDN Reference](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/beginPath)
      */
     public beginPath(): void {
-        throw "TODO: Canvas.beginPath!";
+        this.data.path.BeginPath();
     }
 
     /**
@@ -1560,7 +1616,7 @@ export class Canvas2D {
      * [MDN Reference](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/moveTo)
      */
     public moveTo(x: number, y: number): void {
-        throw "TODO: Canvas.moveTo!";
+       this.data.path.MoveTo(x, y);
     }
 
     /**
@@ -2237,112 +2293,3 @@ export interface FontAtlas {
      */
     lut?: Record<number, number[]>;
 }
-
-
-/*/
-
-canvas 原点在左上角
-fillText(text: string, x: number, y: number, maxWidth?: number): void;
-文本根据 font、textAlign、textBaseline 和 direction 属性所定义的字体和文本布局来渲染。
-开始横向坐标，起始光标位置，每绘制一个字偏移一次光标
-开始绘制文本的基线的 Y 轴坐标，单位为像素。
-文本渲染后的最大像素宽度。如果未指定，则文本宽度没有限制。
-font 使用rem或em作为单位
-textAlign 
-对齐是相对于fillText方法的x值的
-如果textAlign是"center"，那么该文本的左侧边界会是x - (textWidth / 2)
-"start"、"end"依赖文本方向
-textBaseline
-"alphabetic"
-文本基线是标准的字母基线。默认值。仅支持这个
-direction
-从左向右还是从右向左
-
-定义X，定义Y，Y是基线位置，X逐字推进
-根据ascender、descender定义行的上限和下限
-换行是每次偏移lineHeight
-所有计算都以emSize * font_size为单位
-起始X偏移1个
-
-        const rem_font_size = 16;
-
-        for (let i = 0; i < 6; i++) {
-            const glyph = this._font_glyphs_lut.glyphs[3];
-
-            // 计算出插值点，在atlasBounds的left、right，bottom，top插值出采样像素点
-            // 当前填充左下角像素点，像素宽高
-
-            // 包围框在左下角
-            //const top = 
-        }
-
-        //c
-        //const em_font_size
-        //Text(, maxWidth ?: number)
-
-
-        let n = "伴"//20276
-        console.error(n.charCodeAt(0));
-
-m_nMode:4
-m_nCount:4
-
-m_nStart:16 + m_nEnd: 16
-m_mPoint0: U32
-m_mPoint1: U32
-
-++++当前画布变换矩阵，画布变换矩阵索引
-字体样式索引
-裁剪区域
-阴影处理
-边线与虚线
-射线与贝塞尔曲线交点
-
-圆弧连接 - 贝塞尔曲线链接
-
-ui_instances: 16384 / 16 = 1024
-ui_tyles: 16384 / 32 = 512
-ui_transforms: 16384 / 24 = 682
-ui_geometries: 16字节对齐
- 16 + 8
- 16 + 8
- // 48
-
-// 批次
-// 实例缓存满，样式缓存满、变换组件满、几何缓存满
-
-
-
-// 16,384，682个实例
-// 6个浮点型，
-// 24，2,730个实例
-// 8 * 4 = 32 16384 / 32
-使用填充矩形法绘制多边形和文字
-文字使用SDF字体描述填充
-多边形填充使用射线法判断像素点是否在多边形内部
-使用实例绘制，每个实例绘制3个顶点，每个实例填充1个多边形或1个文字
-使用3个缓存辅助绘制：
-1.几何缓存：每个UINT存储一个像素坐标点，常量缓存限制65536，最多存储16384个像素点
-2.材质缓存：材质可共享
-3.实例缓存：多边形类型，多边形起始顶点、多边形顶点数量、材质索引
-
-贴图可以存储更多数据：但贴图采样慢，可以使用最快的贴图采样方法
-：类型枚举
-：绘制
-
-多画布
-画布间拷贝
-
-贝塞尔曲线不能填充
-
-
-标准网格渲染器
-标准网格绘制逻辑
-调用canvas绘制方法，我们基于网格的UV填充UI
-多次绑定G4并多次绘制，这是在模型表面绘制的方案
-如果存粹后期绘制，参考Dioramas_3mx实现
-
-实例数组
-common/miaoverse/shader/billboard.vertex.glsl
-
-/*/

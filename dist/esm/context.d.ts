@@ -35,12 +35,12 @@ export declare class Context {
         vname: string;
         /** 统一缓存大小对齐。*/
         alignSize: number;
-    }): Miaoverse.PropLayout;
+    }, hide_textures?: string[]): Miaoverse.PropLayout;
     /**
      * 构建资源绑定组布局。
      * @returns 返回资源绑定组布局ID。
      */
-    GenerateGroupLayout_G2(properties: Miaoverse.ShaderAsset["properties"]): Miaoverse.PropLayout;
+    GenerateGroupLayout_G2(properties: Miaoverse.ShaderAsset["properties"], hide_textures?: string[]): Miaoverse.PropLayout;
     /**
      * 构建资源绑定组布局。
      * @returns 返回资源绑定组布局ID。
@@ -61,9 +61,10 @@ export declare class Context {
      * 获取对应帧通道使用的GPU着色器管线实例。
      * @param id 着色器管线实例ID。
      * @param framePass 帧通道配置。
+     * @param materialSlot 材质槽索引。
      * @returns 返回GPU着色器管线实例。
      */
-    GetRenderPipeline(id: number, framePass: Miaoverse.GLFramePass): GPURenderPipeline;
+    GetRenderPipeline(id: number, framePass: Miaoverse.GLFramePass, materialSlot: number): GPURenderPipeline;
     /**
      * 编译着色器分支实例。
      * @param shader 着色器实例。
@@ -256,40 +257,16 @@ export declare const enum RENDER_FLAGS {
     SKINNING = 64,
     /** 子网格形变。 */
     MORPHING = 128,
-    /** 包含基础贴图（非金属表面的漫反射反照率，金属表面的镜面反射颜色）。 */
-    HAS_BASE_TEXTURE = 256,
-    /** 包含不透明度贴图。 */
-    HAS_ALPHA_TEXTURE = 512,
-    /** 包含金属度贴图（SPECULAR_GLOSSINESS_PARAMS参数模型下表示包含镜面反射率贴图：HAS_SPECULAR_TEXTURE）。 */
-    HAS_METALLIC_TEXTURE = 1024,
-    /** 包含粗糙度贴图（SPECULAR_GLOSSINESS_PARAMS参数模型下表示包含光泽度贴图：HAS_GLOSSINESS_TEXTURE） */
-    HAS_ROUGHNESS_TEXTURE = 2048,
-    /** 包含法线贴图。 */
-    HAS_NORMAL_TEXTURE = 4096,
-    /** 包含环境光遮蔽贴图。 */
-    HAS_AO_TEXTURE = 8192,
-    /** 包含自发光贴图。 */
-    HAS_EMISSIVE_TEXTURE = 16384,
-    /** 是否合并打包AO、ROUGHNESS、METALLIC贴图。 */
-    COMBINE_AO_ROUGHNESS_METALLIC_TEXTURE = 32768,
-    /** 启用自发光效果。 */
-    HAS_DOUBLE_EMISSIVE = 524288,
     /** 启用双面渲染。 */
-    HAS_DOUBLE_SIDED = 1048576,
+    HAS_DOUBLE_SIDED = 8388608,
+    /** 启用自发光效果。 */
+    HAS_EMISSIVE = 16777216,
     /** 启用反射效果。 */
-    HAS_REFLECTIONS = 2097152,
+    HAS_REFLECTIONS = 33554432,
     /** 启用清漆层效果。 */
-    HAS_CLEAR_COAT = 4194304,
+    HAS_CLEAR_COAT = 67108864,
     /** 启用各向异性效果。 */
-    HAS_ANISOTROPY = 8388608,
-    /** 启用非光照着色模型。 */
-    SHADING_AS_UNLIT = 16777216,
-    /** 启用布料光照模型。 */
-    SHADING_AS_CLOTH = 33554432,
-    /** 启用次表面光照模型。 */
-    SHADING_AS_SUBSURFACE = 67108864,
-    /** 使用SPECULAR_GLOSSINESS参数模型，内部将转换为标准PBR参数。  */
-    SPECULAR_GLOSSINESS_PARAMS = 134217728,
+    HAS_ANISOTROPY = 134217728,
     /** 最高4位记录混合模式索引。 */
     BLEND_MODE_INDEX = 28
 }

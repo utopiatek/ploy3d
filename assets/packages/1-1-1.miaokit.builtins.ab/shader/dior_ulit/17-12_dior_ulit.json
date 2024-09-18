@@ -1,0 +1,89 @@
+{
+    "classid": 17,
+    "name": "dior_ulit",
+    "label": "dior_ulit",
+    "asset": {
+        "name": "",
+        "type": "shading",
+        "settings": {},
+        "properties": {
+            "baseColor": {
+                "note": "",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "baseTex": {
+                "note": "",
+                "sign": "texture_2d<f32>"
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-1_common.vertex.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/dior_ulit/20-39_dior_ulit.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl",
+                    ":/shader/common/20-3_common.material.wgsl"
+                ],
+                "main": ":/shader/dior_ulit/20-40_dior_ulit.material.wgsl"
+            },
+            "shading": {
+                "includes": [
+                ],
+                "main": ":/shader/common/20-13_ulit.shading.wgsl"
+            }
+        },
+        "vertex_buffers": [
+            {
+                "arrayStride": 12,
+                "stepMode": "vertex",
+                "attributes": [
+                    {
+                        "shaderLocation": 0,
+                        "offset": 0,
+                        "format": "float32x3"
+                    }
+                ]
+            },
+            {
+                "arrayStride": 8,
+                "stepMode": "vertex",
+                "attributes": [
+                    {
+                        "shaderLocation": 1,
+                        "offset": 0,
+                        "format": "float32x2"
+                    }
+                ]
+            },
+            {
+                "arrayStride": 20,
+                "stepMode": "instance",
+                "attributes": [
+                    {
+                        "shaderLocation": 2,
+                        "offset": 0,
+                        "format": "float32x4"
+                    },
+                    {
+                        "shaderLocation": 3,
+                        "offset": 16,
+                        "format": "sint32"
+                    }
+                ]
+            }
+        ]
+    }
+}

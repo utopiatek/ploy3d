@@ -144,6 +144,8 @@ export declare class Ploy3D {
     workerUrl: string;
     /** 线程模块URL。 */
     workerUrlJS: string;
+    /** 根路径。 */
+    baseURI: string;
     /** DAZ资源服务地址。 */
     dazServ: string;
     /** 用户ID（请登陆并设置真实用户ID，用户仅能上传使用真实用户ID标识的资源，模拟用户ID可能会导致资源UUID冲突）。 */
@@ -289,10 +291,20 @@ export declare class PloyApp {
                 submesh: number;
                 material: Miaoverse.Material;
                 drawParams?: number[];
-            }[];
+            }[]; /**
+             * 初始化引擎。
+             * @param {Parameters<Engine["Startup"]>[0]} progress - 进度刷新函数。
+             * @returns 是否初始化成功。
+             */
             instances: number[][];
         };
     }>;
+    /**
+     * 创建变换组件控制器工具。
+     * @param scene 场景实例。
+     * @returns 返回变换组件控制器工具。
+     */
+    CreateTransformCtrl(scene: Miaoverse.Scene): Promise<Miaoverse.TransformCtrl>;
     /**
      * 初始化事件系统。
      * @returns 返回事件协程。
@@ -366,6 +378,8 @@ export declare class PloyApp {
         /** 网格绘制参数对象。 */
         draw_params: Parameters<Miaoverse.DrawQueue["DrawMesh"]>[0];
     };
+    /** 变换组件控制器工具。 */
+    protected _transformCtrl?: Miaoverse.TransformCtrl;
     /** 当前2D待循环帧数。 */
     protected _loop2d: number;
     /** 当前3D待循环帧数。 */

@@ -28,8 +28,8 @@ export class Gis {
                 classid: 32,
                 name: "gis:" + i,
                 label: "gis:" + i,
-                shader: "1-1-1.miaokit.builtins:/shader/17-4_standard_gis.json",
-                flags: 1 | 16777216,
+                shader: "1-1-1.miaokit.builtins:/shader/gis_ulit/17-11_gis_ulit.json",
+                flags: 1,
                 properties: {
                     textures: {},
                     vectors: {}
@@ -408,6 +408,12 @@ export class Gis {
         const scale = Math.cos(this._originLL[1] / 180.0 * Math.PI);
         return [(mc[0] - this._originMC[0]) * scale, 0, (this._originMC[1] - mc[1]) * scale];
     }
+    get enable() {
+        return this._enable;
+    }
+    set enable(b) {
+        this._enable = b;
+    }
     get lng() {
         return this._lng;
     }
@@ -460,6 +466,7 @@ export class Gis {
         this._pyramid.forceTerrain = enable;
     }
     _global;
+    _enable;
     _pyramid;
     _mesh;
     _materials;

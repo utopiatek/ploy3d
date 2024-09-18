@@ -40,11 +40,10 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
             texture = this.LoadTexture2D_KTX2(desc.data, "bc7-rgba-unorm");
         }
         else {
-            return null;
             const blob = new Blob([desc.data]);
             const option = undefined;
             const bitmap = await createImageBitmap(blob, option);
-            texture = await this.LoadTexture2D_RAW(bitmap);
+            texture = await this.LoadTexture2D_RAW(bitmap, GPUTextureUsage.RENDER_ATTACHMENT);
             bitmap.close();
         }
         const id = this._instanceIdle;
@@ -90,14 +89,14 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
             const blob = await this._global.Fetch(uri, null, "blob");
             const option = undefined;
             const bitmap = await createImageBitmap(blob, option);
-            const texture = await this.LoadTexture2D_RAW(bitmap);
+            const texture = await this.LoadTexture2D_RAW(bitmap, GPUTextureUsage.RENDER_ATTACHMENT);
             bitmap.close();
             return texture;
         }
     }
-    LoadTexture2D_RAW(bitmap) {
+    LoadTexture2D_RAW(bitmap, usage) {
         const device = this._global.device;
-        const id = device.CreateTexture2D(bitmap.width, bitmap.height, 1, 1, bitmap.format || "rgba8unorm");
+        const id = device.CreateTexture2D(bitmap.width, bitmap.height, 1, 1, bitmap.format || "rgba8unorm", usage);
         if (id == 0) {
             return null;
         }

@@ -1,0 +1,56 @@
+{
+    "classid": 17,
+    "name": "postprocess_ulit",
+    "label": "postprocess_ulit",
+    "asset": {
+        "name": "",
+        "type": "postprocess",
+        "settings": {},
+        "properties": {
+            "baseColor": {
+                "note": "基础色。",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-1_common.vertex.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/postprocess_ulit/20-51_postprocess_ulit.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/postprocess_ulit/20-52_postprocess_ulit.material.wgsl"
+            },
+            "shading": {
+                "includes": [],
+                "main": ":/shader/common/20-13_ulit.shading.wgsl"
+            }
+        },
+        "custom_g3": {
+            "label": "postprocess_ulit",
+            "entries": [
+                {
+                    "binding": 0,
+                    "visibility": 2,
+                    "texture": {
+                        "sampleType": "float",
+                        "viewDimension": "2d"
+                    }
+                }
+            ]
+        }
+    }
+}

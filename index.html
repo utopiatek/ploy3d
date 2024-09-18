@@ -10,6 +10,30 @@
 
     <title>PLOY3D引擎</title>
 
+    <script>
+        // 查询URL附带的参数
+        function UrlQuery(name) {
+            let reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+            let r = window.location.search.substring(1).match(reg);
+            return r ? r[2] : null;
+        }
+
+        // 指定使用的SDK版本
+        const sdk = UrlQuery("sdk");
+        // 指定启动的应用ID
+        globalThis.appid = UrlQuery("appid") || "meta_human";
+
+        // 根据指定的SDK版本重定向站点根目录
+        if (sdk) {
+            const base = document.createElement("base");
+
+            base.setAttribute("href", `https://oss.ploycloud.com/ploy3d/${sdk}/`);
+
+            document.head.appendChild(base);
+
+            console.info("根据指定的SDK版本重定向了站点根目录:", document.baseURI);
+        }
+    </script>
     <!--入口脚本-->
     <script type="module" src="./index.js"></script>
     <!--公共样式表-->

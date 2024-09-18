@@ -955,7 +955,7 @@ export class Device {
             sampleCount: 1,
             dimension: "2d",
             format: format,
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST | (bindable ? GPUTextureUsage.TEXTURE_BINDING : 0)
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | (bindable ? GPUTextureUsage.TEXTURE_BINDING : 0)
         });
 
         if (!texture) {
@@ -1060,6 +1060,45 @@ export class Device {
         this._destroyList.push(() => {
             textureObj.destroy();
         });
+    }
+
+    /**
+     * 读取渲染贴图像素值。
+     * @param id 渲染贴图ID。
+     * @param layer 读取贴图数组图层索引。
+     * @param pixelX 读取像素坐标X。
+     * @param pixelY 读取像素坐标Y。
+     * @returns 返回数据缓存。
+     */
+    public async ReadTextureRT(id: number, layer: number, pixelX: number, pixelY: number) {
+        const rt = this._texturesRT.list[id];
+        if (!rt) {
+            return null;
+        }
+
+        let buffer = this._texturesRT.readBuffer;
+        if (!buffer) {
+            buffer = this._texturesRT.readBuffer = this._device.createBuffer({
+                size: 16, // TODO
+                usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+            });
+        }
+
+        const cmdEncoder = this.device.createCommandEncoder();
+
+        cmdEncoder.copyTextureToBuffer(
+            { texture: rt.texture, mipLevel: 0, origin: [pixelX, pixelY, layer] },
+            { buffer: buffer, offset: 0, bytesPerRow: 2048 * 16 }, // TODO
+            [1, 1, 1]);
+
+        this.device.queue.submit([cmdEncoder.finish()]);
+
+        // 映射并读取缓冲区
+        await buffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = buffer.getMappedRange().slice(0);
+        buffer.unmap();
+
+        return arrayBuffer;
     }
 
     /**
@@ -1266,9 +1305,10 @@ export class Device {
      * @param id 贴图实例ID。
      * @param layer 图层。
      * @param level LOD级别。
+     * @param format 指定视图解析格式（应于贴图格式兼容）。
      * @returns 返回渲染贴图视图。
      */
-    public GetRenderTextureAttachment(id: number, layer: number, level: number) {
+    public GetRenderTextureAttachment(id: number, layer: number, level: number, format?: GPUTextureFormat) {
         const texture = this._texturesRT.list[id];
         if (!texture) {
             return null;
@@ -1287,6 +1327,7 @@ export class Device {
                 baseMipLevel: level,
                 mipLevelCount: 1,
                 dimension: "2d",
+                format
             });
         }
 
@@ -1383,6 +1424,8 @@ export class Device {
         usedCount: 0,
         /** 当前实例总大小。 */
         usedSize: 0,
+        /** 用于读取渲染贴图像素的GPU中间缓存。 */
+        readBuffer: null as GPUBuffer,
         /** 贴图实例容器。 */
         list: [null] as (Device["_textures2D"]["list"][0] & {
             /** 是否可绑定。 */

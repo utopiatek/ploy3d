@@ -77,7 +77,6 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
             texture = this.LoadTexture2D_KTX2(desc.data, "bc7-rgba-unorm");
         }
         else {
-            return null; // TODO: BUG
             // 引擎初始化前解码图片性能很低
             // Image.decode()在高分辨率下有无法解码的情况
             // https://zhuanlan.zhihu.com/p/367345699
@@ -86,7 +85,7 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
             const option: ImageBitmapOptions = undefined;
             const bitmap = await createImageBitmap(blob, option);
 
-            texture = await this.LoadTexture2D_RAW(bitmap);
+            texture = await this.LoadTexture2D_RAW(bitmap, GPUTextureUsage.RENDER_ATTACHMENT);
             bitmap.close();
         }
 
@@ -172,7 +171,7 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
             const blob = await this._global.Fetch<Blob>(uri, null, "blob");
             const option: ImageBitmapOptions = undefined;
             const bitmap = await createImageBitmap(blob, option);
-            const texture = await this.LoadTexture2D_RAW(bitmap);
+            const texture = await this.LoadTexture2D_RAW(bitmap, GPUTextureUsage.RENDER_ATTACHMENT);
 
             bitmap.close();
 
@@ -185,9 +184,9 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
      * @param bitmap 位图数据。
      * @returns 返回贴图内部实例。
      */
-    protected LoadTexture2D_RAW(bitmap: Miaoverse.GLTextureSource) {
+    protected LoadTexture2D_RAW(bitmap: Miaoverse.GLTextureSource, usage?: number) {
         const device = this._global.device;
-        const id = device.CreateTexture2D(bitmap.width, bitmap.height, 1, 1, bitmap.format || "rgba8unorm");
+        const id = device.CreateTexture2D(bitmap.width, bitmap.height, 1, 1, bitmap.format || "rgba8unorm", usage);
         if (id == 0) {
             return null;
         }

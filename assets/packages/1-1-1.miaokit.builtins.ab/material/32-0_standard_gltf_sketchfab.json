@@ -1,0 +1,17 @@
+{
+    "classid": 32,
+    "name": "standard_gltf_sketchfab",
+    "label": "standard_gltf_sketchfab",
+    "shader": ":/shader/gltf_sketchfab/17-10_gltf_sketchfab.json",
+    "flags": 0,
+    "properties": {
+        "vectors": {
+            "baseColorFactor": [1, 0, 0, 1]
+        },
+        "textures": {
+            "baseColorTexture": {
+                "uri": ":/texture/25-0_color.ktx2"
+            }
+        }
+    }
+}

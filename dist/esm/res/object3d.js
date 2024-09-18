@@ -27,6 +27,9 @@ export class Object3D extends Miaoverse.Resource {
         this._impl.Set(this._ptr, "worldLLMC", [ll[0], ll[1], mc[0], mc[1]]);
         this._impl["_Flush"](this._ptr, 1);
     }
+    Destroy() {
+        this._impl["_Destroy"](this.internalPtr);
+    }
     get writeTS() {
         return this._impl.Get(this._ptr, "writeTS");
     }
@@ -195,6 +198,10 @@ export class Object3D extends Miaoverse.Resource {
     set meshRenderer(component) {
         this._impl["_SetMeshRenderer"](this._ptr, component?.internalPtr || 0);
     }
+    get meshRenderer() {
+        const id = this._impl["_GetMeshRenderer"](this._ptr);
+        return this._global.resources.MeshRenderer.GetInstanceByID(id);
+    }
     set animator(component) {
         this._impl["_SetAnimator"](this._ptr, component?.id || 0);
         if (component) {
@@ -225,6 +232,7 @@ export class Object_kernel extends Miaoverse.Base_kernel {
     _SetRotation;
     _SetParent;
     _SetMeshRenderer;
+    _GetMeshRenderer;
     _SetAnimator;
 }
 export const Node_member_index = {

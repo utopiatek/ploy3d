@@ -33,11 +33,53 @@ export declare class Assembly {
      * @returns 返回帧绘制资源组G0实例。
      */
     GetFrameUniforms(key: string): Miaoverse.FrameUniforms;
+    /**
+     * 获取屏幕上像素对应的对象。
+     * @param x 平幕坐标[0, 1]。
+     * @param y 平幕坐标[0, 1]。
+     * @returns 返回对象。
+     */
+    GetObjectInScreen(x: number, y: number): Promise<{
+        object3d: Miaoverse.Object3D;
+        material: Miaoverse.Material;
+        pixel: Uint32Array;
+    } | {
+        pixel: Uint32Array;
+        object3d?: undefined;
+        material?: undefined;
+    }>;
     /** 默认IBL高光反射贴图资源视图。 */
     get default_iblSpecular(): GPUTextureView;
     /** 模块实例对象。 */
     private _global;
-    /** 渲染管线装配器配置。 */
+    /**
+     * 渲染管线装配器配置。
+     * 渲染贴图划分规则：
+     * RT0绘制：DFG、阴影、SSAO、SSR、DEPTH，其中DFG存储于Level1，因此可以放心清空画布
+     * RT1绘制：场景深度结构、主画面
+     * 每张2048*2048，每个小单元格512*512，6层LOD
+     * 可减少帧缓存绑定切换，可减少资源绑定和切换，可合并进行后处理绘制
+     * 使用动态分辨率，渲染贴图像素利用率分别为1.0倍，0.75倍，0.5倍三档
+     * EarlyZ帧通道绘制到C1 LOD1，然后再后处理出SSAO、SSR、SSS
+     *
+     * |————|————|————|————|————|————|————|————|
+     * |         |         |                   |
+     * |   DFG   |   SSAO  |                   |
+     * |   C0    |   C0    |                   |
+     * |————|————|————|————|        SSS        |
+     * |         |         |        C0         |
+     * |   SD3   |   SSR   |                   |
+     * |   C0    |   C0    |                   |
+     * |————————————————Main RT————————————————|
+     * |                  C1                   |
+     * |                   |                   |
+     * |                   |                   |
+     * |        SD1        |        SD2        |
+     * |        C0         |        C0         |
+     * |                   |                   |
+     * |                   |                   |
+     * |————|————|————|————|————|————|————|————|
+     */
     private _config;
 }
 /** 渲染管线装配器配置。 */
@@ -54,12 +96,18 @@ export interface Assembly_config {
             name: string;
             /** 渲染目标贴图内部实例ID。 */
             id?: number;
+            /** 渲染目标宽度。 */
+            width?: number;
+            /** 渲染目标高度。 */
+            height?: number;
             /** 渲染目标贴图像素格式。 */
             format: Miaoverse.GLTextureFormat;
             /** 渲染目标贴图层数。 */
             layerCount: number;
             /** 渲染目标贴图LOD级数。 */
             levelCount: number;
+            /** 渲染目标贴图各图层各级别独立视图。 */
+            views?: GPUTextureView[][];
         }[];
         /** 渲染目标查找表。 */
         lut?: Record<string, Assembly_config["renderTargets"]["list"][0]>;

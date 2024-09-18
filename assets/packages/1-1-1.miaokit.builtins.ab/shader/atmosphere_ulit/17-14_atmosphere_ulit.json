@@ -1,0 +1,49 @@
+{
+    "classid": 17,
+    "name": "atmosphere_ulit",
+    "label": "atmosphere_ulit",
+    "asset": {
+        "name": "",
+        "type": "shading",
+        "settings": {},
+        "properties": {
+            "baseColor": {
+                "note": "",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "baseTex": {
+                "note": "",
+                "sign": "texture_2d<f32>"
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-1_common.vertex.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/atmosphere_ulit/20-47_atmosphere_ulit.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl",
+                    ":/shader/common/20-3_common.material.wgsl"
+                ],
+                "main": ":/shader/atmosphere_ulit/20-48_atmosphere_ulit.material.wgsl"
+            },
+            "shading": {
+                "includes": [
+                ],
+                "main": ":/shader/common/20-13_ulit.shading.wgsl"
+            }
+        }
+    }
+}

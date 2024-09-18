@@ -17,6 +17,12 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
      */
     SetMaterial(slot: number, submesh: number, material: Miaoverse.Material): void;
     /**
+     * 获取指定材质插槽材质。
+     * @param slot 材质插槽。
+     * @returns 返回材质实例。
+     */
+    GetMaterial(slot: number): Miaoverse.Material;
+    /**
      * 绑定网格骨骼蒙皮骨架关节实例。
      * @param joints 关节实例指针数组。
      */
@@ -105,6 +111,13 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
      */
     protected _SetMaterial: (mesh_renderer: Miaoverse.io_ptr, slot: number, submesh: number, material: Miaoverse.io_ptr) => void;
     /**
+     * 设置材质节点。
+     * @param mesh_renderer 网格渲染器组件实例指针。
+     * @param slot 材质插槽。
+     * @returns 返回材质实例ID。
+     */
+    protected _GetMaterial: (mesh_renderer: Miaoverse.io_ptr, slot: number) => number;
+    /**
      * 获取动态实例绘制数据槽。
      * @param flags 操作标志集（BIT1-清除列表，BIT2-不在后续验证数据有效性，直接占用数据槽，BIT4-获取当前实例数量，BIT8-提交到GPU顶点缓存）。
      * @returns 返回数据空间指针。
@@ -169,10 +182,7 @@ export declare const MeshRendere_member_index: {
     readonly buffer: Miaoverse.Kernel_member;
     readonly bufferID: Miaoverse.Kernel_member;
     readonly bufferBlockOffset: Miaoverse.Kernel_member;
-    readonly bufferBlockSize: Miaoverse.Kernel_member; /**
-     * 验证绘制实例在指定相机视锥内可见（入不可见将不保留绘制实例数据）。
-     * @returns 返回有效数据槽。
-     */
+    readonly bufferBlockSize: Miaoverse.Kernel_member;
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
     readonly updated: Miaoverse.Kernel_member;

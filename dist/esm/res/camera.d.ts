@@ -57,6 +57,16 @@ export declare class Camera extends Miaoverse.Resource<Camera> {
      * @returns 返回屏幕坐标。
      */
     WorldToScreen(wpos: number[]): number[];
+    /**
+     * 屏幕空间坐标[0, 1]转世界空间射线。
+     * @param x 屏幕空间坐标X[0,1]。
+     * @param y 屏幕空间坐标Y[0,1]。
+     * @returns 返回世界空间射线起点和方向。
+     */
+    ScreenPointToRay(x: number, y: number): {
+        origin: Miaoverse.Vector3;
+        dir: Miaoverse.Vector3;
+    };
     /** 相机参数更新时间戳（计算各个变换矩阵的时间戳）。 */
     get writeTS(): number;
     set writeTS(value: number);
@@ -110,6 +120,10 @@ export declare class Camera extends Miaoverse.Resource<Camera> {
     /** 是否由所依附对象变换组件控制相机姿态。 */
     get transformCtrl(): boolean;
     set transformCtrl(value: boolean);
+    /** 世界空间坐标。 */
+    get wposition(): Miaoverse.Vector3;
+    /** 世界空间观察向量。 */
+    get wdirection(): Miaoverse.Vector3;
     /** 内核实现。 */
     private _impl;
 }
@@ -139,6 +153,8 @@ export declare class Camera_kernel extends Miaoverse.Base_kernel<Camera, typeof 
     protected _Frustum_Check: (checker: Miaoverse.io_ptr) => Miaoverse.io_uint;
     /** 世界空间坐标转相机屏幕空间坐标。 */
     protected _WorldToScreen: (camera: Miaoverse.io_ptr, x: number, y: number, z: number) => number[];
+    /** 屏幕空间坐标[0, 1]转世界空间射线。 */
+    protected _ScreenPointToRay: (camera: Miaoverse.io_ptr, x: number, y: number) => number[];
 }
 /** 相机组件内核实现的数据结构成员列表。 */
 export declare const Camera_member_index: {
@@ -160,6 +176,8 @@ export declare const Camera_member_index: {
     readonly object: Miaoverse.Kernel_member;
     readonly lastSib: Miaoverse.Kernel_member;
     readonly nextSib: Miaoverse.Kernel_member;
+    readonly wPos: Miaoverse.Kernel_member;
+    readonly wDir: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;

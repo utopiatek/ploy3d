@@ -107,6 +107,15 @@ export declare class Device {
      */
     FreeTextureRT(id: number): void;
     /**
+     * 读取渲染贴图像素值。
+     * @param id 渲染贴图ID。
+     * @param layer 读取贴图数组图层索引。
+     * @param pixelX 读取像素坐标X。
+     * @param pixelY 读取像素坐标Y。
+     * @returns 返回数据缓存。
+     */
+    ReadTextureRT(id: number, layer: number, pixelX: number, pixelY: number): Promise<ArrayBuffer>;
+    /**
      * 根据贴图采样器描述符生成标识符。
      * @param desc 贴图采样器描述符。
      * @returns 返回采样器标识符。
@@ -212,9 +221,10 @@ export declare class Device {
      * @param id 贴图实例ID。
      * @param layer 图层。
      * @param level LOD级别。
+     * @param format 指定视图解析格式（应于贴图格式兼容）。
      * @returns 返回渲染贴图视图。
      */
-    GetRenderTextureAttachment(id: number, layer: number, level: number): GPUTextureView;
+    GetRenderTextureAttachment(id: number, layer: number, level: number, format?: GPUTextureFormat): GPUTextureView;
     /**
      * 获取贴图采样器实例。
      * @param id 贴图采样器实例ID。

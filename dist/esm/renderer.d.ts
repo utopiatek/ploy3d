@@ -76,7 +76,7 @@ export declare class DrawQueue {
      */
     BindMaterial(material: Miaoverse.Material): void;
     /**
-     * 基于当前资源绑定设置着色器管线（需要先调用BindFrameUniforms、BindMeshRenderer、BindMaterial）。
+     * 基于当前资源绑定设置着色器管线（需要先调用BindFrameUniforms、BindMeshRenderer、BindMaterial，在后期帧通道绘制中有使用）。
      */
     BindRenderPipeline(config: {
         /** 渲染设置标记集（材质与网格渲染器共同设置）。 */
@@ -91,8 +91,9 @@ export declare class DrawQueue {
     /**
      * 绑定对应当前帧通道设置的GPU着色器管线实例。
      * @param pipelineID 着色器管线实例ID。
+     * @param materialSlot 材质槽索引。
      */
-    SetPipeline(pipelineID: number): void;
+    SetPipeline(pipelineID: number, materialSlot: number): void;
     /**
      * 动态绘制网格。
      * @param params 动态绘制参数。
@@ -112,7 +113,7 @@ export declare class DrawQueue {
      * @param instanceCount 绘制实例数量。
      * @param firstInstance 起始绘制实例索引。
      */
-    DrawPart(g1: number, g2: number, pipeline: number, mesh: number, submesh: number, instanceCount?: number, firstInstance?: number): void;
+    DrawPart(g1: number, g2: number, pipeline: number, mesh: number, submesh: number, instanceCount?: number, firstInstance?: number, materialSlot?: number): void;
     /** 当前场景绘制方法。 */
     Draw?: (queue: DrawQueue) => void;
     /** 模块实例对象。 */
@@ -212,7 +213,9 @@ export declare class DrawQueue {
 export interface GLFramePass extends GPURenderPassDescriptor {
     /** 唯一标识。 */
     label: string;
-    /** 唯一编号。 */
+    /** 唯一编号（第一变体编号）。 */
+    id?: number;
+    /** 唯一编号（变体唯一）。 */
     index?: number;
     /**
      * 颜色渲染目标设置。
@@ -248,6 +251,8 @@ export interface GLFramePass extends GPURenderPassDescriptor {
         target: {
             /** 唯一标识。 */
             name: string;
+            /** 渲染目标视图解析格式（应与渲染目标贴图格式兼容）。 */
+            format?: GPUTextureFormat;
             /** 渲染目标贴图层索引。 */
             layer: number;
             /** 渲染目标贴图级别。 */
@@ -317,6 +322,8 @@ export interface GLFramePass extends GPURenderPassDescriptor {
     mode: "shading" | "postprocess" | "compute";
     /** 帧通道变体数量（默认1，每个变体）。 */
     variantCount?: number;
+    /** 是否由着色器控制深度写入值（深度贴图MIPMAP帧通道使用）。 */
+    depthCtrl?: boolean;
     /** 层掩码，用于在渲染前过滤对象。 */
     layerMask?: number;
     /** 渲染排序方法（多重方法标志集，越低位权重越高）。 */
@@ -326,6 +333,7 @@ export interface GLFramePass extends GPURenderPassDescriptor {
     /** 指定固定使用的材质绘制帧（通常在后处理帧通道使用）。 */
     materialSpec?: Miaoverse.Asset_material & {
         instance?: Miaoverse.Material;
+        g3?: GPUBindGroup;
     };
     /** 特别指定着色器通道宏定义。 */
     shaderMacro?: Record<string, number>;

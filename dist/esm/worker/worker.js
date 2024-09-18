@@ -14,6 +14,7 @@ export class Miaoworker {
         this.startTS = Date.now();
         this.uid = _global?.uid;
         this.webgl = _global?.webgl;
+        this.baseURI = _global?.baseURI;
         this.dazServ = _global?.dazServ;
         this.kernelCode = _global?.kernelCode;
         this.kernel = _global?.kernel;
@@ -27,8 +28,17 @@ export class Miaoworker {
     }
     async Startup(args) {
         if (!args) {
+            const code = `
+// 导入子线程代码模块
+import { Miaoworker } from "${this.baseURI}dist/esm/worker/worker.js"
+
+// 子线程脚本装载后自动实例化事务处理器
+const __worker = new Miaoworker();
+            `;
+            const blob = new Blob([code], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
             this.workerID = 0;
-            this.worker = new Worker("./worker.js", { type: 'module' });
+            this.worker = new Worker(url, { type: 'module' });
             this.worker.onmessage = (ev) => {
                 this.OnMessage(ev.data);
             };
@@ -38,6 +48,7 @@ export class Miaoworker {
                 args: {
                     uid: this.uid,
                     webgl: this.webgl,
+                    baseURI: this.baseURI,
                     dazServ: this.dazServ,
                     kernelCode: this.kernelCode,
                     transfer: [this.kernelCode]
@@ -52,6 +63,7 @@ export class Miaoworker {
         if (this.workerID != 0) {
             this.uid = args.uid;
             this.webgl = args.webgl;
+            this.baseURI = args.baseURI;
             this.dazServ = args.dazServ;
             this.kernelCode = args.kernelCode;
             this.kernel = await (new Kernel(this)).Init({
@@ -421,6 +433,9 @@ export class Miaoworker {
         }
     }
     async Fetch(input, init, type) {
+        if (input.startsWith("./")) {
+            input = input.replace("./", this.baseURI);
+        }
         const res = await fetch(input, init);
         return await res[type]();
     }
@@ -434,6 +449,7 @@ export class Miaoworker {
     startTS;
     uid;
     webgl;
+    baseURI;
     dazServ;
     kernelCode;
     kernel;

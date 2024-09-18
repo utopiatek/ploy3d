@@ -157,11 +157,11 @@ export class Camera extends Miaoverse.Resource<Camera> {
      * @param height 事件源元素高度。
      */
     public Scale(delta: number, width: number, height: number): void {
+        delta = delta / Math.abs(delta);
+
         if (isNaN(delta)) {
             return;
         }
-
-        delta = delta / Math.abs(delta);
 
         const aspect = this.width / this.height;
         const field = 1.0 < aspect ? 6378137.0 : 6378137.0 / aspect;
@@ -187,6 +187,21 @@ export class Camera extends Miaoverse.Resource<Camera> {
     public WorldToScreen(wpos: number[]) {
         const cpos = this._impl["_WorldToScreen"](this._ptr, wpos[0], wpos[1], wpos[2]);
         return cpos;
+    }
+
+    /**
+     * 屏幕空间坐标[0, 1]转世界空间射线。
+     * @param x 屏幕空间坐标X[0,1]。
+     * @param y 屏幕空间坐标Y[0,1]。
+     * @returns 返回世界空间射线起点和方向。
+     */
+    public ScreenPointToRay(x: number, y: number) {
+        const ray = this._impl["_ScreenPointToRay"](this._ptr, x, y);
+
+        return {
+            origin: this._global.Vector3(ray.slice(0, 3)),
+            dir: this._global.Vector3(ray.slice(3))
+        };
     }
 
     /** 相机参数更新时间戳（计算各个变换矩阵的时间戳）。 */
@@ -358,6 +373,18 @@ export class Camera extends Miaoverse.Resource<Camera> {
         this.updated = true;
     }
 
+    /** 世界空间坐标。 */
+    public get wposition(): Miaoverse.Vector3 {
+        // TODO: 应用相机状态更新
+        return this._global.Vector3(this._impl.Get(this._ptr, "wPos"));
+    }
+
+    /** 世界空间观察向量。 */
+    public get wdirection(): Miaoverse.Vector3 {
+        // TODO: 应用相机状态更新
+        return this._global.Vector3(this._impl.Get(this._ptr, "wDir"));
+    }
+
     /** 内核实现。 */
     private _impl: Camera_kernel;
 }
@@ -407,6 +434,9 @@ export class Camera_kernel extends Miaoverse.Base_kernel<Camera, typeof Camera_m
 
     /** 世界空间坐标转相机屏幕空间坐标。 */
     protected _WorldToScreen: (camera: Miaoverse.io_ptr, x: number, y: number, z: number) => number[];
+
+    /** 屏幕空间坐标[0, 1]转世界空间射线。 */
+    protected _ScreenPointToRay: (camera: Miaoverse.io_ptr, x: number, y: number) => number[];
 }
 
 /** 相机组件内核实现的数据结构成员列表。 */
@@ -435,4 +465,7 @@ export const Camera_member_index = {
     object: ["ptrGet", "ptrSet", 1, 29] as Miaoverse.Kernel_member,
     lastSib: ["ptrGet", "ptrSet", 1, 30] as Miaoverse.Kernel_member,
     nextSib: ["ptrGet", "ptrSet", 1, 31] as Miaoverse.Kernel_member,
+
+    wPos: ["farrayGet", "farraySet", 3, 244] as Miaoverse.Kernel_member,
+    wDir: ["farrayGet", "farraySet", 3, 248] as Miaoverse.Kernel_member,
 } as const;

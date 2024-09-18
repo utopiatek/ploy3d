@@ -4,6 +4,7 @@ export class Assembly {
     }
     async Init() {
         const device = this._global.device;
+        const context = this._global.context;
         const resources = this._global.resources;
         const rtWidth = this._config.renderTargets.width;
         const rtHeight = this._config.renderTargets.height;
@@ -15,7 +16,14 @@ export class Assembly {
         const framePassLut = this._config.framePass.lut = {};
         const pipelineLut = this._config.pipelines;
         for (let rt of renderTargetsList) {
-            rt.id = device.CreateTextureRT(rtWidth, rtHeight, rt.layerCount, rt.levelCount, rt.format, true, false);
+            rt.id = device.CreateTextureRT(rt.width || rtWidth, rt.height || rtHeight, rt.layerCount, rt.levelCount, rt.format, true, false);
+            rt.views = [];
+            for (let layer = 0; layer < rt.layerCount; layer++) {
+                rt.views[layer] = [];
+                for (let level = 0; level < rt.levelCount; level++) {
+                    rt.views[layer][level] = device.GetRenderTextureAttachment(rt.id, layer, level);
+                }
+            }
             renderTargetsLut[rt.name] = rt;
         }
         for (let g0 of frameUniformsList) {
@@ -27,8 +35,38 @@ export class Assembly {
         }
         {
             const PreExecute = (variant, queue) => {
+                let rt_scale = 1.0;
+                if (queue.framePass.label == "mipmap_z") {
+                    const attachment = queue.framePass.colorAttachments[0];
+                    const target = attachment.target;
+                    const rt = renderTargetsLut[target.name];
+                    const viewG3 = variant == 0 ? undefined : rt.views[0][variant - 1];
+                    target.level = variant;
+                    rt_scale = 1.0 / Math.pow(2, variant);
+                    attachment.view = device.GetRenderTextureAttachment(rt.id, target.layer, target.level, target.format);
+                    queue.framePass.index = queue.framePass.id + variant;
+                    queue.framePass.shaderMacro.MIPMAP_ZDEPTH = 1 + variant;
+                    queue.framePass.materialSpec.g3 = postprocessG3(queue.framePass, viewG3);
+                }
+                else if (queue.framePass.label == "sss_blur") {
+                    const attachment = queue.framePass.colorAttachments[0];
+                    const target = attachment.target;
+                    target.name = variant == 0 ? "C1" : "C0";
+                    target.level = variant == 0 ? 1 : 0;
+                    const rt = renderTargetsLut[target.name];
+                    attachment.view = device.GetRenderTextureAttachment(rt.id, target.layer, target.level, target.format);
+                    queue.framePass.frameUniforms = variant == 0 ? "C0_D1_G0" : "C1_D1_G0";
+                    queue.framePass.rect = variant == 0 ? [0.0, 0.0, 0.5, 0.5] : [0.5, 0.0, 0.5, 0.5];
+                    queue.framePass.index = queue.framePass.id + variant;
+                    queue.framePass.shaderMacro.BLUR_SSS = 1 + variant;
+                    queue.framePass.materialSpec.g3 = null;
+                }
+                else if (queue.framePass.label == "blit") {
+                    const rt = device.GetTextureRT(renderTargetsLut["C1"].id);
+                    queue.framePass.materialSpec.g3 = postprocessG3(queue.framePass, rt.view);
+                }
                 const rtRect = queue.framePass.rect;
-                const rtScale = queue.framePassList.rt_scale;
+                const rtScale = queue.framePassList.rt_scale * rt_scale;
                 const width = rtWidth * rtScale;
                 const height = rtHeight * rtScale;
                 queue.framePass.viewport = [
@@ -65,11 +103,13 @@ export class Assembly {
                     queue.Draw(queue);
                 }
                 else if (queue.framePass.mode == "postprocess") {
+                    const materialSpec = queue.framePass.materialSpec;
                     if (queue.framePass.materialSpec) {
                         queue.BindMeshRenderer(resources.MeshRenderer.defaultG1);
-                        queue.BindMaterial(queue.framePass.materialSpec.instance);
+                        queue.BindMaterial(materialSpec.instance);
+                        queue.passEncoder.setBindGroup(3, materialSpec.g3 || postprocessG3(queue.framePass));
                         queue.BindRenderPipeline({
-                            flags: queue.framePass.materialSpec.flags,
+                            flags: materialSpec.flags,
                             topology: 3,
                             frontFace: 0,
                             cullMode: 1
@@ -82,9 +122,33 @@ export class Assembly {
                 else {
                 }
             };
+            const postprocessG3 = (() => {
+                const list = [];
+                const default2D = resources.Texture.default2D;
+                const defaultView2D = device.GetTexture2D(default2D.internalID).view;
+                const entries = [
+                    {
+                        binding: 0,
+                        resource: defaultView2D
+                    }
+                ];
+                return (framePass, view) => {
+                    let index = view ? framePass.index : 0;
+                    let bindGroup = list[index];
+                    if (!bindGroup) {
+                        entries[0].resource = view || defaultView2D;
+                        const binding = context.CreateBindGroupCustom(framePass.materialSpec.instance, entries);
+                        bindGroup = list[index] = binding.binding;
+                        console.info("instance customG3", framePass.label, index);
+                    }
+                    return bindGroup;
+                };
+            })();
+            let framePassIndex = 0;
             for (let i = 0; i < framePassList.length; i++) {
                 const framePass = framePassList[i];
-                framePass.index = i;
+                framePass.id = framePassIndex;
+                framePass.index = framePassIndex;
                 framePass.PreExecute = PreExecute;
                 framePass.Execute = Execute;
                 if (framePass.colorAttachments) {
@@ -92,7 +156,7 @@ export class Assembly {
                         if (attachments.target.name) {
                             const rt = renderTargetsLut[attachments.target.name];
                             if (rt) {
-                                attachments.view = device.GetRenderTextureAttachment(rt.id, attachments.target.layer, attachments.target.level);
+                                attachments.view = device.GetRenderTextureAttachment(rt.id, attachments.target.layer, attachments.target.level, attachments.target.format);
                             }
                         }
                     }
@@ -108,6 +172,7 @@ export class Assembly {
                     framePass.materialSpec.instance = await resources.Material.Create(framePass.materialSpec);
                 }
                 framePassLut[framePass.label] = framePass;
+                framePassIndex += framePass.variantCount || 1;
             }
         }
         {
@@ -146,6 +211,31 @@ export class Assembly {
     GetFrameUniforms(key) {
         return this._config.frameUniforms.lut[key]?.g0;
     }
+    async GetObjectInScreen(x, y) {
+        const rt = this._config.renderTargets.lut["G0"];
+        const pixelX = Math.floor(x * this._config.renderTargets.width);
+        const pixelY = Math.floor(y * this._config.renderTargets.width);
+        const layer = 0;
+        const ab = await this._global.device.ReadTextureRT(rt.id, layer, pixelX, pixelY);
+        const data = new Uint32Array(ab);
+        const objID = data[3] & 0xFFFFFF;
+        const matSlot = data[3] >> 24;
+        const obj = this._global.resources.Object.GetInstanceByID(objID);
+        if (obj) {
+            const meshRenderer = obj.meshRenderer;
+            if (meshRenderer) {
+                const mat = meshRenderer.GetMaterial(matSlot);
+                if (mat) {
+                    return {
+                        object3d: obj,
+                        material: mat,
+                        pixel: data
+                    };
+                }
+            }
+        }
+        return { pixel: data };
+    }
     get default_iblSpecular() {
         const id = this._config.ibl.specular.texture.internalID;
         const texture = this._global.device.GetTexture2D(id);
@@ -176,6 +266,14 @@ export class Assembly {
                     levelCount: 1
                 },
                 {
+                    name: "G_ALT",
+                    width: 2,
+                    height: 2,
+                    format: "rgba32uint",
+                    layerCount: 2,
+                    levelCount: 1
+                },
+                {
                     name: "D0",
                     format: "depth32float",
                     layerCount: 1,
@@ -201,7 +299,7 @@ export class Assembly {
                     name: "C0_D0",
                     colorRT: "C0",
                     depthRT: "D0",
-                    gbRT: "G0"
+                    gbRT: "G_ALT"
                 },
                 {
                     name: "C1_D1_G0",
@@ -216,7 +314,12 @@ export class Assembly {
                 {
                     label: "shadow_cast",
                     mode: "shading",
-                    shaderMacro: { SHADING_TYPE_SHADOW: 1 },
+                    shaderMacro: {
+                        SHADING_SKIP: 1,
+                        SHADING_CAST_SHADOW: 1,
+                        SHADING_DITHERING_TRANSPARENT: 0,
+                        SHADING_ONLY_OPACITY: 1
+                    },
                     frameUniforms: "C1_D1_G0",
                     queueRange: 3,
                     rect: [0.0, 0.5, 0.5, 0.5],
@@ -252,23 +355,28 @@ export class Assembly {
                     }
                 },
                 {
-                    label: "id_depth",
+                    label: "early_z",
                     mode: "shading",
+                    shaderMacro: {
+                        SHADING_SKIP: 1,
+                        SHADING_EARLYZ: 1,
+                        SHADING_DITHERING_TRANSPARENT: 1
+                    },
                     frameUniforms: "C0_D0",
-                    queueRange: 1,
-                    rect: [0.25, 0.25, 0.25, 0.25],
+                    queueRange: 3,
+                    rect: [0.0, 0.0, 1.0, 1.0],
                     colorAttachments: [
                         {
-                            format: "rgba16float",
+                            format: "rgba32uint",
                             writeMask: 0xF,
-                            blend: undefined,
+                            blend: null,
                             target: {
-                                name: "C1",
+                                name: "G0",
                                 layer: 0,
                                 level: 0,
                             },
                             view: null,
-                            clearValue: [0, 0, 0, 0],
+                            clearValue: [0xFFFFFFFF, 0, 0, 0],
                             loadOp: "clear",
                             storeOp: "store"
                         }
@@ -289,174 +397,82 @@ export class Assembly {
                     }
                 },
                 {
-                    label: "gbuffer",
-                    mode: "shading",
-                    frameUniforms: "C0_D0",
-                    queueRange: 1,
-                    rect: [0.0, 0.0, 1.0, 1.0],
+                    label: "ssao_extract",
+                    mode: "postprocess",
+                    shaderMacro: {
+                        EXTRACT_SSAO: 1,
+                    },
+                    materialSpec: {
+                        uuid: "",
+                        classid: 32,
+                        name: "framePass:blit",
+                        label: "framePass:blit",
+                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
+                        flags: 8,
+                        properties: {
+                            textures: {},
+                            vectors: {}
+                        }
+                    },
+                    frameUniforms: "C1_D1_G0",
+                    queueRange: 0,
+                    rect: [0.25, 0.0, 0.25, 0.25],
                     colorAttachments: [
                         {
-                            format: "rgba32uint",
+                            format: "rgba16float",
                             writeMask: 0xF,
-                            blend: undefined,
+                            blend: null,
                             target: {
-                                name: "G0",
+                                name: "C0",
                                 layer: 0,
                                 level: 0,
                             },
                             view: null,
                             clearValue: [0, 0, 0, 0],
-                            loadOp: "clear",
-                            storeOp: "store"
-                        },
-                        {
-                            format: "rgba32uint",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "G0",
-                                layer: 1,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [0, 0, 0, 0],
-                            loadOp: "clear",
+                            loadOp: "load",
                             storeOp: "store"
                         }
                     ],
-                    depthStencilAttachment: {
-                        format: "depth32float",
-                        depthWriteEnabled: true,
-                        depthCompare: "greater",
-                        target: {
-                            name: "D1",
-                            layer: 0,
-                            level: 0,
-                        },
-                        view: null,
-                        depthClearValue: 0.0,
-                        depthLoadOp: 'clear',
-                        depthStoreOp: 'store',
-                    }
+                    depthStencilAttachment: undefined
                 },
                 {
-                    label: "mipmap_depth",
+                    label: "ssr_extract",
                     mode: "postprocess",
-                    variantCount: 5,
-                    frameUniforms: "C0_D1_G0",
+                    shaderMacro: {
+                        EXTRACT_SSR: 1,
+                    },
+                    materialSpec: {
+                        uuid: "",
+                        classid: 32,
+                        name: "framePass:blit",
+                        label: "framePass:blit",
+                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
+                        flags: 8,
+                        properties: {
+                            textures: {},
+                            vectors: {}
+                        }
+                    },
+                    frameUniforms: "C1_D1_G0",
                     queueRange: 0,
                     rect: [0.25, 0.25, 0.25, 0.25],
-                    colorAttachments: [],
-                    depthStencilAttachment: {
-                        format: "depth32float",
-                        depthWriteEnabled: true,
-                        depthCompare: "always",
-                        target: {
-                            name: "D1",
-                            layer: 0,
-                            level: 0,
-                        },
-                        view: null,
-                        depthClearValue: 0.0,
-                        depthLoadOp: 'load',
-                        depthStoreOp: 'store',
-                    }
-                },
-                {
-                    label: "ssao",
-                    mode: "postprocess",
-                    frameUniforms: "C1_D1_G0",
-                    queueRange: 0,
-                    rect: [0.25, 0.0, 0.25, 0.25],
                     colorAttachments: [
                         {
                             format: "rgba16float",
                             writeMask: 0xF,
-                            blend: undefined,
+                            blend: null,
                             target: {
                                 name: "C0",
                                 layer: 0,
                                 level: 0,
                             },
                             view: null,
-                            clearValue: [1, 1, 1, 1],
-                            loadOp: "clear",
+                            clearValue: [0, 0, 0, 0],
+                            loadOp: "load",
                             storeOp: "store"
                         }
                     ],
-                    depthStencilAttachment: null
-                },
-                {
-                    label: "blur_ssao_a",
-                    mode: "postprocess",
-                    frameUniforms: "C0_D1_G0",
-                    queueRange: 0,
-                    rect: [0.25, 0.0, 0.25, 0.25],
-                    colorAttachments: [
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "C1",
-                                layer: 0,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [1, 1, 1, 1],
-                            loadOp: "clear",
-                            storeOp: "store"
-                        }
-                    ],
-                    depthStencilAttachment: null
-                },
-                {
-                    label: "blur_ssao_b",
-                    mode: "postprocess",
-                    frameUniforms: "C1_D1_G0",
-                    queueRange: 0,
-                    rect: [0.25, 0.0, 0.25, 0.25],
-                    colorAttachments: [
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "C0",
-                                layer: 0,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [1, 1, 1, 1],
-                            loadOp: "clear",
-                            storeOp: "store"
-                        }
-                    ],
-                    depthStencilAttachment: null
-                },
-                {
-                    label: "deferred",
-                    mode: "postprocess",
-                    frameUniforms: "C0_D1_G0",
-                    queueRange: 0,
-                    rect: [0.0, 0.0, 1.0, 1.0],
-                    colorAttachments: [
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "C1",
-                                layer: 0,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [0.2, 0.25, 0.3, 0.0],
-                            loadOp: "clear",
-                            storeOp: "store"
-                        }
-                    ],
-                    depthStencilAttachment: null
+                    depthStencilAttachment: undefined
                 },
                 {
                     label: "opaque",
@@ -475,52 +491,15 @@ export class Assembly {
                                 level: 0,
                             },
                             view: null,
-                            clearValue: [0.2, 0.25, 0.3, 0.0],
+                            clearValue: [0.0, 0.0, 0.0, 0.0],
                             loadOp: "clear",
-                            storeOp: "store"
-                        }
-                    ],
-                    depthStencilAttachment: {
-                        format: "depth32float",
-                        depthWriteEnabled: true,
-                        depthCompare: "greater",
-                        target: {
-                            name: "D1",
-                            layer: 0,
-                            level: 0,
-                        },
-                        view: null,
-                        depthClearValue: 0.0,
-                        depthLoadOp: 'clear',
-                        depthStoreOp: 'store',
-                    }
-                },
-                {
-                    label: "transparent",
-                    mode: "shading",
-                    frameUniforms: "C0_D0",
-                    queueRange: 2,
-                    rect: [0.0, 0.0, 1.0, 1.0],
-                    colorAttachments: [
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "C1",
-                                layer: 0,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [0, 0, 0, 0],
-                            loadOp: "load",
                             storeOp: "store"
                         }
                     ],
                     depthStencilAttachment: {
                         format: "depth32float",
                         depthWriteEnabled: false,
-                        depthCompare: "greater",
+                        depthCompare: "equal",
                         target: {
                             name: "D1",
                             layer: 0,
@@ -533,121 +512,103 @@ export class Assembly {
                     }
                 },
                 {
-                    label: "transparent_gbuffer",
-                    mode: "shading",
-                    frameUniforms: "C0_D0",
-                    queueRange: 2,
-                    rect: [0.0, 0.0, 1.0, 1.0],
-                    colorAttachments: [
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "G0",
-                                layer: 0,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [0, 0, 0, 0],
-                            loadOp: "load",
-                            storeOp: "store"
-                        },
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "G0",
-                                layer: 1,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [0, 0, 0, 0],
-                            loadOp: "load",
-                            storeOp: "store"
-                        }
-                    ],
-                    depthStencilAttachment: {
-                        format: "depth32float",
-                        depthWriteEnabled: true,
-                        depthCompare: "always",
-                        target: {
-                            name: "D1",
-                            layer: 0,
-                            level: 0,
-                        },
-                        view: null,
-                        depthClearValue: 0.0,
-                        depthLoadOp: 'load',
-                        depthStoreOp: 'store',
-                    }
-                },
-                {
-                    label: "fxaa",
+                    label: "sss_extract",
                     mode: "postprocess",
-                    frameUniforms: "C1_D1_G0",
-                    queueRange: 0,
-                    rect: [0.0, 0.0, 1.0, 1.0],
-                    colorAttachments: [
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "C0",
-                                layer: 0,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [0, 0, 0, 0],
-                            loadOp: "clear",
-                            storeOp: "store"
-                        }
-                    ],
-                    depthStencilAttachment: null
-                },
-                {
-                    label: "bloom",
-                    mode: "postprocess",
-                    variantCount: 8,
-                    frameUniforms: "C0_D0",
-                    queueRange: 0,
-                    rect: [0.0, 0.0, 1.0, 1.0],
-                    colorAttachments: [
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: undefined,
-                            target: {
-                                name: "C0",
-                                layer: 0,
-                                level: 0,
-                            },
-                            view: null,
-                            clearValue: [0, 0, 0, 0],
-                            loadOp: "load",
-                            storeOp: "store"
-                        }
-                    ],
-                    depthStencilAttachment: null
-                },
-                {
-                    label: "blit",
-                    mode: "postprocess",
+                    shaderMacro: {
+                        EXTRACT_SSS: 1,
+                    },
                     materialSpec: {
                         uuid: "",
                         classid: 32,
                         name: "framePass:blit",
                         label: "framePass:blit",
-                        shader: "1-1-1.miaokit.builtins:/shader/17-3_standard_postprocess.json",
-                        flags: 8 | 16777216,
+                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
+                        flags: 8,
                         properties: {
                             textures: {},
                             vectors: {}
                         }
                     },
                     frameUniforms: "C1_D1_G0",
+                    queueRange: 0,
+                    rect: [0.5, 0.0, 0.5, 0.5],
+                    colorAttachments: [
+                        {
+                            format: "rgba16float",
+                            writeMask: 0xF,
+                            blend: null,
+                            target: {
+                                name: "C0",
+                                layer: 0,
+                                level: 0,
+                            },
+                            view: null,
+                            clearValue: [0, 0, 0, 0],
+                            loadOp: "load",
+                            storeOp: "store"
+                        }
+                    ],
+                    depthStencilAttachment: undefined
+                },
+                {
+                    label: "sss_blur",
+                    mode: "postprocess",
+                    variantCount: 2,
+                    shaderMacro: {
+                        BLUR_SSS: 1,
+                    },
+                    materialSpec: {
+                        uuid: "",
+                        classid: 32,
+                        name: "framePass:blit",
+                        label: "framePass:blit",
+                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
+                        flags: 8,
+                        properties: {
+                            textures: {},
+                            vectors: {}
+                        }
+                    },
+                    frameUniforms: "C0_D1_G0",
+                    queueRange: 0,
+                    rect: [0.0, 0.0, 0.5, 0.5],
+                    colorAttachments: [
+                        {
+                            format: "rgba16float",
+                            writeMask: 0xF,
+                            blend: null,
+                            target: {
+                                name: "C1",
+                                layer: 0,
+                                level: 1,
+                            },
+                            view: null,
+                            clearValue: [0, 0, 0, 0],
+                            loadOp: "load",
+                            storeOp: "store"
+                        }
+                    ],
+                    depthStencilAttachment: undefined
+                },
+                {
+                    label: "blit",
+                    mode: "postprocess",
+                    shaderMacro: {
+                        BLIT_CANVAS: 1,
+                    },
+                    materialSpec: {
+                        uuid: "",
+                        classid: 32,
+                        name: "framePass:blit",
+                        label: "framePass:blit",
+                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
+                        flags: 8,
+                        properties: {
+                            textures: {},
+                            vectors: {}
+                        }
+                    },
+                    frameUniforms: "C0_D1_G0",
                     queueRange: 0,
                     rect: [0.0, 0.0, 1.0, 1.0],
                     colorAttachments: [
@@ -667,6 +628,46 @@ export class Assembly {
                         }
                     ],
                     depthStencilAttachment: undefined
+                },
+                {
+                    label: "mipmap_z",
+                    mode: "postprocess",
+                    variantCount: 6,
+                    shaderMacro: {
+                        MIPMAP_ZDEPTH: 1,
+                    },
+                    materialSpec: {
+                        uuid: "",
+                        classid: 32,
+                        name: "framePass:blit",
+                        label: "framePass:blit",
+                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
+                        flags: 8,
+                        properties: {
+                            textures: {},
+                            vectors: {}
+                        }
+                    },
+                    frameUniforms: "C1_D1_G0",
+                    queueRange: 0,
+                    rect: [0.5, 0.0, 0.5, 0.5],
+                    colorAttachments: [
+                        {
+                            format: "rgba16float",
+                            writeMask: 0xF,
+                            blend: null,
+                            target: {
+                                name: "C0",
+                                layer: 0,
+                                level: 0,
+                            },
+                            view: null,
+                            clearValue: [0, 0, 0, 1],
+                            loadOp: "load",
+                            storeOp: "store"
+                        }
+                    ],
+                    depthStencilAttachment: undefined
                 }
             ]
         },
@@ -676,7 +677,12 @@ export class Assembly {
                 rt_scale: 1.0,
                 framePassName: [
                     "shadow_cast",
+                    "early_z",
+                    "ssao_extract",
+                    "ssr_extract",
                     "opaque",
+                    "sss_extract",
+                    "sss_blur",
                     "blit",
                 ]
             }

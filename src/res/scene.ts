@@ -60,7 +60,7 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
             return null;
         }
 
-        const params = this._global.env.uarrayRef(info[1], 0, info[0] * 7);
+        const params = this._global.env.uarrayRef(info[1], 0, info[0] * 8);
 
         return {
             count: info[0],

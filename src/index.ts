@@ -464,6 +464,8 @@ export class Ploy3D {
     public workerUrl = "./lib/ploycloud.worker.wasm";
     /** 线程模块URL。 */
     public workerUrlJS = "./lib/ploycloud.worker.js";
+    /** 根路径。 */
+    public baseURI = document.baseURI;
     /** DAZ资源服务地址。 */
     public dazServ = ".";
 
@@ -738,8 +740,8 @@ export class PloyApp {
             name: "atmosphere",
             label: "atmosphere",
 
-            shader: "1-1-1.miaokit.builtins:/shader/17-5_standard_atmosphere.json",
-            flags: Miaoverse.RENDER_FLAGS.ATTRIBUTES0 | Miaoverse.RENDER_FLAGS.SHADING_AS_UNLIT,
+            shader: "1-1-1.miaokit.builtins:/shader/atmosphere_ulit/17-14_atmosphere_ulit.json",
+            flags: Miaoverse.RENDER_FLAGS.ATTRIBUTES0,
             properties: {
                 textures: {},
                 vectors: {}
@@ -774,6 +776,16 @@ export class PloyApp {
         };
 
         return this._atmosphere;
+    }
+
+    /**
+     * 创建变换组件控制器工具。
+     * @param scene 场景实例。
+     * @returns 返回变换组件控制器工具。
+     */
+    public async CreateTransformCtrl(scene: Miaoverse.Scene) {
+        this._transformCtrl = new Miaoverse.TransformCtrl(this.engine);
+        return this._transformCtrl.Build(scene);
     }
 
     /**
@@ -902,11 +914,12 @@ export class PloyApp {
                 }
 
                 // 更新帧时间戳和同步GIS状态到内核
+                const gis = this.engine.gis;
                 this.engine.env.Tick(
-                    this.engine.gis.enable_terrain ? 2 : 1,
+                    gis.enable ? (gis.enable_terrain ? 2 : 1) : 0,
                     [
-                        this.engine.gis["_originLL"][0], this.engine.gis["_originLL"][1],
-                        this.engine.gis["_originMC"][0], this.engine.gis["_originMC"][1]
+                        gis["_originLL"][0], gis["_originLL"][1],
+                        gis["_originMC"][0], gis["_originMC"][1]
                     ]
                 );
 
@@ -1020,6 +1033,8 @@ export class PloyApp {
         /** 网格绘制参数对象。 */
         draw_params: Parameters<Miaoverse.DrawQueue["DrawMesh"]>[0];
     };
+    /** 变换组件控制器工具。 */
+    protected _transformCtrl?: Miaoverse.TransformCtrl;
 
     /** 当前2D待循环帧数。 */
     protected _loop2d: number = 0;

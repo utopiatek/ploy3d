@@ -252,6 +252,11 @@ export class DrawQueue {
                 depthStencilAttachment: framePass.depthStencilAttachment,
             });
 
+            this.activeG0 = null;
+            this.activeG1 = null;
+            this.activeG2 = null;
+            this.activeG3 = null;
+
             this.computeEncoder = null;
 
             framePass.Execute(v, this);
@@ -300,7 +305,7 @@ export class DrawQueue {
     }
 
     /**
-     * 基于当前资源绑定设置着色器管线（需要先调用BindFrameUniforms、BindMeshRenderer、BindMaterial）。
+     * 基于当前资源绑定设置着色器管线（需要先调用BindFrameUniforms、BindMeshRenderer、BindMaterial，在后期帧通道绘制中有使用）。
      */
     public BindRenderPipeline(config: {
         /** 渲染设置标记集（材质与网格渲染器共同设置）。 */
@@ -320,15 +325,16 @@ export class DrawQueue {
             ...config
         });
 
-        this.SetPipeline(id);
+        this.SetPipeline(id, 0);
     }
 
     /**
      * 绑定对应当前帧通道设置的GPU着色器管线实例。
      * @param pipelineID 着色器管线实例ID。
+     * @param materialSlot 材质槽索引。
      */
-    public SetPipeline(pipelineID: number) {
-        const activePipeline = this._global.context.GetRenderPipeline(pipelineID, this.framePass);
+    public SetPipeline(pipelineID: number, materialSlot: number) {
+        const activePipeline = this._global.context.GetRenderPipeline(pipelineID, this.framePass, materialSlot);
 
         if (this.activePipeline != activePipeline) {
             this.activePipeline = activePipeline;
@@ -405,6 +411,7 @@ export class DrawQueue {
                 params[4],  // submesh
                 params[5],  // instanceCount
                 params[6],  // firstInstance
+                params[7],  // materialSlot
             );
         }
 
@@ -420,16 +427,17 @@ export class DrawQueue {
             }
             else {
                 for (let i = 0; i < count; i++) {
-                    const i7 = i * 7;
+                    const i8 = i * 8;
 
                     this.DrawPart(
-                        params[i7 + 0],  // g1
-                        params[i7 + 1],  // g2
-                        params[i7 + 2],  // pipeline
-                        params[i7 + 3],  // mesh
-                        params[i7 + 4],  // submesh
-                        params[i7 + 5],  // instanceCount
-                        params[i7 + 6],  // firstInstance
+                        params[i8 + 0],  // g1
+                        params[i8 + 1],  // g2
+                        params[i8 + 2],  // pipeline
+                        params[i8 + 3],  // mesh
+                        params[i8 + 4],  // submesh
+                        params[i8 + 5],  // instanceCount
+                        params[i8 + 6],  // firstInstance
+                        params[i8 + 7],  // materialSlot
                     );
                 }
             }
@@ -448,7 +456,7 @@ export class DrawQueue {
      * @param instanceCount 绘制实例数量。
      * @param firstInstance 起始绘制实例索引。
      */
-    public DrawPart(g1: number, g2: number, pipeline: number, mesh: number, submesh: number, instanceCount = 1, firstInstance = 0) {
+    public DrawPart(g1: number, g2: number, pipeline: number, mesh: number, submesh: number, instanceCount = 1, firstInstance = 0, materialSlot = 0) {
         const resources = this._global.resources;
         const context = this._global.context;
         const activeG1 = resources.MeshRenderer.GetInstanceByID(g1);
@@ -463,7 +471,7 @@ export class DrawQueue {
             this.BindMaterial(activeG2);
         }
 
-        this.SetPipeline(pipeline);
+        this.SetPipeline(pipeline, materialSlot);
 
         if (activeMesh) {
             if (this.activeMesh != activeMesh) {
@@ -625,7 +633,9 @@ export class DrawQueue {
 export interface GLFramePass extends GPURenderPassDescriptor {
     /** 唯一标识。 */
     label: string;
-    /** 唯一编号。 */
+    /** 唯一编号（第一变体编号）。 */
+    id?: number;
+    /** 唯一编号（变体唯一）。 */
     index?: number;
 
     /**
@@ -670,6 +680,8 @@ export interface GLFramePass extends GPURenderPassDescriptor {
         target: {
             /** 唯一标识。 */
             name: string;
+            /** 渲染目标视图解析格式（应与渲染目标贴图格式兼容）。 */
+            format?: GPUTextureFormat;
             /** 渲染目标贴图层索引。 */
             layer: number;
             /** 渲染目标贴图级别。 */
@@ -753,6 +765,8 @@ export interface GLFramePass extends GPURenderPassDescriptor {
     mode: "shading" | "postprocess" | "compute";
     /** 帧通道变体数量（默认1，每个变体）。 */
     variantCount?: number;
+    /** 是否由着色器控制深度写入值（深度贴图MIPMAP帧通道使用）。 */
+    depthCtrl?: boolean;
     /** 层掩码，用于在渲染前过滤对象。 */
     layerMask?: number;
     /** 渲染排序方法（多重方法标志集，越低位权重越高）。 */
@@ -760,7 +774,7 @@ export interface GLFramePass extends GPURenderPassDescriptor {
     /** 是否翻转由网格渲染器定义的裁剪面向。 */
     invertCull?: boolean;
     /** 指定固定使用的材质绘制帧（通常在后处理帧通道使用）。 */
-    materialSpec?: Miaoverse.Asset_material & { instance?: Miaoverse.Material; };
+    materialSpec?: Miaoverse.Asset_material & { instance?: Miaoverse.Material; g3?: GPUBindGroup; };
     /** 特别指定着色器通道宏定义。 */
     shaderMacro?: Record<string, number>;
 

@@ -87,10 +87,10 @@ export class Camera extends Miaoverse.Resource {
         this.Set3D(undefined, undefined, pitch, yaw);
     }
     Scale(delta, width, height) {
+        delta = delta / Math.abs(delta);
         if (isNaN(delta)) {
             return;
         }
-        delta = delta / Math.abs(delta);
         const aspect = this.width / this.height;
         const field = 1.0 < aspect ? 6378137.0 : 6378137.0 / aspect;
         const distance_max = field / Math.tan(this.fov * 0.5);
@@ -106,6 +106,13 @@ export class Camera extends Miaoverse.Resource {
     WorldToScreen(wpos) {
         const cpos = this._impl["_WorldToScreen"](this._ptr, wpos[0], wpos[1], wpos[2]);
         return cpos;
+    }
+    ScreenPointToRay(x, y) {
+        const ray = this._impl["_ScreenPointToRay"](this._ptr, x, y);
+        return {
+            origin: this._global.Vector3(ray.slice(0, 3)),
+            dir: this._global.Vector3(ray.slice(3))
+        };
     }
     get writeTS() {
         return this._impl.Get(this._ptr, "writeTS");
@@ -238,6 +245,12 @@ export class Camera extends Miaoverse.Resource {
         this._impl.Set(this._ptr, "flags", flags);
         this.updated = true;
     }
+    get wposition() {
+        return this._global.Vector3(this._impl.Get(this._ptr, "wPos"));
+    }
+    get wdirection() {
+        return this._global.Vector3(this._impl.Get(this._ptr, "wDir"));
+    }
     _impl;
 }
 export class Camera_kernel extends Miaoverse.Base_kernel {
@@ -255,6 +268,7 @@ export class Camera_kernel extends Miaoverse.Base_kernel {
     _Create;
     _Frustum_Check;
     _WorldToScreen;
+    _ScreenPointToRay;
 }
 export const Camera_member_index = {
     ...Miaoverse.Binary_member_index,
@@ -276,5 +290,7 @@ export const Camera_member_index = {
     object: ["ptrGet", "ptrSet", 1, 29],
     lastSib: ["ptrGet", "ptrSet", 1, 30],
     nextSib: ["ptrGet", "ptrSet", 1, 31],
+    wPos: ["farrayGet", "farraySet", 3, 244],
+    wDir: ["farrayGet", "farraySet", 3, 248],
 };
 //# sourceMappingURL=camera.js.map

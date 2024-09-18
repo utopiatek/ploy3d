@@ -56,6 +56,13 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         this._impl["_Flush"](this._ptr, 1);
     }
 
+    /**
+     * 销毁对象。
+     */
+    public Destroy() {
+        this._impl["_Destroy"](this.internalPtr);
+    }
+
     /** 变换组件更新时间戳。 */
     public get writeTS(): number {
         return this._impl.Get(this._ptr, "writeTS");
@@ -287,6 +294,10 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
     public set meshRenderer(component: Miaoverse.MeshRenderer) {
         this._impl["_SetMeshRenderer"](this._ptr, component?.internalPtr || 0);
     }
+    public get meshRenderer() {
+        const id = this._impl["_GetMeshRenderer"](this._ptr);
+        return this._global.resources.MeshRenderer.GetInstanceByID(id);
+    }
 
     /** 动画组件。 */
     public set animator(component: Miaoverse.Animator) {
@@ -394,6 +405,13 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
      * @param meshRenderer 网格渲染器组件内核实例指针。
      */
     protected _SetMeshRenderer: (object3d: Miaoverse.io_ptr, meshRenderer: Miaoverse.io_ptr) => void;
+
+    /**
+     * 获取网格渲染器组件。
+     * @param object3d 3D对象内核实例指针。
+     * @returns 返回网格渲染器组件ID。
+     */
+    protected _GetMeshRenderer: (object3d: Miaoverse.io_ptr) => number;
 
     /**
      * 设置动画组件。

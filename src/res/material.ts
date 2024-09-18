@@ -21,13 +21,10 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
     public Enable(enable: boolean, flag:
         Miaoverse.RENDER_FLAGS.DRAW_ARRAYS |
         Miaoverse.RENDER_FLAGS.HAS_DOUBLE_SIDED |
+        Miaoverse.RENDER_FLAGS.HAS_EMISSIVE |
         Miaoverse.RENDER_FLAGS.HAS_REFLECTIONS |
         Miaoverse.RENDER_FLAGS.HAS_CLEAR_COAT |
-        Miaoverse.RENDER_FLAGS.HAS_ANISOTROPY |
-        Miaoverse.RENDER_FLAGS.SHADING_AS_UNLIT |
-        Miaoverse.RENDER_FLAGS.SHADING_AS_CLOTH |
-        Miaoverse.RENDER_FLAGS.SHADING_AS_SUBSURFACE |
-        Miaoverse.RENDER_FLAGS.SPECULAR_GLOSSINESS_PARAMS
+        Miaoverse.RENDER_FLAGS.HAS_ANISOTROPY
     ) {
         if (enable) {
             this.enableFlags = this.enableFlags | flag;

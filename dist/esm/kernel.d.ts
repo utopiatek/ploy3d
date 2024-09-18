@@ -8,6 +8,8 @@ type Ploy3D = {
     uid: number;
     /** 是否使用的是WebGL图形API*/
     webgl: boolean;
+    /** 根路径。 */
+    baseURI?: string;
     /** DAZ资源服务地址。 */
     dazServ: string;
     /** 内核代码。 */

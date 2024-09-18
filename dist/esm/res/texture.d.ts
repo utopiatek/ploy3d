@@ -65,7 +65,7 @@ export declare class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> 
      * @param bitmap 位图数据。
      * @returns 返回贴图内部实例。
      */
-    protected LoadTexture2D_RAW(bitmap: Miaoverse.GLTextureSource): {
+    protected LoadTexture2D_RAW(bitmap: Miaoverse.GLTextureSource, usage?: number): {
         id: number;
         width: number;
         height: number;

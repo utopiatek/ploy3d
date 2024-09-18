@@ -119,6 +119,22 @@ export declare class Path2D {
         /** 画布高度。 */
         canvas_height: number;
     }): void;
+    /**
+     * 开始路径设置。
+     */
+    BeginPath(): void;
+    /**
+     * 指定子路径起点坐标。
+     */
+    MoveTo(x: number, y: number): void;
+    /**
+     * 指定路径下一节点坐标。
+     */
+    LineTo(x: number, y: number): void;
+    /**
+     * 闭合当前子路径。
+     */
+    ClosePath(): void;
     Mask(transform: number[]): number;
     /**
      * 当前路径类型：
@@ -126,6 +142,7 @@ export declare class Path2D {
      * 2-圆形；
      * 3-圆角矩形；
      * 4-字符串；
+     * 5-路径；
      */
     type: number;
     /** 当前路径是否已应用。*/

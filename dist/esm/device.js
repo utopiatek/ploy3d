@@ -666,7 +666,7 @@ export class Device {
             sampleCount: 1,
             dimension: "2d",
             format: format,
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST | (bindable ? GPUTextureUsage.TEXTURE_BINDING : 0)
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | (bindable ? GPUTextureUsage.TEXTURE_BINDING : 0)
         });
         if (!texture) {
             this._global.Track("Device.CreateTextureRT: GPU贴图创建失败！", 3);
@@ -750,6 +750,26 @@ export class Device {
         this._destroyList.push(() => {
             textureObj.destroy();
         });
+    }
+    async ReadTextureRT(id, layer, pixelX, pixelY) {
+        const rt = this._texturesRT.list[id];
+        if (!rt) {
+            return null;
+        }
+        let buffer = this._texturesRT.readBuffer;
+        if (!buffer) {
+            buffer = this._texturesRT.readBuffer = this._device.createBuffer({
+                size: 16,
+                usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+            });
+        }
+        const cmdEncoder = this.device.createCommandEncoder();
+        cmdEncoder.copyTextureToBuffer({ texture: rt.texture, mipLevel: 0, origin: [pixelX, pixelY, layer] }, { buffer: buffer, offset: 0, bytesPerRow: 2048 * 16 }, [1, 1, 1]);
+        this.device.queue.submit([cmdEncoder.finish()]);
+        await buffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = buffer.getMappedRange().slice(0);
+        buffer.unmap();
+        return arrayBuffer;
     }
     GenerateSamplerFlags(desc) {
         const dict = this._samplers.dict;
@@ -866,7 +886,7 @@ export class Device {
     GetTextureRT(id) {
         return this._texturesRT.list[id];
     }
-    GetRenderTextureAttachment(id, layer, level) {
+    GetRenderTextureAttachment(id, layer, level, format) {
         const texture = this._texturesRT.list[id];
         if (!texture) {
             return null;
@@ -883,6 +903,7 @@ export class Device {
                 baseMipLevel: level,
                 mipLevelCount: 1,
                 dimension: "2d",
+                format
             });
         }
         return view;
@@ -914,6 +935,7 @@ export class Device {
         freeId: 1,
         usedCount: 0,
         usedSize: 0,
+        readBuffer: null,
         list: [null]
     };
     _samplers = {

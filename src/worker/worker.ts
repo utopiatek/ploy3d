@@ -21,6 +21,7 @@ export class Miaoworker {
         this.startTS = Date.now();
         this.uid = _global?.uid;
         this.webgl = _global?.webgl;
+        this.baseURI = _global?.baseURI;
         this.dazServ = _global?.dazServ;
         this.kernelCode = _global?.kernelCode;
         this.kernel = _global?.kernel;
@@ -45,14 +46,27 @@ export class Miaoworker {
         uid: number;
         /** 是否使用的是WebGL图形API*/
         webgl: boolean;
+        /** 根路径。 */
+        baseURI: string;
         /** DAZ资源服务地址。 */
         dazServ: string;
         /** 内核代码。 */
         kernelCode: ArrayBuffer;
     }) {
         if (!args) {
+            const code = `
+// 导入子线程代码模块
+import { Miaoworker } from "${this.baseURI}dist/esm/worker/worker.js"
+
+// 子线程脚本装载后自动实例化事务处理器
+const __worker = new Miaoworker();
+            `;
+
+            const blob = new Blob([code], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+
             this.workerID = 0;
-            this.worker = new Worker("./worker.js", { type: 'module' });
+            this.worker = new Worker(url, { type: 'module' });
 
             // 监听子线程消息
             this.worker.onmessage = (ev: MessageEvent) => {
@@ -66,6 +80,7 @@ export class Miaoworker {
                 args: {
                     uid: this.uid,
                     webgl: this.webgl,
+                    baseURI: this.baseURI,
                     dazServ: this.dazServ,
                     kernelCode: this.kernelCode,
                     transfer: [this.kernelCode]
@@ -86,6 +101,7 @@ export class Miaoworker {
         if (this.workerID != 0) {
             this.uid = args.uid;
             this.webgl = args.webgl;
+            this.baseURI = args.baseURI;
             this.dazServ = args.dazServ;
             this.kernelCode = args.kernelCode;
 
@@ -638,6 +654,10 @@ export class Miaoworker {
      * @returns 返回指定类型数据。
      */
     public async Fetch<T>(input: string, init: RequestInit, type: "arrayBuffer" | "blob" | "formData" | "json" | "text") {
+        if (input.startsWith("./")) {
+            input = input.replace("./", this.baseURI);
+        }
+
         const res = await fetch(input, init);
 
         return await res[type]() as T;
@@ -664,6 +684,8 @@ export class Miaoworker {
     public uid: number;
     /** 是否使用的是WebGL图形API*/
     public webgl: boolean;
+    /** 根路径。 */
+    public baseURI: string;
     /** DAZ资源服务地址。 */
     public dazServ: string;
     /** 内核代码。 */

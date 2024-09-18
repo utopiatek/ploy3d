@@ -104,7 +104,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
         console.error("daz_imports:", daz_imports, daz_prefab);
         */
         // 创建立方体网格绘制材质
-        const cube_material = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_specular.json");
+        const cube_material = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_gltf_sketchfab.json");
         // 创建立方体网格
         const cube_mesh = await resources.Mesh.Create({
             uuid: "",
@@ -171,7 +171,7 @@ export class PloyApp_test extends ploycloud.PloyApp {
             name: "billboard",
             label: "billboard",
 
-            shader: "1-1-1.miaokit.builtins:/shader/17-6_standard_billboard.json",
+            shader: "1-1-1.miaokit.builtins:/shader/billboard_ulit/17-13_billboard_ulit.json",
             flags: 0x100000 | 0x1000000,
             properties: {
                 textures: {},

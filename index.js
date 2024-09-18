@@ -1,7 +1,8 @@
 /** 导入PLOY3D引擎。 */
-import * as ploycloud from "./dist/esm/mod.js"
-/** 导入应用实现[test]。 */
-import * as app_test from "./examples/test.js"
+import { Start, Ploy3D } from "./dist/esm/mod.js"
+/** 导入应用实现。 */
+import { PloyApp_test } from "./examples/test.js"
+import { PloyApp_meta_human } from "./examples/meta_human.js"
 
 /** 需要存在Deno定义。 */
 globalThis.Deno = undefined;
@@ -45,18 +46,19 @@ async function Main(fs_root) {
         console.info("用户已授权读写本地文件系统目录。");
     }
 
-    const engine = new ploycloud.Ploy3D({
+    const engine = new Ploy3D({
         config: {
             web: true
         },
         dazServ: "./.git.assets/daz/",
         rootFS: fs_root,
         appLut: {
-            "test": app_test.PloyApp_test
+            "test": PloyApp_test,
+            "meta_human": PloyApp_meta_human
         }
     });
 
-    return ploycloud.Start(engine, "test", "PLOY3D引擎", 1280, 720);
+    return Start(engine, globalThis.appid, "PLOY3D引擎", 1280, 720);
 }
 
 Main(/*null*/).then(() => {

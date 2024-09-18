@@ -24,6 +24,16 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
     }
 
     /**
+     * 获取指定材质插槽材质。
+     * @param slot 材质插槽。
+     * @returns 返回材质实例。
+     */
+    public GetMaterial(slot: number) {
+        const id = this._impl["_GetMaterial"](this._ptr, slot);
+        return this._global.resources.Material.GetInstanceByID(id) as Miaoverse.Material;
+    }
+
+    /**
      * 绑定网格骨骼蒙皮骨架关节实例。
      * @param joints 关节实例指针数组。
      */
@@ -240,6 +250,14 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
      * @returns 。
      */
     protected _SetMaterial: (mesh_renderer: Miaoverse.io_ptr, slot: number, submesh: number, material: Miaoverse.io_ptr) => void;
+
+    /**
+     * 设置材质节点。
+     * @param mesh_renderer 网格渲染器组件实例指针。
+     * @param slot 材质插槽。
+     * @returns 返回材质实例ID。
+     */
+    protected _GetMaterial: (mesh_renderer: Miaoverse.io_ptr, slot: number) => number;
 
     /**
      * 获取动态实例绘制数据槽。

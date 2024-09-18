@@ -47,8 +47,8 @@ export class Gis {
                 name: "gis:" + i,
                 label: "gis:" + i,
 
-                shader: "1-1-1.miaokit.builtins:/shader/17-4_standard_gis.json",
-                flags: Miaoverse.RENDER_FLAGS.ATTRIBUTES0 | Miaoverse.RENDER_FLAGS.SHADING_AS_UNLIT,
+                shader: "1-1-1.miaokit.builtins:/shader/gis_ulit/17-11_gis_ulit.json",
+                flags: Miaoverse.RENDER_FLAGS.ATTRIBUTES0,
                 properties: {
                     textures: {},
                     vectors: {}
@@ -671,6 +671,14 @@ export class Gis {
         return [(mc[0] - this._originMC[0]) * scale, 0, (this._originMC[1] - mc[1]) * scale];
     }
 
+    /** 是否启用GIS系统。 */
+    public get enable() {
+        return this._enable;
+    }
+    public set enable(b) {
+        this._enable = b;
+    }
+
     /** 当前中心经度。 */
     public get lng() {
         return this._lng;
@@ -756,6 +764,8 @@ export class Gis {
 
     /** 引擎实例。 */
     private _global: Miaoverse.Ploy3D;
+    /** 是否启用GIS系统。 */
+    private _enable: boolean;
 
     /** GIS金字塔结构。 */
     private _pyramid: Gis_pyramid;

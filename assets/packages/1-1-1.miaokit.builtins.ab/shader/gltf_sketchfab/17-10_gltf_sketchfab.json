@@ -1,0 +1,325 @@
+{
+    "classid": 17,
+    "name": "gltf_sketchfab",
+    "label": "gltf_sketchfab",
+    "asset": {
+        "name": "",
+        "type": "shading",
+        "settings": {},
+        "properties": {
+            "alphaMode": {
+                "note": "alphaMode: 0-OPAQUE, 1-MASK, 2-BLEND",
+                "sign": "i32",
+                "value": [
+                    0
+                ]
+            },
+            "alphaCutoff": {
+                "note": "alphaCutoff",
+                "sign": "f32",
+                "value": [
+                    0.5
+                ]
+            },
+            "doubleSided": {
+                "note": "doubleSided",
+                "sign": "i32",
+                "value": [
+                    0
+                ]
+            },
+            "extensions": {
+                "note": "extensions: 0-KHR_materials_specular",
+                "sign": "u32",
+                "value": [
+                    0
+                ]
+            },
+            "normalTexture": {
+                "note": "normalTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "occlusionTexture": {
+                "note": "occlusionTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "emissiveFactor": {
+                "note": "emissiveFactor",
+                "sign": "vec3<f32>",
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "emissiveTexture": {
+                "note": "emissiveTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "baseColorFactor": {
+                "note": "baseColorFactor",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "baseColorTexture": {
+                "note": "baseColorTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "metallicFactor": {
+                "note": "metallicFactor",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "roughnessFactor": {
+                "note": "roughnessFactor",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "metallicRoughnessTexture": {
+                "note": "metallicRoughnessTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "diffuseFactor": {
+                "note": "diffuseFactor",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "specularFactor": {
+                "note": "specularFactor",
+                "sign": "vec3<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "glossinessFactor": {
+                "note": "glossinessFactor",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "anisotropyStrength": {
+                "note": "anisotropyStrength",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "anisotropyRotation": {
+                "note": "anisotropyRotation",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "anisotropyTexture": {
+                "note": "anisotropyTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "clearcoatFactor": {
+                "note": "clearcoatFactor",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "clearcoatTexture": {
+                "note": "clearcoatTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "clearcoatRoughnessFactor": {
+                "note": "clearcoatRoughnessFactor",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "clearcoatRoughnessTexture": {
+                "note": "clearcoatRoughnessTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "clearcoatNormalTexture": {
+                "note": "clearcoatNormalTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "dispersion": {
+                "note": "dispersion",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "emissiveStrength": {
+                "note": "emissiveStrength",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "ior": {
+                "note": "ior",
+                "sign": "f32",
+                "value": [
+                    1.5
+                ]
+            },
+            "iridescenceFactor": {
+                "note": "iridescenceFactor",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "iridescenceTexture": {
+                "note": "iridescenceTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "iridescenceIor": {
+                "note": "iridescenceIor",
+                "sign": "f32",
+                "value": [
+                    1.3
+                ]
+            },
+            "iridescenceThicknessMinimum": {
+                "note": "iridescenceThicknessMinimum",
+                "sign": "f32",
+                "value": [
+                    100.0
+                ]
+            },
+            "iridescenceThicknessMaximum": {
+                "note": "iridescenceThicknessMaximum",
+                "sign": "f32",
+                "value": [
+                    400.0
+                ]
+            },
+            "iridescenceThicknessTexture": {
+                "note": "iridescenceThicknessTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "sheenColorFactor": {
+                "note": "sheenColorFactor",
+                "sign": "vec3<f32>",
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "sheenColorTexture": {
+                "note": "sheenColorTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "sheenRoughnessFactor": {
+                "note": "sheenRoughnessFactor",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "sheenRoughnessTexture": {
+                "note": "sheenRoughnessTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "specularTexture": {
+                "note": "specularTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "specularColorFactor": {
+                "note": "specularColorFactor",
+                "sign": "vec3<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "specularColorTexture": {
+                "note": "specularColorTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "transmissionFactor": {
+                "note": "transmissionFactor",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "transmissionTexture": {
+                "note": "transmissionTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "thicknessFactor": {
+                "note": "thicknessFactor",
+                "sign": "f32",
+                "value": [
+                    0.0
+                ]
+            },
+            "thicknessTexture": {
+                "note": "thicknessTexture",
+                "sign": "texture_2d<f32>"
+            },
+            "attenuationDistance": {
+                "note": "attenuationDistance",
+                "sign": "f32",
+                "value": [
+                    0
+                ]
+            },
+            "attenuationColor": {
+                "note": "attenuationColor",
+                "sign": "vec3<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-1_common.vertex.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/common/20-12_standard.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl",
+                    ":/shader/common/20-3_common.material.wgsl",
+                    ":/shader/common/20-4_common.sketchfab.wgsl"
+                ],
+                "main": ":/shader/gltf_sketchfab/20-32_gltf_sketchfab.material.wgsl"
+            },
+            "shading": {
+                "includes": [
+                    ":/shader/common/20-11_standard.shadowing.wgsl",
+                    ":/shader/gltf_sketchfab/20-30_gltf_sketchfab.common.wgsl"
+                ],
+                "main": ":/shader/gltf_sketchfab/20-33_gltf_sketchfab.shading.wgsl"
+            }
+        }
+    }
+}
