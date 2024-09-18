@@ -291,11 +291,7 @@ export declare class PloyApp {
                 submesh: number;
                 material: Miaoverse.Material;
                 drawParams?: number[];
-            }[]; /**
-             * 初始化引擎。
-             * @param {Parameters<Engine["Startup"]>[0]} progress - 进度刷新函数。
-             * @returns 是否初始化成功。
-             */
+            }[];
             instances: number[][];
         };
     }>;

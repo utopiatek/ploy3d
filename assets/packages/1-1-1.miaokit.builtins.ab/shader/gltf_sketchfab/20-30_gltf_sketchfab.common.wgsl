@@ -471,6 +471,9 @@ fn PBR_main() ->vec4f {
     specular += lightSpecular * visibility;
 
     var frag = mix(specular, diffuse, checkerboard(gl_FragCoord.xy, uHalton));
+
+    frag += material_emissive;
+
     if (!SHADING_OUTPUT_LINEAR) {
         frag = linearTosRGB_vec3(frag);
     }

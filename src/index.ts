@@ -557,6 +557,7 @@ export class PloyApp {
      */
     public constructor(engine: Ploy3D) {
         this.engine = engine;
+        console.log(this);
     }
 
     /**
@@ -603,11 +604,15 @@ export class PloyApp {
             this.Progress(0.4 + 0.1 * rate, msg, true);
         });
 
+        this.Progress(0.51, "等待场景加载完成...");
+
         await this.InitScene((rate, msg) => {
             this.Progress(0.5 + 0.5 * rate, msg, true);
         });
 
         this.started = true;
+
+        this.Progress(-1, "");
 
         this.engine.Track("开始启动事件系统");
 
@@ -836,6 +841,34 @@ export class PloyApp {
     public Progress(rate: number, msg: string, log?: boolean) {
         if (log) {
             this.engine.Track(rate.toFixed(2) + " " + msg);
+        }
+
+        if (this.engine.config.web) {
+            let progress_bar = (this as any)._progress_bar;
+
+            if (!progress_bar) {
+                const coatPanel = document.getElementById("coat");
+                const progressRate = document.getElementById("progressbar-rate");
+                const progressTxt = document.getElementById("progressbar-txt");
+                const progressMsg = document.getElementById("progressbar-msg");
+
+                progress_bar = (this as any)._progress_bar = {
+                    coatPanel,
+                    progressRate,
+                    progressTxt,
+                    progressMsg
+                };
+            }
+            if (rate == -1) {
+                progress_bar.coatPanel.style.display = "none";
+            }
+            else {
+                progress_bar.coatPanel.style.display = "block";
+            }
+
+            progress_bar.progressRate.style.width = "" + Math.floor(rate * 30) + "%";
+            progress_bar.progressTxt.innerText = "" + Math.floor(rate * 100) + "%";
+            progress_bar.progressMsg.innerText = msg;
         }
     }
 

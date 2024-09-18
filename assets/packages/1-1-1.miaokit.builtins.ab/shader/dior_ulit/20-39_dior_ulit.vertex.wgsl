@@ -74,6 +74,8 @@ fn init_vertex_X(vertex: InputVS_X) {
 }
 
 @vertex fn vsmain_X(vertex: InputVS_X) ->OutputVS {
+    defend_override();
+
     init_vertex_X(vertex);
 
     return material_vs();

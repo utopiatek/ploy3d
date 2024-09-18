@@ -67,6 +67,8 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      * @param node 场景节点。
      */
     private GC_free;
+    /** 3D对象实例（用于定位模型位置）。 */
+    get object3d(): Miaoverse.Object3D;
     /** 内核实现。 */
     private _impl;
     /** 3MX文件结构。 */

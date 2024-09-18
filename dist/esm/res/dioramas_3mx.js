@@ -395,6 +395,9 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             }
         }
     }
+    get object3d() {
+        return this._object3d;
+    }
     _impl;
     _3mx;
     _root;

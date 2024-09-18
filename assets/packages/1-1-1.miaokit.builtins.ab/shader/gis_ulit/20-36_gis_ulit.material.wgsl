@@ -11,7 +11,7 @@ fn material_fs() {
     let uvst = materialParams.layers_uvst1;
     let uv = uvst.xy + uvst.zw * inputs_uv;
 
-    material_emissive = textureSample(atlas2D, splln1, uv, layer).xyz;
+    material_emissive = sRGBToLinear_vec3(textureSample(atlas2D, splln1, uv, layer).xyz);
 
     let vLit = mulMat3x3Float3((frameUniforms.vfgMat * frameUniforms.gfwMat), frameUniforms.sunlitDirection.xyz);
     let NoL = saturate(dot(inputs_geometricNormal, vLit));
@@ -20,4 +20,9 @@ fn material_fs() {
 
         material_emissive = material_emissive * (0.5 + 0.5 * visibility);
     }
+
+    let color = encodeRGBM(material_emissive, uRGBMRange);
+
+    material_emissive = color.rgb;
+    material_alpha = color.a;
 }

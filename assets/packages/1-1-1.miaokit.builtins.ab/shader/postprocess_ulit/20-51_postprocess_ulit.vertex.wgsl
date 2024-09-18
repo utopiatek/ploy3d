@@ -5,6 +5,8 @@ override EXTRACT_SSR = 0u;
 override EXTRACT_SSS = 0u;
 override BLUR_SSS = 0u;
 override BLIT_CANVAS = 0u;
+override BLIT_CANVAS_COMBINE_SSS = 1u;
+override BLIT_CANVAS_TONE_MAPPING = 1u;
 
 var<private> positions : array<vec4f, 3> = array<vec4f, 3>(
     vec4f(-1.0, -1.0, 1.0, 1.0),
@@ -19,6 +21,8 @@ fn material_vs() ->OutputVS {
     let EXTRACT_SSS_ = EXTRACT_SSS;
     let BLUR_SSS_ = BLUR_SSS;
     let BLIT_CANVAS_ = BLIT_CANVAS;
+    let BLIT_CANVAS_COMBINE_SSS_ = BLIT_CANVAS_COMBINE_SSS;
+    let BLIT_CANVAS_TONE_MAPPING_ = BLIT_CANVAS_TONE_MAPPING;
 
     // ============================-------------------------------------
 

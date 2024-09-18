@@ -5,6 +5,8 @@ override EXTRACT_SSR = 0u;
 override EXTRACT_SSS = 0u;
 override BLUR_SSS = 0u;
 override BLIT_CANVAS = 0u;
+override BLIT_CANVAS_COMBINE_SSS = 1u;
+override BLIT_CANVAS_TONE_MAPPING = 1u;
 
 const uvts_sssBlur1: vec4f = vec4f((0.5 + 1.0 / 2048), (0.0 + 1.0 / 2048.0), (1022.0 / 2048.0), (1022.0 / 2048.0));
 const uvts_sssBlur2: vec4f = vec4f((0.0 + 1.0 / 1024), (0.0 + 1.0 / 1024), (1022.0 / 1024), (1022.0 / 1024));
@@ -1075,6 +1077,8 @@ fn material_fs() {
     let EXTRACT_SSS_ = EXTRACT_SSS;
     let BLUR_SSS_ = BLUR_SSS;
     let BLIT_CANVAS_ = BLIT_CANVAS;
+    let BLIT_CANVAS_COMBINE_SSS_ = BLIT_CANVAS_COMBINE_SSS;
+    let BLIT_CANVAS_TONE_MAPPING_ = BLIT_CANVAS_TONE_MAPPING;
 
     // ============================-------------------------------------
 
@@ -1114,10 +1118,17 @@ fn material_fs() {
     }
     else if (BLIT_CANVAS > 0u) {
         let base = decodeRGBM(textureSampleLevel(curRT, splln1, uv, 0.0), uRGBMRange);
-        let sss = textureSampleLevel(colorRT, splln1, uv * 0.5 + vec2(0.5, 0.0), 0.0).rgb;
-        var color = sssCombine(uv, sss).rgb;
+        var color = base;
 
-        color = toneMapping(color);
+        if (BLIT_CANVAS_COMBINE_SSS > 0u) {
+            let sss = textureSampleLevel(colorRT, splln1, uv * 0.5 + vec2(0.5, 0.0), 0.0).rgb;
+            color = sssCombine(uv, sss).rgb;
+        }
+
+        if (BLIT_CANVAS_TONE_MAPPING > 0u) {
+            color = toneMapping(color);
+        }
+
         color = linearTosRGB_vec3(color);
 
         material_emissive = color;

@@ -1,6 +1,7 @@
 
 var<private> vViewVertex: vec3f = vec3f(0.0);
 var<private> uAlbedoPBRFactor: vec3f = vec3f(1.0);
+var<private> uEmitColorFactor: vec3f = vec3f(0.0);
 var<private> uOpacityFactor: f32 = 1.0;
 var<private> uOpacityThinLayer = 0.0;
 var<private> uMetalnessPBRFactor: f32 = 1.0;
@@ -15,6 +16,7 @@ var<private> uSubsurfaceScatteringProfile = 1.0;
 fn init_uniforms() {
     vViewVertex = inputs_position;
     uAlbedoPBRFactor = materialParams.baseColorFactor.rgb;
+    uEmitColorFactor = materialParams.emissiveFactor.rgb;
     uOpacityFactor = materialParams.baseColorFactor.a;
     uOpacityThinLayer = 0.0;
     uMetalnessPBRFactor = materialParams.metallicFactor;
@@ -35,6 +37,16 @@ fn sample_albedo() ->vec3f {
     }
 
     return albedo;
+}
+
+fn sample_emitColor() ->vec3f {
+    var emissive = vec3f(0.0);
+
+    if (materialParams.emissiveTexture_sampler.x > 0) {
+        emissive = textureSample(emissiveTexture, sampler_emissiveTexture, inputs_uv * materialParams.emissiveTexture_uvts.zw + materialParams.emissiveTexture_uvts.xy).rgb;
+    }
+
+    return emissive;
 }
 
 fn sample_opacity() ->f32 {
@@ -89,6 +101,10 @@ fn sample_normalMap() ->vec3f {
 
 fn getMaterialAlbedo() ->vec3f {
     return uAlbedoPBRFactor * sRGBToLinear_vec3(sample_albedo());
+}
+
+fn getMaterialEmitColor() ->vec3f {
+    return uEmitColorFactor * sRGBToLinear_vec3(sample_emitColor());
 }
 
 fn getMaterialOpacity() ->f32 {
@@ -157,7 +173,7 @@ fn material_sketchfab() {
     materialRoughness = adjustRoughnessNormalMap(materialRoughness, materialNormal);
     materialNormal = transformNormal(uNormalMapFactor, materialNormal, tangent.xyz, binormal, frontNormal);
 
-    let materialEmit = vec3f(0.0);
+    let materialEmit = getMaterialEmitColor();
     let materialAO = 0.0;
 
     // ===================----------------------------------

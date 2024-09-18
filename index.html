@@ -19,23 +19,32 @@
         }
 
         // 指定使用的SDK版本
-        const sdk = UrlQuery("sdk");
+        globalThis.sdk = UrlQuery("sdk");
         // 指定启动的应用ID
         globalThis.appid = UrlQuery("appid") || "meta_human";
 
         // 根据指定的SDK版本重定向站点根目录
-        if (sdk) {
+        {
             const base = document.createElement("base");
 
-            base.setAttribute("href", `https://oss.ploycloud.com/ploy3d/${sdk}/`);
+            base.setAttribute("href", globalThis.sdk ? `https://oss.ploycloud.com/ploy3d/${globalThis.sdk}/` : document.location.origin + document.location.pathname);
 
             document.head.appendChild(base);
 
-            console.info("根据指定的SDK版本重定向了站点根目录:", document.baseURI);
+            if (globalThis.sdk) {
+                console.info("根据指定的SDK版本重定向了站点根目录:", document.baseURI);
+            }
+        }
+
+        // 动态添加入口脚本
+        {
+            const script = document.createElement('script');
+            script.type = "module";
+            script.src = "./index.js";
+
+            document.head.appendChild(script);
         }
     </script>
-    <!--入口脚本-->
-    <script type="module" src="./index.js"></script>
     <!--公共样式表-->
     <link rel="stylesheet" href="./assets/css/common.css" />
 </head>

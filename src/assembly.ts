@@ -286,6 +286,15 @@ export class Assembly {
     }
 
     /**
+     * 获取帧通道。
+     * @param key 帧通道名称。
+     * @returns 返回帧通道。
+     */
+    public GetFramePass(key: string) {
+        return this._config.framePass.lut[key];
+    }
+
+    /**
      * 获取渲染管线帧通道集。
      * @param key 配置键。
      * @returns 返回帧通道集。

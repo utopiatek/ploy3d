@@ -1856,6 +1856,10 @@ let MATERIAL_SLOT_ = MATERIAL_SLOT;
         `;
 
         const vsmain = `
+fn defend_override() {
+    ${macro}
+}
+
 @vertex fn vsmain_0(vertex: InputVS_0) ->OutputVS {
     ${macro}
 

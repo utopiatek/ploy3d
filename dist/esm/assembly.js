@@ -205,6 +205,9 @@ export class Assembly {
         }
         return this;
     }
+    GetFramePass(key) {
+        return this._config.framePass.lut[key];
+    }
     GetFramePassList(key) {
         return this._config.pipelines[key];
     }

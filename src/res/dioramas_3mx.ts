@@ -624,6 +624,11 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         }
     }
 
+    /** 3D对象实例（用于定位模型位置）。 */
+    public get object3d() {
+        return this._object3d;
+    }
+
     /** 内核实现。 */
     private _impl: Dioramas_kernel;
     /** 3MX文件结构。 */

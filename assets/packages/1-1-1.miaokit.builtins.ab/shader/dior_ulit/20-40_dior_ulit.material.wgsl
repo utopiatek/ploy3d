@@ -9,7 +9,10 @@ fn material_fs() {
 
     var uv = fract(inputs_uv);
     uv.y = 1.0 - uv.y;
-	uv = inputs_custom2.xy + inputs_custom2.zw * uv;
+    uv = inputs_custom2.xy + inputs_custom2.zw * uv;
 
-    material_emissive = textureSample(atlas2D, splln1, uv, inputs_custom1.x).xyz;
+    let color = encodeRGBM(sRGBToLinear_vec3(textureSample(atlas2D, splln1, uv, inputs_custom1.x).xyz), uRGBMRange);
+
+    material_emissive = color.rgb;
+    material_alpha = color.a;
 }

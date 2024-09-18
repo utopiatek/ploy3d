@@ -35,6 +35,8 @@ fn material_fs() {
         return;
     }
 
-    material_emissive = color;
-    material_alpha = depth_scatter_alpha.a;
+    let color_ = encodeRGBM(sRGBToLinear_vec3(color), uRGBMRange);
+
+    material_emissive = color_.rgb;
+    material_alpha = color_.a;
 }
