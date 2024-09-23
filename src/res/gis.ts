@@ -20,6 +20,8 @@ export class Gis {
     public async Init() {
         const resources = this._global.resources;
 
+        this._districts = await (new Gis_districts(this)).Init();
+
         this._pyramid = new Gis_pyramid(this, 8, 4);
 
         // 最内层子网格7，大小64 * 4 = 256
@@ -103,6 +105,7 @@ export class Gis {
 
     /**
      * 根据相机姿态刷新地图。
+     * 注意：应当在帧绘制前应用相机最新姿态更新GIS。如果帧绘制使用的相机姿态与GIS当前使用的相机姿态不同，会导致画面不同步或抖动。
      * @param camera 相机组件实例。
      */
     public Update(camera: Miaoverse.Camera) {
@@ -345,6 +348,16 @@ export class Gis {
                 }
             }
 
+            if (values.targetMC) {
+                this._districts["_area_renderer"].material.view["targetMC"] = values.targetMC;
+                this._districts["_line_renderer"].material.view["targetMC"] = values.targetMC;
+            }
+
+            if (values.targetXZ) {
+                this._districts["_area_renderer"].material.view["targetXZ"] = values.targetXZ;
+                this._districts["_line_renderer"].material.view["targetXZ"] = values.targetXZ;
+            }
+
             return;
         }
 
@@ -355,6 +368,10 @@ export class Gis {
         const top = this._pyramid["_pyramidTop"];
         const top_level = this._tileY;
         const layers = this._pyramid["_layers"];
+        const tileS = this.perimeter / Math.pow(2, top_level);
+
+        this._districts["_area_renderer"].material.view["pixelS"] = [tileS / 256];
+        this._districts["_line_renderer"].material.view["pixelS"] = [tileS / 256];
 
         for (let i = 0; i < levelCount; i++) {
             const cur = (top + i) % levelCount;
@@ -430,6 +447,14 @@ export class Gis {
         this._drawParams.materials = this._materials;
 
         queue.DrawMesh(this._drawParams);
+    }
+
+    /**
+     * 绘制矢量瓦片。
+     * @param queue passEncoder 渲染通道命令编码器。
+     */
+    public Draw(queue: Miaoverse.DrawQueue) {
+        this.districts.Draw(queue);
     }
 
     /**
@@ -671,6 +696,11 @@ export class Gis {
         return [(mc[0] - this._originMC[0]) * scale, 0, (this._originMC[1] - mc[1]) * scale];
     }
 
+    /** GIS行政区管理。 */
+    public get districts() {
+        return this._districts;
+    }
+
     /** 是否启用GIS系统。 */
     public get enable() {
         return this._enable;
@@ -767,6 +797,9 @@ export class Gis {
     /** 是否启用GIS系统。 */
     private _enable: boolean;
 
+    /** GIS行政区管理。 */
+    private _districts: Gis_districts;
+
     /** GIS金字塔结构。 */
     private _pyramid: Gis_pyramid;
     /** GIS网格。 */
@@ -783,7 +816,7 @@ export class Gis {
     /** GIS绘制参数。 */
     private _drawParams = {
         flags: 0,
-        layers: 0,
+        layers: Miaoverse.LAYER_FLAGS.GIS,
         userData: 0,
 
         castShadows: false,
@@ -1931,6 +1964,47 @@ export class Gis_pyramid {
         });
     }
 
+    /** 
+     * 获取GIS当前渲染经纬度范围。
+     */
+    public GetDrawRegion() {
+        let index = this._pyramidTop + this.levelCount - 1;
+        let level = this._pyramid[index % this.levelCount];
+
+        for (let i = 0; i < this.levelCount; i++) {
+            if (level.level > 3) {
+                break;
+            }
+            else {
+                index -= 1;
+                level = this._pyramid[index % this.levelCount];
+            }
+        }
+
+        // =====================--------------------------------
+
+        // 墨卡托投影：以经度0维度90为原点，往东南方向划分，L1经纬度划分为2；
+        const projection = level.projections[Gis_projection.WGS84];
+        const tileS = this._gis.perimeter / Math.pow(2, level.level);
+
+        // 注意，行从纬度+90度开始划分，而我们LL2MC是从纬度0开始的
+        const bottomMC = this._gis.perimeter_half - ((projection.lb_row + 1) * tileS);
+        const topMC = bottomMC + tileS * this._tiling;
+
+        // 注意，列从经度-180度开始划分，而我们LL2MC是从经度0开始的
+        let leftMC = projection.lb_col * tileS - this._gis.perimeter_half;
+        if (leftMC < -this._gis.perimeter_half) {
+            leftMC = this._gis.perimeter_half + (leftMC % this._gis.perimeter_half);
+        }
+        else if (leftMC > this._gis.perimeter_half) {
+            leftMC = -this._gis.perimeter_half + (leftMC % this._gis.perimeter_half);
+        }
+
+        const rightMC = leftMC + tileS * this._tiling;
+
+        return [leftMC, rightMC, bottomMC, topMC];
+    }
+
     /** LOD层级数。 */
     public get levelCount() {
         return this._pyramidHeight;
@@ -1969,6 +2043,416 @@ export class Gis_pyramid {
     private _pyramidTop: number;
     /** LOD层级金字塔高度（建议值8）。 */
     private _pyramidHeight: number;
+}
+
+/** GIS行政区管理。 */
+export class Gis_districts {
+    /**
+     * 构造函数。
+     */
+    public constructor(_gis: Gis) {
+        this._gis = _gis;
+        this._countries = {};
+    }
+
+    /**
+     * 初始化GIS行政区管理。
+     */
+    public async Init() {
+        const global = this._gis["_global"];
+
+        this._area_renderer = await (async () => {
+            const material = await global.resources.Material.Create({
+                uuid: "",
+                classid: Miaoverse.CLASSID.ASSET_MATERIAL,
+                name: "gis_districts",
+                label: "gis_districts",
+
+                shader: "1-1-1.miaokit.builtins:/shader/gis_ulit/17-16_gis_vtile_ulit.json",
+                flags: 0,
+                properties: {
+                    textures: {},
+                    vectors: {}
+                }
+            });
+
+            const mesh_renderer = await global.resources.MeshRenderer.Create(null, null);
+
+            const pipeline = global.context.CreateRenderPipeline({
+                g1: mesh_renderer.layoutID,
+                g2: material.layoutID,
+                g3: 0,
+
+                flags: 0,
+                topology: 3,
+
+                frontFace: 0,
+                cullMode: 1
+            });
+
+            return { material, mesh_renderer, pipeline };
+        })();
+
+        this._line_renderer = await (async () => {
+            const material = await global.resources.Material.Create({
+                uuid: "",
+                classid: Miaoverse.CLASSID.ASSET_MATERIAL,
+                name: "gis_districts",
+                label: "gis_districts",
+
+                shader: "1-1-1.miaokit.builtins:/shader/gis_ulit/17-17_gis_vline_ulit.json",
+                flags: 0,
+                properties: {
+                    textures: {},
+                    vectors: {}
+                }
+            });
+
+            const mesh_renderer = await global.resources.MeshRenderer.Create(null, null);
+
+            const pipeline = global.context.CreateRenderPipeline({
+                g1: mesh_renderer.layoutID,
+                g2: material.layoutID,
+                g3: 0,
+
+                flags: 0,
+                topology: 3,
+
+                frontFace: 0,
+                cullMode: 1
+            });
+
+            return { material, mesh_renderer, pipeline };
+        })();
+
+        return this;
+    }
+
+    /**
+     * 加载GIS行政区。
+     * https://lbs.amap.com/api/webservice/guide/api/district
+     * @param keywords 行政区关键词[国家, 省份|直辖市, 市, 区县]。
+     * @param token 高德地图AK（ad592e63640a58865bd1640560cbe82e）。
+     * @returns 返回GIS行政区对象。
+     */
+    public async Load(keywords: string[], token: string) {
+        let serv = `https://restapi.amap.com/v3/config/district?key=${token}&extensions=all&subdistrict=`;
+        let container = this._countries;
+        let district: Gis_district = null;
+
+        for (let i = 0; i < 4; i++) {
+            if (!keywords[i]) {
+                break;
+            }
+
+            district = container[keywords[i]];
+            if (!district) {
+                // 区县一级同时返回下级街道乡镇数据（街道乡镇不含边界数据）
+                const path = serv + (i == 3 ? 1 : 0) + "&keywords=" + keywords[i];
+                const jdata = await this._gis["_global"].Fetch<any>(path, null, "json");
+
+                if (!jdata || jdata.status != "1" || jdata.infocode != "10000") {
+                    break;
+                }
+
+                district = container[keywords[i]] = await (new Gis_district()).Build(this._gis, jdata);
+                container = district.districts;
+            }
+        }
+
+        return district;
+    }
+
+    /**
+     * 绘制GIS行政区分界线。
+     */
+    public Draw(queue: Miaoverse.DrawQueue) {
+        const context = this._gis["_global"].context;
+        const passEncoder = queue.passEncoder;
+
+        const instance = this._countries["中华人民共和国"].polygons;
+
+        {
+            queue.BindMeshRenderer(this._area_renderer.mesh_renderer);
+            queue.BindMaterial(this._area_renderer.material);
+            queue.SetPipeline(this._area_renderer.pipeline, 0);
+
+            const dbuffer = instance.vertexBuffer;
+            const vbuffer = instance.vertexBuffer;
+            const ibuffer = instance.indexBuffer;
+
+            context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 8 * instance.vertexCount, passEncoder);
+            context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset, 8 * instance.vertexCount, passEncoder);
+            context.SetIndexBuffer(4, ibuffer, passEncoder);
+
+            passEncoder.drawIndexed(
+                instance.indexCount,    // indexCount
+                1,                      // instanceCount
+                0,                      // firstIndex
+                0,                      // baseVertex
+                instance.instanceIndex, // firstInstance
+            );
+        }
+
+        {
+            queue.BindMeshRenderer(this._line_renderer.mesh_renderer);
+            queue.BindMaterial(this._line_renderer.material);
+            queue.SetPipeline(this._line_renderer.pipeline, 0);
+
+            const vbuffer = instance.vertexBuffer;
+
+            for (let sub of instance.list) {
+                const instanceCount = sub.vertexCount - 1;
+                const offset = sub.vertexStart * 8;
+                const size = instanceCount * 8;
+
+                context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset + offset, size, passEncoder);
+                context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + offset + 8, size, passEncoder);
+
+                passEncoder.draw(
+                    6,                      // vertexCount
+                    instanceCount,          // instanceCount
+                    0,                      // firstVertex
+                    0,                      // firstInstance
+                );
+            }
+        }
+    }
+
+    /** 国家行政区域信息查找表。 */
+    public get countries() {
+        return this._countries;
+    }
+
+    /** GIS实例。 */
+    private _gis: Gis;
+
+    /** 矢量图形区域渲染资源。 */
+    private _area_renderer: {
+        /** 材质资源实例。 */
+        material: Miaoverse.Material;
+        /** 网格渲染器组件实例（用于提供绘制所需的G1数据）。 */
+        mesh_renderer: Miaoverse.MeshRenderer;
+        /** 着色器管线实例ID。 */
+        pipeline: number;
+    };
+
+    /** 矢量图形边线渲染资源。 */
+    private _line_renderer: {
+        /** 材质资源实例。 */
+        material: Miaoverse.Material;
+        /** 网格渲染器组件实例（用于提供绘制所需的G1数据）。 */
+        mesh_renderer: Miaoverse.MeshRenderer;
+        /** 着色器管线实例ID。 */
+        pipeline: number;
+    };
+
+    /** 国家行政区域信息查找表。 */
+    private _countries: Record<string, Gis_district>;
+}
+
+/** GIS行政区。 */
+export class Gis_district {
+    /**
+     * 构造函数。
+     */
+    public constructor() {
+    }
+
+    /**
+     * 构建行政区实例对象。
+     * @param gis GIS系统接口。
+     * @param jdata 行政区数据。
+     * @returns 返回行政区对象。
+     */
+    public async Build(gis: Gis, jdata: any) {
+        const district = jdata.districts[0];
+        const global = gis["_global"];
+
+        this.adcode = district.adcode;
+        this.level = district.level;
+        this.name = district.name;
+        let center = district.center.split(",");
+        let centerLL = gis.GCJ02_WGS84([parseFloat(center[0]), parseFloat(center[1])]);
+        this.center = gis.LL2MC(centerLL);
+        this.citycode = district.citycode.length > 0 ? district.citycode : undefined;
+        this.districts = {};
+
+        for (let child of district.districts) {
+            if (child.districts.length > 0 || child.polyline) {
+                console.error("一个请求中，子级行政区不能包含下级行政区数据或边界数据！");
+                continue;
+            }
+
+            center = child.center.split(",");
+            centerLL = gis.GCJ02_WGS84([parseFloat(center[0]), parseFloat(center[1])]);
+
+            child.center = center;
+            child.districts = {};
+
+            this.districts[child.name] = child;
+        }
+
+        // ====================--------------------------------
+
+        if (district.polyline) {
+            const areas: string[] = district.polyline.split("|");
+
+            // 追加10段线，国境线有些许偏差、细节视图下应隐藏国境线
+            if (this.adcode == "100000") {
+                areas.push("109.880724,15.120251;109.628081,15.76963;109.308068,16.206794;109.628081,15.76963;");
+                areas.push("110.065994,11.201393;110.268109,11.597645;110.301794,12.207428;110.268109,11.597645;");
+                areas.push("108.297498,5.973936;108.196441,6.55991;108.230127,7.061627;108.196441,6.55991;");
+                areas.push("112.85019,3.748308;111.805039,3.402625;");
+                areas.push("116.245928,7.991342;115.559288,7.14203;");
+
+                areas.push("118.973393,11.963476;118.535888,10.891413;");
+                areas.push("119.063434,16.018959;119.058695,15.02373;");
+                areas.push("120.030011,19.033867;119.473776,18.01388;");
+                areas.push("121.918731,21.685607;121.206531,20.853372;");
+                areas.push("122.796478,24.555838;122.513859,23.471598;");
+            }
+
+            // 处理后的行政区域边界数据
+            this.polygons = {
+                instanceIndex: 0,
+                vertexCount: 0,
+                indexCount: 0,
+
+                vertexBuffer: null,
+                indexBuffer: null,
+
+                list: []
+            };
+
+            const polygons = this.polygons;
+
+            for (let a = 0; a < areas.length; a++) {
+                const points = areas[a].split(/[,;]/);
+                const points_: number[] = [];
+                const length = points[points.length - 1] == "" ? points.length - 1 : points.length;
+
+                let min_x = Number.MAX_VALUE;
+                let max_x = Number.MIN_VALUE;
+                let min_z = Number.MAX_VALUE;
+                let max_z = Number.MIN_VALUE;
+
+                for (let i = 0; i < length; i += 2) {
+                    const lng = parseFloat(points[i + 0]);
+                    const lat = parseFloat(points[i + 1]);
+                    const ll = gis.GCJ02_WGS84([lng, lat]);
+                    const mc = gis.LL2MC(ll);
+
+                    if (min_x > mc[0]) min_x = mc[0];
+                    if (max_x < mc[0]) max_x = mc[0];
+
+                    if (min_z > mc[1]) min_z = mc[1];
+                    if (max_z < mc[1]) max_z = mc[1];
+
+                    points_[i + 0] = mc[0];
+                    points_[i + 1] = mc[1];
+                }
+
+                const triangles = global.worker.Earcut(points_);
+
+                for (let i = 0; i < triangles.length; i++) {
+                    triangles[i] += polygons.vertexCount;
+                }
+
+                const polygon: typeof polygons["list"][0] = {
+                    vertexStart: polygons.vertexCount,
+                    vertexCount: points_.length / 2,
+
+                    indexStart: polygons.indexCount,
+                    indexCount: triangles.length,
+
+                    region: [min_x, max_x, min_z, max_z],
+                    points: points_,
+                    indices: triangles,
+                };
+
+                polygons.vertexCount += polygon.vertexCount;
+                polygons.indexCount += polygon.indexCount;
+
+                polygons.list.push(polygon);
+            }
+
+            // GIS矢量多边形顶点占用8字节，3MX顶点占用20字节，所以我们除2.5
+            polygons.vertexBuffer = global.resources.Dioramas.GenBuffer(0, Math.ceil(polygons.vertexCount / 2.5));
+            polygons.indexBuffer = global.resources.Dioramas.GenBuffer(1, polygons.indexCount);
+
+            const vbuffer = new Float32Array(polygons.vertexCount * 2);
+            const ibuffer = new Uint32Array(polygons.indexCount);
+
+            for (let sub of polygons.list) {
+                vbuffer.set(sub.points, sub.vertexStart * 2);
+                ibuffer.set(sub.indices, sub.indexStart);
+            }
+
+            global.device.WriteBuffer(
+                polygons.vertexBuffer.buffer,   // 缓存实例ID
+                polygons.vertexBuffer.offset,   // 缓存写入偏移
+                vbuffer.buffer,                 // 数据源
+                0,                              // 数据源偏移
+                vbuffer.byteLength);            // 数据字节大小
+
+            global.device.WriteBuffer(
+                polygons.indexBuffer.buffer,    // 缓存实例ID
+                polygons.indexBuffer.offset,    // 缓存写入偏移
+                ibuffer.buffer,                 // 数据源
+                0,                              // 数据源偏移
+                ibuffer.byteLength);            // 数据字节大小
+        }
+
+        return this;
+    }
+
+    /** 行政区编码（街道编码等同所属区县编码）。 */
+    adcode: string;
+    /** 行政区划级别：国家 | 省份,直辖市 | 市 | 区县 | 街道（乡镇）。 */
+    level: "country" | "province" | "city" | "district" | "street";
+    /** 行政区名称。 */
+    name: string;
+    /** 行政区中心点。 */
+    center: number[];
+    /** 城市编码（国家、省份｜直辖市级别不含城市编码。市及其下级行政区拥有共同城市编码）。 */
+    citycode?: string;
+    /** 下级行政区查找表（通过下级行政区名称查找）。 */
+    districts: Record<string, Gis_district>;
+    /** 行政区域边界数据。 */
+    polygons?: {
+        /** 绘制实例索引。 */
+        instanceIndex: number;
+        /** 总顶点数量。 */
+        vertexCount: number;
+        /** 总索引数量。 */
+        indexCount: number;
+
+        /** 顶点缓存节点。 */
+        vertexBuffer: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
+        /** 索引缓存节点。 */
+        indexBuffer: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
+
+        /** 边界子图形列表。 */
+        list: {
+            /** 顶点数组起始偏移。 */
+            vertexStart: number;
+            /** 顶点数量。 */
+            vertexCount: number;
+
+            /** 索引数组起始偏移。 */
+            indexStart: number;
+            /** 索引数量。  */
+            indexCount: number;
+
+            /** MC坐标包围盒。 */
+            region: number[];
+            /** MC坐标数组（自行保证图形左下角MC坐标在1倍墨卡托投影范围内）。 */
+            points: number[];
+            /** 索引数组。 */
+            indices: number[];
+        }[];
+    };
 }
 
 /** GIS图层贴图采样偏移缩放。 */

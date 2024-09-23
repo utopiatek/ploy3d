@@ -763,12 +763,18 @@ export class Device {
                 usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
             });
         }
+        if (this._texturesRT.readLock) {
+            console.warn("请等待上次像素读取完成！");
+            return null;
+        }
         const cmdEncoder = this.device.createCommandEncoder();
         cmdEncoder.copyTextureToBuffer({ texture: rt.texture, mipLevel: 0, origin: [pixelX, pixelY, layer] }, { buffer: buffer, offset: 0, bytesPerRow: 2048 * 16 }, [1, 1, 1]);
         this.device.queue.submit([cmdEncoder.finish()]);
+        this._texturesRT.readLock = true;
         await buffer.mapAsync(GPUMapMode.READ);
         const arrayBuffer = buffer.getMappedRange().slice(0);
         buffer.unmap();
+        this._texturesRT.readLock = false;
         return arrayBuffer;
     }
     GenerateSamplerFlags(desc) {
@@ -936,6 +942,7 @@ export class Device {
         usedCount: 0,
         usedSize: 0,
         readBuffer: null,
+        readLock: false,
         list: [null]
     };
     _samplers = {

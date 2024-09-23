@@ -1539,6 +1539,8 @@ struct ObjectUniforms {
             "BLEND_MODE_MASKED": (blendMode == BLEND_MODE.MASKED) ? 1 : 0,
             "BLEND_MODE_TRANSPARENT": (blendMode == BLEND_MODE.TRANSPARENT) ? 1 : 0,
             "BLEND_MODE_FADE": (blendMode == BLEND_MODE.FADE) ? 1 : 0,
+
+            ...g2.asset.settings,
         };
 
         // ==========================---------------------------------------------

@@ -1,0 +1,87 @@
+{
+    "classid": 17,
+    "name": "gis_vtile_ulit",
+    "label": "gis_vtile_ulit",
+    "asset": {
+        "name": "",
+        "type": "shading",
+        "settings": {},
+        "properties": {
+            "pixelS": {
+                "note": "每像素MC大小。",
+                "sign": "f32",
+                "value": [
+                    1.0
+                ]
+            },
+            "targetMC": {
+                "note": "相机观察点墨卡托坐标。",
+                "sign": "vec2<f32>",
+                "value": [
+                    12270000,
+                    2910000
+                ]
+            },
+            "targetXZ": {
+                "note": "相机观察点世界空间坐标。",
+                "sign": "vec2<f32>",
+                "value": [
+                    0,
+                    0
+                ]
+            }
+        },
+        "codes": {
+            "vertex": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-1_common.vertex.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl"
+                ],
+                "main": ":/shader/gis_ulit/20-55_gis_vtile_ulit.vertex.wgsl"
+            },
+            "material": {
+                "includes": [
+                    ":/shader/common/20-0_common.wgsl",
+                    ":/shader/common/20-2_common.varyings.wgsl",
+                    ":/shader/common/20-3_common.material.wgsl"
+                ],
+                "main": ":/shader/gis_ulit/20-56_gis_vtile_ulit.material.wgsl"
+            },
+            "shading": {
+                "includes": [
+                    ":/shader/common/20-11_standard.shadowing.wgsl"
+                ],
+                "main": ":/shader/common/20-13_ulit.shading.wgsl"
+            }
+        },
+        "depth_stencil": {
+            "depthWriteEnabled": false,
+            "depthCompare": "always"
+        },
+        "vertex_buffers": [
+            {
+                "arrayStride": 8,
+                "stepMode": "vertex",
+                "attributes": [
+                    {
+                        "shaderLocation": 0,
+                        "offset": 0,
+                        "format": "float32x2"
+                    }
+                ]
+            },
+            {
+                "arrayStride": 8,
+                "stepMode": "vertex",
+                "attributes": [
+                    {
+                        "shaderLocation": 1,
+                        "offset": 0,
+                        "format": "float32x2"
+                    }
+                ]
+            }
+        ]
+    }
+}

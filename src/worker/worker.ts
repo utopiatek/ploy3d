@@ -2,6 +2,7 @@ import type { PackageReg, GLPrimitiveTopology } from "../mod.js"
 import { Kernel, SharedENV, Internal } from "../kernel.js"
 import { Importer } from "./importer.js"
 import pako from "./pako.esm.js"
+import earcut from "./earcut.js"
 import "./jszip.min.js"
 
 /** 事务处理器。 */
@@ -424,6 +425,17 @@ const __worker = new Miaoworker();
      */
     public Pako_inflate(buffer: ArrayBuffer) {
         return pako.inflate(buffer) as Uint8Array;
+    }
+
+    /**
+     * 多边形三角化。
+     * @param vertices 顶点坐标数组。 
+     * @param holeIndices 孔洞顶点索引数组。
+     * @param dim 图形维度（2/3）。
+     * @returns 返回三角形索引数组。
+     */
+    public Earcut(vertices: number[], holeIndices: number[] = null, dim = 2): number[] {
+        return earcut(vertices, holeIndices, dim);
     }
 
     /**

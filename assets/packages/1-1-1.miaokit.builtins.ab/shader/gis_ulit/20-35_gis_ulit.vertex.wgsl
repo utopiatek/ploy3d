@@ -12,6 +12,9 @@ fn material_vs() ->OutputVS {
     // 原始网格顶点坐标（单位MC）
     let mesh_xz = mesh_position.xz * materialParams.size;
 
+    // 传递片元真实墨卡托坐标
+    output.custom2 = vec4f(vec2f(mesh_xz.x + materialParams.centerMC.x, -(mesh_xz.y - materialParams.centerMC.y)), 0.0, 0.0);
+
     // 平移网格，使相机观察点顶点坐标X值为0
     var x_mc = mesh_xz.x - materialParams.movedMC.x;
     // 计算网格顶点的真实纬度以生成正确的球面（注意网格南正北负、而墨卡托投影南负北正）

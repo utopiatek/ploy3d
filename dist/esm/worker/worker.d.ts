@@ -127,6 +127,14 @@ export declare class Miaoworker {
      */
     Pako_inflate(buffer: ArrayBuffer): Uint8Array;
     /**
+     * 多边形三角化。
+     * @param vertices 顶点坐标数组。
+     * @param holeIndices 孔洞顶点索引数组。
+     * @param dim 图形维度（2/3）。
+     * @returns 返回三角形索引数组。
+     */
+    Earcut(vertices: number[], holeIndices?: number[], dim?: number): number[];
+    /**
      * 压缩贴图数据。
      * @param data_ 原始贴图数据。
      * @param has_alpha 数据是否包含不透明度。

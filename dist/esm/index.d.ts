@@ -286,7 +286,14 @@ export declare class PloyApp {
             frontFace: number;
             cullMode: number;
             topology?: Miaoverse.GLPrimitiveTopology;
-            mesh: Miaoverse.Mesh;
+            mesh: Miaoverse.Mesh; /**
+             * 初始化窗口。
+             * @param title 主窗口标题。
+             * @param width 主窗口宽度。
+             * @param height 主窗口高度。
+             * @param progress 进度刷新函数。
+             * @returns 是否初始化成功。
+             */
             materials: {
                 submesh: number;
                 material: Miaoverse.Material;

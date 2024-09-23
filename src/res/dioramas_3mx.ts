@@ -757,8 +757,22 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {
      */
     public GenBuffer(type: number, count: number) {
         if (count > 65536) {
-            this._global.Track("Dioramas_kernel.GenBuffer: 暂不支持顶点或索引数量大于65536的缓存！", 3);
-            return null;
+            const need_rows = ((count + 1023) >> 10);
+            const size_per_item = type == 0 ? 20 : 4
+            const classid = type == 0 ? Miaoverse.CLASSID.GPU_VERTEX_BUFFER : Miaoverse.CLASSID.GPU_INDEX_BUFFER;
+
+            const node: typeof idle.list[0] = {
+                type: type,
+                rows: need_rows,
+                count: count,
+                buffer: 0,
+                offset: 0,
+                size: 1024 * need_rows * size_per_item,
+            };
+
+            node.buffer = this._global.device.CreateBuffer(classid, node.size);
+
+            return node;
         }
 
         const buffers = this._buffers[type];
@@ -833,7 +847,8 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {
      */
     public FreeBuffer(node: ReturnType<Dioramas_kernel["GenBuffer"]>) {
         if (node.count > 65536) {
-            this._global.Track("Dioramas_kernel.FreeBuffer: 暂不支持顶点或索引数量大于65536的缓存！", 3);
+            this._global.device.FreeBuffer(node.buffer);
+            node.buffer = 0;
             return;
         }
 

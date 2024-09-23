@@ -1084,6 +1084,11 @@ export class Device {
             });
         }
 
+        if (this._texturesRT.readLock) {
+            console.warn("请等待上次像素读取完成！");
+            return null;
+        }
+
         const cmdEncoder = this.device.createCommandEncoder();
 
         cmdEncoder.copyTextureToBuffer(
@@ -1094,9 +1099,11 @@ export class Device {
         this.device.queue.submit([cmdEncoder.finish()]);
 
         // 映射并读取缓冲区
+        this._texturesRT.readLock = true;
         await buffer.mapAsync(GPUMapMode.READ);
         const arrayBuffer = buffer.getMappedRange().slice(0);
         buffer.unmap();
+        this._texturesRT.readLock = false;
 
         return arrayBuffer;
     }
@@ -1426,6 +1433,8 @@ export class Device {
         usedSize: 0,
         /** 用于读取渲染贴图像素的GPU中间缓存。 */
         readBuffer: null as GPUBuffer,
+        /** 正在锁定中间缓存。 */
+        readLock: false,
         /** 贴图实例容器。 */
         list: [null] as (Device["_textures2D"]["list"][0] & {
             /** 是否可绑定。 */

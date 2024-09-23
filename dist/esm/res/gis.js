@@ -7,6 +7,7 @@ export class Gis {
     }
     async Init() {
         const resources = this._global.resources;
+        this._districts = await (new Gis_districts(this)).Init();
         this._pyramid = new Gis_pyramid(this, 8, 4);
         this._mesh = await resources.Mesh.Create({
             uuid: "",
@@ -205,6 +206,14 @@ export class Gis {
                     mat.material.view[key] = value;
                 }
             }
+            if (values.targetMC) {
+                this._districts["_area_renderer"].material.view["targetMC"] = values.targetMC;
+                this._districts["_line_renderer"].material.view["targetMC"] = values.targetMC;
+            }
+            if (values.targetXZ) {
+                this._districts["_area_renderer"].material.view["targetXZ"] = values.targetXZ;
+                this._districts["_line_renderer"].material.view["targetXZ"] = values.targetXZ;
+            }
             return;
         }
         const levelCount = this._pyramid["levelCount"];
@@ -212,6 +221,9 @@ export class Gis {
         const top = this._pyramid["_pyramidTop"];
         const top_level = this._tileY;
         const layers = this._pyramid["_layers"];
+        const tileS = this.perimeter / Math.pow(2, top_level);
+        this._districts["_area_renderer"].material.view["pixelS"] = [tileS / 256];
+        this._districts["_line_renderer"].material.view["pixelS"] = [tileS / 256];
         for (let i = 0; i < levelCount; i++) {
             const cur = (top + i) % levelCount;
             const cur_level = levels[cur];
@@ -266,6 +278,9 @@ export class Gis {
         this._drawParams.mesh = this._mesh;
         this._drawParams.materials = this._materials;
         queue.DrawMesh(this._drawParams);
+    }
+    Draw(queue) {
+        this.districts.Draw(queue);
     }
     CalSunlight(params) {
         if (params.lng == undefined) {
@@ -408,6 +423,9 @@ export class Gis {
         const scale = Math.cos(this._originLL[1] / 180.0 * Math.PI);
         return [(mc[0] - this._originMC[0]) * scale, 0, (this._originMC[1] - mc[1]) * scale];
     }
+    get districts() {
+        return this._districts;
+    }
     get enable() {
         return this._enable;
     }
@@ -467,12 +485,13 @@ export class Gis {
     }
     _global;
     _enable;
+    _districts;
     _pyramid;
     _mesh;
     _materials;
     _drawParams = {
         flags: 0,
-        layers: 0,
+        layers: 64,
         userData: 0,
         castShadows: false,
         receiveShadows: false,
@@ -1222,6 +1241,32 @@ export class Gis_pyramid {
             callback(total, succeed, failed);
         });
     }
+    GetDrawRegion() {
+        let index = this._pyramidTop + this.levelCount - 1;
+        let level = this._pyramid[index % this.levelCount];
+        for (let i = 0; i < this.levelCount; i++) {
+            if (level.level > 3) {
+                break;
+            }
+            else {
+                index -= 1;
+                level = this._pyramid[index % this.levelCount];
+            }
+        }
+        const projection = level.projections[0];
+        const tileS = this._gis.perimeter / Math.pow(2, level.level);
+        const bottomMC = this._gis.perimeter_half - ((projection.lb_row + 1) * tileS);
+        const topMC = bottomMC + tileS * this._tiling;
+        let leftMC = projection.lb_col * tileS - this._gis.perimeter_half;
+        if (leftMC < -this._gis.perimeter_half) {
+            leftMC = this._gis.perimeter_half + (leftMC % this._gis.perimeter_half);
+        }
+        else if (leftMC > this._gis.perimeter_half) {
+            leftMC = -this._gis.perimeter_half + (leftMC % this._gis.perimeter_half);
+        }
+        const rightMC = leftMC + tileS * this._tiling;
+        return [leftMC, rightMC, bottomMC, topMC];
+    }
     get levelCount() {
         return this._pyramidHeight;
     }
@@ -1242,5 +1287,234 @@ export class Gis_pyramid {
     _pyramid;
     _pyramidTop;
     _pyramidHeight;
+}
+export class Gis_districts {
+    constructor(_gis) {
+        this._gis = _gis;
+        this._countries = {};
+    }
+    async Init() {
+        const global = this._gis["_global"];
+        this._area_renderer = await (async () => {
+            const material = await global.resources.Material.Create({
+                uuid: "",
+                classid: 32,
+                name: "gis_districts",
+                label: "gis_districts",
+                shader: "1-1-1.miaokit.builtins:/shader/gis_ulit/17-16_gis_vtile_ulit.json",
+                flags: 0,
+                properties: {
+                    textures: {},
+                    vectors: {}
+                }
+            });
+            const mesh_renderer = await global.resources.MeshRenderer.Create(null, null);
+            const pipeline = global.context.CreateRenderPipeline({
+                g1: mesh_renderer.layoutID,
+                g2: material.layoutID,
+                g3: 0,
+                flags: 0,
+                topology: 3,
+                frontFace: 0,
+                cullMode: 1
+            });
+            return { material, mesh_renderer, pipeline };
+        })();
+        this._line_renderer = await (async () => {
+            const material = await global.resources.Material.Create({
+                uuid: "",
+                classid: 32,
+                name: "gis_districts",
+                label: "gis_districts",
+                shader: "1-1-1.miaokit.builtins:/shader/gis_ulit/17-17_gis_vline_ulit.json",
+                flags: 0,
+                properties: {
+                    textures: {},
+                    vectors: {}
+                }
+            });
+            const mesh_renderer = await global.resources.MeshRenderer.Create(null, null);
+            const pipeline = global.context.CreateRenderPipeline({
+                g1: mesh_renderer.layoutID,
+                g2: material.layoutID,
+                g3: 0,
+                flags: 0,
+                topology: 3,
+                frontFace: 0,
+                cullMode: 1
+            });
+            return { material, mesh_renderer, pipeline };
+        })();
+        return this;
+    }
+    async Load(keywords, token) {
+        let serv = `https://restapi.amap.com/v3/config/district?key=${token}&extensions=all&subdistrict=`;
+        let container = this._countries;
+        let district = null;
+        for (let i = 0; i < 4; i++) {
+            if (!keywords[i]) {
+                break;
+            }
+            district = container[keywords[i]];
+            if (!district) {
+                const path = serv + (i == 3 ? 1 : 0) + "&keywords=" + keywords[i];
+                const jdata = await this._gis["_global"].Fetch(path, null, "json");
+                if (!jdata || jdata.status != "1" || jdata.infocode != "10000") {
+                    break;
+                }
+                district = container[keywords[i]] = await (new Gis_district()).Build(this._gis, jdata);
+                container = district.districts;
+            }
+        }
+        return district;
+    }
+    Draw(queue) {
+        const context = this._gis["_global"].context;
+        const passEncoder = queue.passEncoder;
+        const instance = this._countries["中华人民共和国"].polygons;
+        {
+            queue.BindMeshRenderer(this._area_renderer.mesh_renderer);
+            queue.BindMaterial(this._area_renderer.material);
+            queue.SetPipeline(this._area_renderer.pipeline, 0);
+            const dbuffer = instance.vertexBuffer;
+            const vbuffer = instance.vertexBuffer;
+            const ibuffer = instance.indexBuffer;
+            context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 8 * instance.vertexCount, passEncoder);
+            context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset, 8 * instance.vertexCount, passEncoder);
+            context.SetIndexBuffer(4, ibuffer, passEncoder);
+            passEncoder.drawIndexed(instance.indexCount, 1, 0, 0, instance.instanceIndex);
+        }
+        {
+            queue.BindMeshRenderer(this._line_renderer.mesh_renderer);
+            queue.BindMaterial(this._line_renderer.material);
+            queue.SetPipeline(this._line_renderer.pipeline, 0);
+            const vbuffer = instance.vertexBuffer;
+            for (let sub of instance.list) {
+                const instanceCount = sub.vertexCount - 1;
+                const offset = sub.vertexStart * 8;
+                const size = instanceCount * 8;
+                context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset + offset, size, passEncoder);
+                context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + offset + 8, size, passEncoder);
+                passEncoder.draw(6, instanceCount, 0, 0);
+            }
+        }
+    }
+    get countries() {
+        return this._countries;
+    }
+    _gis;
+    _area_renderer;
+    _line_renderer;
+    _countries;
+}
+export class Gis_district {
+    constructor() {
+    }
+    async Build(gis, jdata) {
+        const district = jdata.districts[0];
+        const global = gis["_global"];
+        this.adcode = district.adcode;
+        this.level = district.level;
+        this.name = district.name;
+        let center = district.center.split(",");
+        let centerLL = gis.GCJ02_WGS84([parseFloat(center[0]), parseFloat(center[1])]);
+        this.center = gis.LL2MC(centerLL);
+        this.citycode = district.citycode.length > 0 ? district.citycode : undefined;
+        this.districts = {};
+        for (let child of district.districts) {
+            if (child.districts.length > 0 || child.polyline) {
+                console.error("一个请求中，子级行政区不能包含下级行政区数据或边界数据！");
+                continue;
+            }
+            center = child.center.split(",");
+            centerLL = gis.GCJ02_WGS84([parseFloat(center[0]), parseFloat(center[1])]);
+            child.center = center;
+            child.districts = {};
+            this.districts[child.name] = child;
+        }
+        if (district.polyline) {
+            const areas = district.polyline.split("|");
+            if (this.adcode == "100000") {
+                areas.push("109.880724,15.120251;109.628081,15.76963;109.308068,16.206794;109.628081,15.76963;");
+                areas.push("110.065994,11.201393;110.268109,11.597645;110.301794,12.207428;110.268109,11.597645;");
+                areas.push("108.297498,5.973936;108.196441,6.55991;108.230127,7.061627;108.196441,6.55991;");
+                areas.push("112.85019,3.748308;111.805039,3.402625;");
+                areas.push("116.245928,7.991342;115.559288,7.14203;");
+                areas.push("118.973393,11.963476;118.535888,10.891413;");
+                areas.push("119.063434,16.018959;119.058695,15.02373;");
+                areas.push("120.030011,19.033867;119.473776,18.01388;");
+                areas.push("121.918731,21.685607;121.206531,20.853372;");
+                areas.push("122.796478,24.555838;122.513859,23.471598;");
+            }
+            this.polygons = {
+                instanceIndex: 0,
+                vertexCount: 0,
+                indexCount: 0,
+                vertexBuffer: null,
+                indexBuffer: null,
+                list: []
+            };
+            const polygons = this.polygons;
+            for (let a = 0; a < areas.length; a++) {
+                const points = areas[a].split(/[,;]/);
+                const points_ = [];
+                const length = points[points.length - 1] == "" ? points.length - 1 : points.length;
+                let min_x = Number.MAX_VALUE;
+                let max_x = Number.MIN_VALUE;
+                let min_z = Number.MAX_VALUE;
+                let max_z = Number.MIN_VALUE;
+                for (let i = 0; i < length; i += 2) {
+                    const lng = parseFloat(points[i + 0]);
+                    const lat = parseFloat(points[i + 1]);
+                    const ll = gis.GCJ02_WGS84([lng, lat]);
+                    const mc = gis.LL2MC(ll);
+                    if (min_x > mc[0])
+                        min_x = mc[0];
+                    if (max_x < mc[0])
+                        max_x = mc[0];
+                    if (min_z > mc[1])
+                        min_z = mc[1];
+                    if (max_z < mc[1])
+                        max_z = mc[1];
+                    points_[i + 0] = mc[0];
+                    points_[i + 1] = mc[1];
+                }
+                const triangles = global.worker.Earcut(points_);
+                for (let i = 0; i < triangles.length; i++) {
+                    triangles[i] += polygons.vertexCount;
+                }
+                const polygon = {
+                    vertexStart: polygons.vertexCount,
+                    vertexCount: points_.length / 2,
+                    indexStart: polygons.indexCount,
+                    indexCount: triangles.length,
+                    region: [min_x, max_x, min_z, max_z],
+                    points: points_,
+                    indices: triangles,
+                };
+                polygons.vertexCount += polygon.vertexCount;
+                polygons.indexCount += polygon.indexCount;
+                polygons.list.push(polygon);
+            }
+            polygons.vertexBuffer = global.resources.Dioramas.GenBuffer(0, Math.ceil(polygons.vertexCount / 2.5));
+            polygons.indexBuffer = global.resources.Dioramas.GenBuffer(1, polygons.indexCount);
+            const vbuffer = new Float32Array(polygons.vertexCount * 2);
+            const ibuffer = new Uint32Array(polygons.indexCount);
+            for (let sub of polygons.list) {
+                vbuffer.set(sub.points, sub.vertexStart * 2);
+                ibuffer.set(sub.indices, sub.indexStart);
+            }
+            global.device.WriteBuffer(polygons.vertexBuffer.buffer, polygons.vertexBuffer.offset, vbuffer.buffer, 0, vbuffer.byteLength);
+            global.device.WriteBuffer(polygons.indexBuffer.buffer, polygons.indexBuffer.offset, ibuffer.buffer, 0, ibuffer.byteLength);
+        }
+        return this;
+    }
+    adcode;
+    level;
+    name;
+    center;
+    citycode;
+    districts;
+    polygons;
 }
 //# sourceMappingURL=gis.js.map

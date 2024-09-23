@@ -496,4 +496,6 @@ export const enum LAYER_FLAGS {
     LIGHT = 0x10,
     /** 预制件实例化源节点。 */
     PREFAB = 0x20,
+    /** GIS对象。 */
+    GIS = 0x40,
 };

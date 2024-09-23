@@ -1207,6 +1207,7 @@ struct ObjectUniforms {
             "BLEND_MODE_MASKED": (blendMode == 1) ? 1 : 0,
             "BLEND_MODE_TRANSPARENT": (blendMode == 2) ? 1 : 0,
             "BLEND_MODE_FADE": (blendMode == 3) ? 1 : 0,
+            ...g2.asset.settings,
         };
         let vsmain = "vsmain_0";
         let fsmain = "";

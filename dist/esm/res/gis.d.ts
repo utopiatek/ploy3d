@@ -16,6 +16,7 @@ export declare class Gis {
     Destroy(): void;
     /**
      * 根据相机姿态刷新地图。
+     * 注意：应当在帧绘制前应用相机最新姿态更新GIS。如果帧绘制使用的相机姿态与GIS当前使用的相机姿态不同，会导致画面不同步或抖动。
      * @param camera 相机组件实例。
      */
     Update(camera: Miaoverse.Camera): Float32Array;
@@ -46,6 +47,11 @@ export declare class Gis {
      * @param passEncoder 渲染通道命令编码器。
      */
     DrawMesh(queue: Miaoverse.DrawQueue): void;
+    /**
+     * 绘制矢量瓦片。
+     * @param queue passEncoder 渲染通道命令编码器。
+     */
+    Draw(queue: Miaoverse.DrawQueue): void;
     /**
      * 计算太阳方位角和高度角。
      * 方位角：单位度，正北为0，顺时针增加，[0, 360]；
@@ -106,6 +112,8 @@ export declare class Gis {
      * @returns 当前世界空间坐标。
      */
     LL2WPOS(ll: number[]): number[];
+    /** GIS行政区管理。 */
+    get districts(): Miaoverse.Gis_districts;
     /** 是否启用GIS系统。 */
     get enable(): boolean;
     set enable(b: boolean);
@@ -199,6 +207,8 @@ export declare class Gis {
     private _global;
     /** 是否启用GIS系统。 */
     private _enable;
+    /** GIS行政区管理。 */
+    private _districts;
     /** GIS金字塔结构。 */
     private _pyramid;
     /** GIS网格。 */
@@ -371,6 +381,10 @@ export declare class Gis_pyramid {
      * @param callback 加载完成回调。
      */
     private Load;
+    /**
+     * 获取GIS当前渲染经纬度范围。
+     */
+    GetDrawRegion(): number[];
     /** LOD层级数。 */
     get levelCount(): number;
     /** LOD层级图层瓦片平铺数量。 */
@@ -395,6 +409,107 @@ export declare class Gis_pyramid {
     private _pyramidTop;
     /** LOD层级金字塔高度（建议值8）。 */
     private _pyramidHeight;
+}
+/** GIS行政区管理。 */
+export declare class Gis_districts {
+    /**
+     * 构造函数。
+     */
+    constructor(_gis: Gis);
+    /**
+     * 初始化GIS行政区管理。
+     */
+    Init(): Promise<this>;
+    /**
+     * 加载GIS行政区。
+     * https://lbs.amap.com/api/webservice/guide/api/district
+     * @param keywords 行政区关键词[国家, 省份|直辖市, 市, 区县]。
+     * @param token 高德地图AK（ad592e63640a58865bd1640560cbe82e）。
+     * @returns 返回GIS行政区对象。
+     */
+    Load(keywords: string[], token: string): Promise<Miaoverse.Gis_district>;
+    /**
+     * 绘制GIS行政区分界线。
+     */
+    Draw(queue: Miaoverse.DrawQueue): void;
+    /** 国家行政区域信息查找表。 */
+    get countries(): Record<string, Miaoverse.Gis_district>;
+    /** GIS实例。 */
+    private _gis;
+    /** 材质资源实例。 */
+    private _material;
+    /** 网格渲染器组件实例（用于提供绘制所需的G1数据）。 */
+    private _meshRenderer;
+    /** 着色器管线实例ID。 */
+    private _pipeline;
+    /** 国家行政区域信息查找表。 */
+    private _countries;
+}
+/** GIS行政区。 */
+export declare class Gis_district {
+    /**
+     * 构造函数。
+     */
+    constructor();
+    /**
+     * 构建行政区实例对象。
+     * @param gis GIS系统接口。
+     * @param jdata 行政区数据。
+     * @returns 返回行政区对象。
+     */
+    Build(gis: Gis, jdata: any): Promise<this>;
+    /** 行政区编码（街道编码等同所属区县编码）。 */
+    adcode: string;
+    /** 行政区划级别：国家 | 省份,直辖市 | 市 | 区县 | 街道（乡镇）。 */
+    level: "country" | "province" | "city" | "district" | "street";
+    /** 行政区名称。 */
+    name: string;
+    /** 行政区中心点。 */
+    center: number[];
+    /** 城市编码（国家、省份｜直辖市级别不含城市编码。市及其下级行政区拥有共同城市编码）。 */
+    citycode?: string;
+    /** 下级行政区查找表（通过下级行政区名称查找）。 */
+    districts: Record<string, Gis_district>;
+    /** 行政区域边界数据。 */
+    polygons?: {
+        /** 绘制实例索引。 */
+        instanceIndex: number;
+        /** 总顶点数量。 */
+        vertexCount: number;
+        /** 总索引数量。 */
+        indexCount: number;
+        /** 顶点缓存节点。 */
+        vertexBuffer: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
+        /** 索引缓存节点。 */
+        indexBuffer: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
+        /** 边界子图形列表。 */
+        list: {
+            /** 子图形顶点索引偏移。 */
+            baseVertex: number;
+            /** MC坐标包围盒。 */
+            region: number[];
+            /** MC坐标数组（自行保证图形左下角MC坐标在1倍墨卡托投影范围内）。 */
+            points: number[];
+            /** 边界线。 */
+            lines: {
+                /** 边界线索引数组。 */
+                indices: number[];
+                /** 子图形索引数组偏移。 */
+                firstIndex: number;
+                /** 子图形索引数量。  */
+                indexCount: number;
+            };
+            /** 区域填充。 */
+            triangles: {
+                /** 三角形索引数组。 */
+                indices: number[];
+                /** 子图形索引数组偏移。 */
+                firstIndex: number;
+                /** 子图形索引数量。  */
+                indexCount: number;
+            };
+        }[];
+    };
 }
 /** GIS图层贴图采样偏移缩放。 */
 interface Gis_uvst {

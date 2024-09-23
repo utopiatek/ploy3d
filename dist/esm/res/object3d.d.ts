@@ -280,5 +280,7 @@ export declare const enum LAYER_FLAGS {
     /** 灯光节点（包含光源组件）。 */
     LIGHT = 16,
     /** 预制件实例化源节点。 */
-    PREFAB = 32
+    PREFAB = 32,
+    /** GIS对象。 */
+    GIS = 64
 }

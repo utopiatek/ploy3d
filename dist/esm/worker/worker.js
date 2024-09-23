@@ -1,6 +1,7 @@
 import { Kernel } from "../kernel.js";
 import { Importer } from "./importer.js";
 import pako from "./pako.esm.js";
+import earcut from "./earcut.js";
 import "./jszip.min.js";
 export class Miaoworker {
     constructor(_global) {
@@ -279,6 +280,9 @@ const __worker = new Miaoworker();
     }
     Pako_inflate(buffer) {
         return pako.inflate(buffer);
+    }
+    Earcut(vertices, holeIndices = null, dim = 2) {
+        return earcut(vertices, holeIndices, dim);
     }
     async EncodeTexture(data_, has_alpha) {
         return null;
