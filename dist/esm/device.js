@@ -370,12 +370,12 @@ export class Device {
             else {
                 const canvas = this._global.config.surface;
                 const canvas2d = this._global.app.ui_canvas;
-                width = canvas.clientWidth * this._global.config.devicePixelRatio;
-                height = canvas.clientHeight * this._global.config.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
+                canvas.width = this._global.assembly.config.renderTargets.width;
+                canvas.height = this._global.assembly.config.renderTargets.height;
                 canvas2d.width = canvas.clientWidth;
                 canvas2d.height = canvas.clientHeight;
+                width = canvas.clientWidth * this._global.config.devicePixelRatio;
+                height = canvas.clientHeight * this._global.config.devicePixelRatio;
             }
         }
         this._global.width = width;

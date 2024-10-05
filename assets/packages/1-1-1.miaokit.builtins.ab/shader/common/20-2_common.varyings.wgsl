@@ -124,7 +124,7 @@ fn computeLightSpacePosition(viewPosition: vec3f, viewNormal: vec3f, cascade: u3
     let vPos = viewPosition + normalize(viewNormal) * (sinTheta * frameUniforms.shadowBias);
 
     // 返回阴影贴图采样UV和光照空间深度
-    return mulMat4x4Float3((frameUniforms.sm_uvfwMat * wfvMat), vPos);
+    return mulMat4x4Float3((frameUniforms.sm_uvfwMat[cascade] * wfvMat), vPos);
 }
 
 // 计算指定相机空间视锥分片内点的阴影贴图采样UV和光照空间深度

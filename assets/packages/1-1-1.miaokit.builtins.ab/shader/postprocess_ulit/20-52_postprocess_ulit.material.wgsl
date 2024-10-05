@@ -1,17 +1,17 @@
 
+override MIPMAP_COLOR = 0u;
 override MIPMAP_ZDEPTH = 0u;
 override EXTRACT_SSAO = 0u;
 override EXTRACT_SSR = 0u;
 override EXTRACT_SSS = 0u;
 override BLUR_SSS = 0u;
+override PROC_BLOOM = 0u;
 override BLIT_CANVAS = 0u;
 override BLIT_CANVAS_COMBINE_SSS = 1u;
+override BLIT_CANVAS_COMBINE_BLOOM = 1u;
 override BLIT_CANVAS_TONE_MAPPING = 1u;
 
-const uvts_sssBlur1: vec4f = vec4f((0.5 + 1.0 / 2048), (0.0 + 1.0 / 2048.0), (1022.0 / 2048.0), (1022.0 / 2048.0));
-const uvts_sssBlur2: vec4f = vec4f((0.0 + 1.0 / 1024), (0.0 + 1.0 / 1024), (1022.0 / 1024), (1022.0 / 1024));
-
-var<private> uTextureSSSKernel : array<vec4f, 27> = array<vec4f, 27>(
+const uTextureSSSKernel : array<vec4f, 27> = array<vec4f, 27>(
     vec4f(0.3086736798286438, 0.8812364339828491, 0.8812364339828491, 0),
     vec4f(0.004732436966150999, 3.3884941073603894e-15, 3.3884941073603894e-15, 2),
     vec4f(0.014967787079513073, 3.679268834044791e-10, 3.679268834044791e-10, 1.53125),
@@ -41,40 +41,35 @@ var<private> uTextureSSSKernel : array<vec4f, 27> = array<vec4f, 27>(
     vec4f(0.0438259020447731, 0.027727944776415825, 0.0035214917734265327, 0.03125),
 );
 
-// screen_height / (tan(fov * 0.5) * 2.0)
-var<private> uSsaoProjectionScale = -1040.0;
-// 影响范围的半径，控制在屏幕空间中用于计算遮蔽效果的采样点的半径
-// 这个值影响的是环境光遮蔽的“感知距离”，半径越大，遮蔽的效果越大，但也会导致遮蔽效果变得过于扩散、不精确
-// 通常设置在 0.5 到 3.0 之间，具体取决于场景的尺寸，如果场景很大，遮蔽半径可以设置得更大一些
-// 可以根据视距或者摄像机的位置动态调整。例如，在远距离时，半径可以适当调大
-var<private> uSsaoRadius = 0.1441;
-// 用于避免“自遮蔽”问题的偏移量，通常用于控制遮蔽效果的起始距离
-// 如果 uSsaoBias 设置得太小，可能会产生自遮蔽，即物体表面会遮蔽自己，产生不真实的暗影；如果设置得太大，则遮蔽效果可能不够明显
-// 较为平滑的表面需要较小的偏移量，而较复杂或粗糙的表面则可能需要更大的偏移量
-// 一般在 0.01 到 0.1 之间，视场景的复杂度而定
-// 根据物体的法线和深度值计算，适当调整偏移量
-var<private> uSsaoBias = 0.0114;
-var<private> uSsaoIntensity = 0.2;
-var<private> uSsaoProjectionInfo = vec4f(-0.0014, -0.0014, 0.7404, 0.4142);
 
 var<private> uFrameModTaaSS = 0.0;
-var<private> uQuality = 1.0;
-var<private> uTextureOutputSize = vec2f(1024.0);
-var<private> uNearFar = vec2f(1.0, 128.0);
-// 视锥平面深度与视锥平面大小的比值
-var<private> uProjFactor = 1.3517;
 // 单位距离对应的次表面散射衰减强度
 var<private> uScatteringFactorPacker = 0.1018;
-
-var<private> uToneExposure = 1.0;
-var<private> uToneBrightness = 0.0;
-var<private> uToneSaturation = 1.0;
-var<private> uToneContrast = 0.0;
-var<private> uToneMethod = 2;
-
-@group(3) @binding(0) var curRT : texture_2d<f32>;
+// 视锥平面深度与视锥平面大小的比值（1.0 / frameUniforms.projectionInfo.z）
+var<private> uProjFactor = 1.3517;
 
 // ============================-------------------------------------
+
+// 当前渲染目标贴图，采样的Level与写入的Level不同
+@group(3) @binding(0) var curRT : texture_2d<f32>;
+
+// 当前渲染目标信息：渲染贴图大小，渲染区域大小，1.0/渲染区域大小，渲染缩放
+var<private> infoRT = vec4f(2048.0, 2048.0 * 1.0, 1.0 / (2048.0 * 1.0), 1.0);
+
+// 根据当前渲染区域大小将UV转换为渲染贴图采样像素坐标
+fn coordRT(uv: vec2f) ->vec2<u32> {
+    return vec2<u32>(min(uv * infoRT.y, vec2f(infoRT.y - 1.0)));
+}
+
+// ============================-------------------------------------
+
+fn postprocess_mipmap_color(uv: vec2f) {
+    let level = f32(MIPMAP_COLOR - 1);
+    let color = textureSampleLevel(curRT, splln1, uv, level);
+
+    material_emissive = color.rgb;
+    material_alpha = color.a;
+}
 
 fn postprocess_mipmap_z(uv: vec2f) {
     if (MIPMAP_ZDEPTH == 1u) {
@@ -114,46 +109,70 @@ fn postprocess_mipmap_z(uv: vec2f) {
 
 // ============================-------------------------------------
 
+// 从GB中采样线性归一化深度值
 fn fetchDepthLevel(uv: vec2f, level: f32) ->f32 {
-    //return textureSampleLevel(colorRT, spnnn1, uv * vec2f(0.5) + vec2f(0.5, 0.0), level).a;
-    //return textureSampleLevel(colorRT, spnnn1, uv * vec2f(0.5) + vec2f(0.5, 0.0), 0.0).a;
-    let pack = textureLoad(gbRT, vec2<u32>(uv * 2048.0), 0, 0);
+    let pack = textureLoad(gbRT, coordRT(uv), 0, 0);
     let depth = f32(pack.x) / 4294967295.0;
 
     return depth;
 }
 
+// 从线性归一化深度值转换到相机空间深度距离（正数）
 fn zValueFromScreenSpacePosition(depth: f32) ->f32 {
-    return uNearFar.x + (uNearFar.y - uNearFar.x) * depth;
+    return frameUniforms.cameraNearFar.x + (frameUniforms.cameraNearFar.y - frameUniforms.cameraNearFar.x) * depth;
 }
 
-fn reconstructCSPosition(ssP: vec2f, z: f32) ->vec3f {
-    return vec3f((ssP.xy * uSsaoProjectionInfo.xy + uSsaoProjectionInfo.zw) * z, -z);
+// 屏幕像素坐标转相机空间坐标
+fn reconstructCSPosition(point: vec2f, z: f32) ->vec3f {
+    return vec3f((point * (1.0 / infoRT.w) * frameUniforms.projectionInfo.xy + frameUniforms.projectionInfo.zw) * -z, -z);
 }
 
+// 屏幕UV转相机空间坐标
 fn getPosition(uv: vec2f) ->vec3f {
-    return reconstructCSPosition(uv * uTextureOutputSize, zValueFromScreenSpacePosition(fetchDepthLevel(uv, 0.0)));
+    return reconstructCSPosition(vec2f(coordRT(uv)), zValueFromScreenSpacePosition(fetchDepthLevel(uv, 0.0)));
 }
 
+// 屏幕UV加像素偏移转相机空间坐标
 fn getOffsetedPixelPos(uv: vec2f, unitOffset: vec2f, screenSpaceRadius: f32) ->vec3f {
-    let mipLevel = clamp(floor(log2(screenSpaceRadius)) - f32(3), 0.0, f32(5));
-    let uvOff = uv + floor(screenSpaceRadius * unitOffset) / uTextureOutputSize;
+    let mipLevel = clamp(floor(log2(screenSpaceRadius)) - 3.0, 0.0, 5.0);
+    let uvOff = uv + floor(screenSpaceRadius * unitOffset) / infoRT.x;
     let d = zValueFromScreenSpacePosition(fetchDepthLevel(uvOff, mipLevel));
-    return reconstructCSPosition(uvOff * uTextureOutputSize, d);
+    let coordOff = vec2f(coordRT(uvOff));
+    return reconstructCSPosition(coordOff, d);
 }
 
+// 提取SSAO强度
 fn ssaoExtract(uv: vec2f) ->f32 {
     let depthPacked = fetchDepthLevel(uv, 0.0);
     var cameraSpacePosition = getPosition(uv);
-    var ssRadius = uSsaoProjectionScale * uSsaoRadius / cameraSpacePosition.z;
-    var normal = cross(dpdy(cameraSpacePosition), dpdx(cameraSpacePosition));
-    if (depthPacked > 0.99) {
+
+    // 遮蔽效果质量
+    let uQuality = 1.0;
+    // 遮蔽效果强度
+    let uSsaoIntensity = 0.2;
+    // 用于避免“自遮蔽”问题的偏移量，通常用于控制遮蔽效果的起始距离
+    // 如果 uSsaoBias 设置得太小，可能会产生自遮蔽，即物体表面会遮蔽自己，产生不真实的暗影；如果设置得太大，则遮蔽效果可能不够明显
+    // 较为平滑的表面需要较小的偏移量，而较复杂或粗糙的表面则可能需要更大的偏移量
+    // 一般在 0.01 到 0.1 之间，视场景的复杂度而定
+    // 根据物体的法线和深度值计算，适当调整偏移量
+    let uSsaoBias = 0.0114;
+    // 控制在屏幕空间中用于计算遮蔽效果的采样半径，我们基于2048的视锥平面高度直观设置该值
+    // 这个值影响的是环境光遮蔽的“感知距离”，半径越大，遮蔽的效果越大，但也会导致遮蔽效果变得过于扩散、不精确
+    // 通常设置在 0.1 到 3.0 之间，具体取决于场景的尺寸，如果场景很大，遮蔽半径可以设置得更大一些
+    let uSsaoRadius = 0.15;
+    // 2048高度的视锥平面对应的Z坐标
+    let screenZ = 1024 / frameUniforms.projectionInfo.w;
+    // 根据视距动态调整，距离近时缩小，距离大时放大
+    var ssRadius = uSsaoRadius * screenZ / cameraSpacePosition.z;
+
+    let normal = normalize(cross(dpdy(cameraSpacePosition), dpdx(cameraSpacePosition)));
+    if (depthPacked > 0.9) {
         return 1.0;
     }
     if (ssRadius < 1.0) {
         return 1.0;
     }
-    normal = normalize(normal);
+
     var nFalloff = mix(1.0, max(0.0, 1.5 * normal.z), 0.35);
     var randomAngle = 6.28 * interleavedGradientNoise(gl_FragCoord.xy, uFrameModTaaSS);
     var invRadius2 = 1.0 / (uSsaoRadius * uSsaoRadius);
@@ -162,12 +181,13 @@ fn ssaoExtract(uv: vec2f) ->f32 {
     var vn = 0.0;
     var screenSpaceRadius = 0.0;
     var angle = 0.0;
-    var occludingPoint =  vec3f(0.0);
+    var occludingPoint = vec3f(0.0);
     var offsetUnitVec = vec2f(0.0);
     var offset = 0;
     var nbSamples = 11.0;
     if (uQuality > 0.33) { nbSamples += 11.0; }
     if (uQuality > 0.66) { nbSamples += 11.0; }
+
     screenSpaceRadius = (f32(offset + 0) + 0.5) * (1.0 / nbSamples);
     angle = screenSpaceRadius * (3.0 * 6.28) + randomAngle;
     screenSpaceRadius = max(0.75, screenSpaceRadius * ssRadius);
@@ -478,6 +498,7 @@ fn ssaoExtract(uv: vec2f) ->f32 {
     return aoValue;
 }
 
+// 提取SSAO强度
 fn postprocess_ssao(uv: vec2f) {
     let ao = ssaoExtract(uv);
     material_emissive = vec3f(ao);
@@ -486,6 +507,7 @@ fn postprocess_ssao(uv: vec2f) {
 
 // ============================-------------------------------------
 
+// 计算LOD对应像素步进大小
 fn computeLodNearestPixelSizePowLevel(lodLevelIn: f32, maxLod: f32, size: vec2f) ->vec3f {
     let lodLevel = min(maxLod - 0.01, lodLevelIn);
     let lowerLevel = floor(lodLevel);
@@ -498,36 +520,32 @@ fn computeLodNearestPixelSizePowLevel(lodLevelIn: f32, maxLod: f32, size: vec2f)
     return vec3f(pixelSize, powLevel);
 }
 
-fn computeLodUVNearest(uvIn: vec2f, pixelSizePowLevel: vec3f) ->vec2f {
-    let uv = max(pixelSizePowLevel.xy, min(1.0 - pixelSizePowLevel.xy, uvIn));
-    return vec2f(2.0 * uv.x, pixelSizePowLevel.z - 1.0 - uv.y) / pixelSizePowLevel.z;
-}
-
+// 采样屏幕空间反射颜色
 fn fetchColorLod(level: f32, uv: vec2f) ->vec3f {
-    //const uPreviousGlobalTexSize = vec2f(2048.0);
-    //let pixelSizePowLevel = computeLodNearestPixelSizePowLevel(7.0 * level, 7.0, uPreviousGlobalTexSize);
-    //let uvNearest = computeLodUVNearest(uv, pixelSizePowLevel);
-    let color = textureSampleLevel(colorRT, splln1, vec2f(uv.x, 1.0 - uv.y), 0.0);
-    return color.rgb;
+    // 采样MIPMAP效果影响不大，因此我们不在生成渲染结果的MIPMAP，始终采样LOD0
+    let color = textureSampleLevel(colorRT, splln1, vec2f(uv.x, 1.0 - uv.y) * infoRT.w, 0.0);
+    return decodeRGBM(color, uRGBMRange);
 }
 
+// 从GB中采样相机空间Z值
 fn fetchDepthLod(uv: vec2f, pixelSizePowLevel: vec3f) ->f32 {
-    let pack = textureLoad(gbRT, vec2<u32>((saturate(vec2f(uv.x, 1.0 - uv.y))) * 2048.0), 0, 0);
-    let depth = f32(pack.x) / 4294967295.0;
+    let depth = fetchDepthLevel(vec2f(uv.x, 1.0 - uv.y), 0.0);
 
     // 返回-Z轴坐标
     if (depth >= 1.0) {
-        return -uNearFar.y * 100.0;
+        return -frameUniforms.cameraNearFar.y * 100.0;
     }
 
-    return -uNearFar.x - depth * (uNearFar.y - uNearFar.x);
+    return -frameUniforms.cameraNearFar.x - depth * (frameUniforms.cameraNearFar.y - frameUniforms.cameraNearFar.x);
 }
 
+// 相机空间坐标转屏幕空间
 fn ssrViewToScreen(projection: mat4x4<f32>, viewVertex: vec3f) ->vec3f {
     let projected = projection * vec4f(viewVertex, 1.0);
     return vec3f(0.5 + 0.5 * projected.xy / projected.w, projected.w);
 }
 
+// 屏幕空间反射射线屏幕空间向量
 fn computeRayDirUV(viewVertex: vec3f, rayOriginUV: vec3f, rayLen: f32, rayDirView: vec3f) ->vec3f {
     var rayDirUV = ssrViewToScreen(frameUniforms.cfvMat, viewVertex.xyz + rayDirView * rayLen);
     rayDirUV.z = 1.0 / rayDirUV.z;
@@ -539,12 +557,14 @@ fn computeRayDirUV(viewVertex: vec3f, rayOriginUV: vec3f, rayLen: f32, rayDirVie
     return rayDirUV * min(scaleMaxX, scaleMaxY) * min(scaleMinX, scaleMinY);
 }
 
+// 屏幕空间反射射线追踪步进偏移噪音
 fn getStepOffset(frameMod: f32) ->f32 {
     return (interleavedGradientNoise(gl_FragCoord.xy, frameMod) - 0.5);
 }
 
+// 屏幕空间反射射线追踪
 fn rayTraceUnrealSimple(viewVertex: vec3f, rayOriginUV: vec3f, rayLen: f32, depthTolerance_: f32, rayDirView: vec3f, roughness: f32, frameMod: f32) ->vec4f {
-    const uTextureToBeRefractedSize = vec2f(2048.0, 2048.0);
+    let uTextureToBeRefractedSize = infoRT.yy;
     var pixelSizePowLevel = computeLodNearestPixelSizePowLevel(5.0 * roughness, 5.0, uTextureToBeRefractedSize);
     var invNumSteps = 1.0 / f32(8);
     if (true) {
@@ -709,6 +729,7 @@ fn rayTraceUnrealSimple(viewVertex: vec3f, rayOriginUV: vec3f, rayLen: f32, dept
     return vec4(rayOriginUV + rayDirUV * diffSampleW.z, 1.0 - diffSampleW.z);
 }
 
+// 屏幕空间反射重要性采样
 fn unrealImportanceSampling(frameMod: f32, tangentX: vec3f, tangentY: vec3f, tangentZ: vec3f, eyeVector: vec3f, rough4: f32) ->vec3f {
     var E: vec2f;
     E.x = interleavedGradientNoise(gl_FragCoord.yx, frameMod);
@@ -722,6 +743,7 @@ fn unrealImportanceSampling(frameMod: f32, tangentX: vec3f, tangentY: vec3f, tan
     return normalize((2.0 * dot(eyeVector, h)) * h - eyeVector);
 }
 
+// 屏幕空间反射颜色贡献
 fn fetchColorContribution(resRay_: vec4f, maskSsr: f32, roughness: f32) ->vec4f {
     let pi_x = 1.0 / frameUniforms.last_uvfvMat[0][0];
     let pi_y = 1.0 / frameUniforms.last_uvfvMat[1][1];
@@ -741,6 +763,7 @@ fn fetchColorContribution(resRay_: vec4f, maskSsr: f32, roughness: f32) ->vec4f 
     return vec4f(fetchColor, maskSsr * maskEdge);
 }
 
+// 屏幕空间反射计算
 fn ssr(roughness: f32, normal: vec3f, eyeVector: vec3f, viewVertex: vec3f) ->vec4f {
     const uSsrFactor = 1.0;
     var result = vec4f(0.0);
@@ -749,7 +772,7 @@ fn ssr(roughness: f32, normal: vec3f, eyeVector: vec3f, viewVertex: vec3f) ->vec
     let upVector = select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(normal.z) < 0.999);
     let tangentX = normalize(cross(upVector, normal));
     let tangentY = cross(normal, tangentX);
-    var maskSsr = uSsrFactor * clamp(-4.0 * dot(eyeVector, normal) + 3.8, 0.0, 1.0);
+    var maskSsr = uSsrFactor * clamp(-4.0 * dot(eyeVector, normal) + 3.999, 0.0, 1.0);
     maskSsr *= clamp(4.7 - roughness * 5.0, 0.0, 1.0);
     var rayOriginUV = ssrViewToScreen(frameUniforms.cfvMat, viewVertex.xyz);
     /// Y轴向上，贴图采样UV Y轴向下
@@ -757,25 +780,27 @@ fn ssr(roughness: f32, normal: vec3f, eyeVector: vec3f, viewVertex: vec3f) ->vec
     var rayDirView = unrealImportanceSampling(uFrameModTaaSS, tangentX, tangentY, normal, eyeVector, rough4);
     /// rayDirView.z == -1，射线指向屏幕里，因子算得0，射线长度等于远平面距离减像素坐标Z值（Z值为负）
     /// rayDirView.z == +1，射线指向屏幕外，因子算得1，射线长度等于像素坐标Z值（Z值为负）减近平面距离
-    var rayLen = mix(uNearFar.y + viewVertex.z, -viewVertex.z - uNearFar.x, rayDirView.z * 0.5 + 0.5);
+    var rayLen = mix(frameUniforms.cameraNearFar.y + viewVertex.z, -viewVertex.z - frameUniforms.cameraNearFar.x, rayDirView.z * 0.5 + 0.5);
     let maxLen = select(select(1000.0, 100.0, viewVertex.z > -100.0), 10.0, viewVertex.z > -10.0);
     rayLen = min(rayLen, maxLen);
     let depthTolerance = 0.5 * rayLen;
-    if (dot(rayDirView, normal) > 0.001 && maskSsr > 0.0) {
+    if (maskSsr > 0.0) {
         let resRay = rayTraceUnrealSimple(viewVertex, rayOriginUV, rayLen, depthTolerance, rayDirView, roughness, uFrameModTaaSS);
-        if (resRay.w > 0.0 && resRay.w < 0.95) { // 添加上限排除自我相交，可能有更好的方案
+        if (resRay.w > 0.0) {
             result = fetchColorContribution(resRay, maskSsr, roughness);
         }
     }
-    // 光照着色时按以下方法进行混合
-    // mix(specularEnvironment, specularColor * sssColor.rgb, sssColor.a);
+    // TODO: 光照着色时按以下方法进行混合
+    // mix(specularEnvironment, specularColor * ssrColor.rgb, ssrColor.a);
     return result;
 }
 
+// 根据斜率计算法线
 fn faceNormal(dpdx: vec3f, dpdy: vec3f) -> vec3f {
     return normalize(cross(dpdx, dpdy));
 }
 
+// 还原相机空间法线
 fn computeViewSpaceNormalHighQ(
     uv: vec2f,
     depth: f32,
@@ -813,47 +838,55 @@ fn computeViewSpaceNormalHighQ(
     return -faceNormal(dpdx, dpdy);
 }
 
-fn postprocess_ssr(uv: vec2f, resolution: vec4f) {
-    let depth = fetchDepthLevel(uv, 0.0);
-    if (depth > 0.99) {
+// 屏幕空间反射计算
+fn postprocess_ssr(uv: vec2f) {
+    let pack = textureLoad(gbRT, coordRT(uv), 0, 0);
+    let depth = f32(pack.x) / 4294967295.0;
+    let roughness = f32(pack.z & 0xFF) / 255.0;
+
+    if (depth > 0.999) {
         material_emissive =vec3f(0.0);
         material_alpha = 0.0;
         return;
     }
 
     let z = zValueFromScreenSpacePosition(depth);
-    let viewVertex = reconstructCSPosition(uv * resolution.xy, z);
-    let normal = computeViewSpaceNormalHighQ(uv, depth, viewVertex, resolution, 0.0);
+    let viewVertex = reconstructCSPosition(vec2f(coordRT(uv)), z);
+    let normal = computeViewSpaceNormalHighQ(uv, depth, viewVertex, vec4f(infoRT.yy, infoRT.zz), 0.0);
     let eyeVector = normalize(-viewVertex);
 
-    // TODO: 需要额外编码粗糙度线性输入值
-    let color = ssr(0.1, normal, eyeVector, viewVertex);
+    let color = ssr(roughness, normal, eyeVector, viewVertex);
     material_emissive = color.rgb;
     material_alpha = color.a;
 }
 
 // ============================-------------------------------------
 
+// 从GB中采样次表面散射强度系数
 fn fetchScatter(uv: vec2f) ->vec2f {
-    let pack = textureLoad(gbRT, vec2<u32>(uv * 2048.0), 0, 0);
+    let pack = textureLoad(gbRT, coordRT(uv), 0, 0);
     let scatter = f32((pack.y >> 8u) & 0x7Fu) * (1.0 / 127.0);
     let profile = f32((pack.y >> 15u) & 0x1u);
 
     return vec2f(scatter, profile);
 }
 
+// 提取漫反射和散射强度
 fn sssExtract(uv: vec2f) ->vec4f {
-    let uTextureSSSColorSize = vec2f(2048.0);
-    let uTextureSSSColorRatio = vec2f(1.0);
-
-    let coordCenter = floor(uv * uTextureSSSColorSize) + 0.5;
-    let uvCenter = coordCenter / uTextureSSSColorSize;
+    let coordCenter = vec2f(coordRT(uv)) + 0.5;
+    let coordToUV = vec2f(1.0 / infoRT.x);
     let offset = vec3f(1.0, 1.0, 0.0);
+    let uvCenter = coordCenter * coordToUV;
 
-    let colorA = textureSampleLevel(colorRT, splln1, (min((coordCenter + offset.xz) / uTextureSSSColorSize.xy, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
-    let colorB = textureSampleLevel(colorRT, splln1, (min((coordCenter - offset.xz) / uTextureSSSColorSize.xy, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
-    let colorC = textureSampleLevel(colorRT, splln1, (min((coordCenter + offset.zy) / uTextureSSSColorSize.xy, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
-    let colorD = textureSampleLevel(colorRT, splln1, (min((coordCenter - offset.zy) / uTextureSSSColorSize.xy, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
+    let uvA = min((coordCenter + offset.xz), vec2f(infoRT.y - 1.0)) * coordToUV;
+    let uvB = max((coordCenter - offset.xz), vec2f(0.0)) * coordToUV;
+    let uvC = min((coordCenter + offset.zy), vec2f(infoRT.y - 1.0)) * coordToUV;
+    let uvD = max((coordCenter - offset.zy), vec2f(0.0)) * coordToUV;
+
+    let colorA = textureSampleLevel(colorRT, splln1, uvA, 0.0);
+    let colorB = textureSampleLevel(colorRT, splln1, uvB, 0.0);
+    let colorC = textureSampleLevel(colorRT, splln1, uvC, 0.0);
+    let colorD = textureSampleLevel(colorRT, splln1, uvD, 0.0);
 
     let A = (vec4f(decodeRGBM(colorA, uRGBMRange), 1.0)).rgb;
     let B = (vec4f(decodeRGBM(colorB, uRGBMRange), 1.0)).rgb;
@@ -868,18 +901,17 @@ fn sssExtract(uv: vec2f) ->vec4f {
     let ab = abs(a - b);
     let cd = abs(c - d);
     let quant1: vec3f = 0.5 * mix(A + B, C + D, select(0.0, 1.0, ab > cd));
-    let quantColor = textureSampleLevel(colorRT, splln1, (min(uvCenter, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
-    let quant0: vec3f = (vec4(decodeRGBM(quantColor, uRGBMRange), 1.0)).rgb;
+    let quantColor = textureSampleLevel(colorRT, splln1, uvCenter, 0.0);
+    let quant0: vec3f = (vec4f(decodeRGBM(quantColor, uRGBMRange), 1.0)).rgb;
     let checker = checkerboard(coordCenter, uHalton);
 
-    let diffuse = mix(quant1, quant0, checker);
-    let specular = mix(quant0, quant1, checker);
+    let diffuse = max(mix(quant1, quant0, checker), vec3f(0.0));
+    let specular = max(mix(quant0, quant1, checker), vec3f(0.0));
 
     // ============================-------------------------------------
 
     let scatter_profile = fetchScatter(uv);
-
-    let pack = textureLoad(gbRT, vec2<u32>(uv * 2048.0), 0, 0);
+    let pack = textureLoad(gbRT, coordRT(uv), 0, 0);
     let scatter = f32((pack.y >> 8u) & 0x7Fu) * (1.0 / 127.0);
     let profile = f32((pack.y >> 15u) & 0x1u);
     let depth = f32(pack.x) / 4294967295.0;
@@ -887,18 +919,22 @@ fn sssExtract(uv: vec2f) ->vec4f {
     return select(vec4f(diffuse, depth), vec4f(0.0), (scatter_profile.x == 0.0 || profile == 0.0));
 }
 
+// 混合SSS颜色
 fn sssCombine(uv: vec2f, sss: vec3f) ->vec4f {
-    let uTextureSSSColorSize = vec2f(2048.0);
-    let uTextureSSSColorRatio = vec2f(1.0);
-
-    let coordCenter = floor(uv * uTextureSSSColorSize) + 0.5;
-    let uvCenter = coordCenter / uTextureSSSColorSize;
+    let coordCenter = vec2f(coordRT(uv)) + 0.5;
+    let coordToUV = vec2f(1.0 / infoRT.x);
     let offset = vec3f(1.0, 1.0, 0.0);
+    let uvCenter = coordCenter * coordToUV;
+    
+    let uvA = min((coordCenter + offset.xz), vec2f(infoRT.y - 1.0)) * coordToUV;
+    let uvB = max((coordCenter - offset.xz), vec2f(0.0)) * coordToUV;
+    let uvC = min((coordCenter + offset.zy), vec2f(infoRT.y - 1.0)) * coordToUV;
+    let uvD = max((coordCenter - offset.zy), vec2f(0.0)) * coordToUV;
 
-    let colorA = textureSampleLevel(curRT, splln1, (min((coordCenter + offset.xz) / uTextureSSSColorSize.xy, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
-    let colorB = textureSampleLevel(curRT, splln1, (min((coordCenter - offset.xz) / uTextureSSSColorSize.xy, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
-    let colorC = textureSampleLevel(curRT, splln1, (min((coordCenter + offset.zy) / uTextureSSSColorSize.xy, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
-    let colorD = textureSampleLevel(curRT, splln1, (min((coordCenter - offset.zy) / uTextureSSSColorSize.xy, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
+    let colorA = textureSampleLevel(curRT, splln1, uvA, 0.0);
+    let colorB = textureSampleLevel(curRT, splln1, uvB, 0.0);
+    let colorC = textureSampleLevel(curRT, splln1, uvC, 0.0);
+    let colorD = textureSampleLevel(curRT, splln1, uvD, 0.0);
 
     let A = (vec4f(decodeRGBM(colorA, uRGBMRange), 1.0)).rgb;
     let B = (vec4f(decodeRGBM(colorB, uRGBMRange), 1.0)).rgb;
@@ -913,29 +949,30 @@ fn sssCombine(uv: vec2f, sss: vec3f) ->vec4f {
     let ab = abs(a - b);
     let cd = abs(c - d);
     let quant1: vec3f = 0.5 * mix(A + B, C + D, select(0.0, 1.0, ab > cd));
-    let quantColor = textureSampleLevel(curRT, splln1, (min(uvCenter, 1.0 - 1e+0 / uTextureSSSColorSize.xy)) * uTextureSSSColorRatio, 0.0);
-    let quant0: vec3f = (vec4(decodeRGBM(quantColor, uRGBMRange), 1.0)).rgb;
+    let quantColor = textureSampleLevel(curRT, splln1, uvCenter, 0.0);
+    let quant0: vec3f = (vec4f(decodeRGBM(quantColor, uRGBMRange), 1.0)).rgb;
     let checker = checkerboard(coordCenter, uHalton);
 
-    var diffuse = mix(quant1, quant0, checker);
-    let specular = mix(quant0, quant1, checker);
+    var diffuse = max(mix(quant1, quant0, checker), vec3f(0.0));
+    let specular = max(mix(quant0, quant1, checker), vec3f(0.0));
 
     // ============================-------------------------------------
 
-    let pack = textureLoad(gbRT, vec2<u32>(uv * 2048.0), 0, 0);
+    let pack = textureLoad(gbRT, coordRT(uv), 0, 0);
     let scatter = f32((pack.y >> 8u) & 0x7Fu) * (1.0 / 127.0);
     let profile = f32((pack.y >> 15u) & 0x1u);
     let depth = f32(pack.x) / 4294967295.0;
 
     let scatterWorld = scatter / uScatteringFactorPacker;
-    let worldPos = uNearFar.x + (uNearFar.y - uNearFar.x) * depth;
+    let worldPos = frameUniforms.cameraNearFar.x + (frameUniforms.cameraNearFar.y - frameUniforms.cameraNearFar.x) * depth;
     var factor = uProjFactor * scatterWorld / worldPos;
     factor = smoothstep(0.05, 0.3, factor * 50.0);
     diffuse = mix(diffuse, sss, factor);
 
-    return vec4(diffuse + specular, 1.0);
+    return vec4f(diffuse + specular, 1.0);
 }
 
+// 提取漫反射和散射强度
 fn postprocess_extract_sss(uv: vec2f) {
     let color = sssExtract(uv);
 
@@ -943,19 +980,29 @@ fn postprocess_extract_sss(uv: vec2f) {
     material_alpha = color.a;
 }
 
+// 获取SSS模糊卷积核
 fn sample_sssKernel(uv: vec2f) ->vec4f {
     let coord = floor(fract(uv) * vec2f(8.99, 2.99));
     let index = i32(floor(coord.x + 0.0 * 9.0));
     return uTextureSSSKernel[index];
 }
 
+// SSS模糊过程中的上阶段结果采样
 fn sample_sssBlur(uv: vec2f) ->vec4f {
-    let uvts = select(uvts_sssBlur2, uvts_sssBlur1, BLUR_SSS == 1u) ;
+    // 由于我们使用图集，并且使用线性过滤采样，所以我们约束避免采样到边界
+    let bolder = 1.0 / (infoRT.y * infoRT.w);
+    let clampedUV = min(max(uv, vec2f(bolder)), vec2f(1.0 - bolder));
+
+    let uvts1 = vec4f(0.5, 0.0, 0.5, 0.5) * infoRT.w;
+    let uvts2 = vec4f(0.0, 0.0, 1.0, 1.0) * infoRT.w;
+
+    let uvts = select(uvts2, uvts1, BLUR_SSS == 1u);
     let level = select(1.0, 0.0, BLUR_SSS == 1u);
 
-    return textureSampleLevel(colorRT, splln1, uv * uvts.zw + uvts.xy, level);
+    return textureSampleLevel(colorRT, splln1, clampedUV * uvts.zw + uvts.xy, level);
 }
 
+// 根据SSS强度获取采样点处贡献颜色
 fn sssFetchColor(uv: vec2f, colorM: vec4f, depthNormBias: f32) ->vec3f {
     let fetch = sample_sssBlur(saturate(uv));
     var invalid = uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0 || fetch.a == 0.0;
@@ -964,37 +1011,38 @@ fn sssFetchColor(uv: vec2f, colorM: vec4f, depthNormBias: f32) ->vec3f {
         return colorM.rgb;
     }
 
-    // 0.1、0.9两个数值是为了增强效果
+    // TODO: 0.1、0.9两个数值是为了增强效果
     let factor = smoothstep(0.0, 0.05, abs(colorM.a - fetch.a) * depthNormBias * 0.1) * 0.9;
 
+    // TODO: 最小混合因子取0.1为了增强效果
     return mix(fetch.rgb, colorM.rgb, max(factor, 0.1));
 }
 
+// 模糊SSS
 fn sssBlur(uv: vec2f) ->vec4f {
     let colorM = sample_sssBlur(saturate(uv));
 
     // 当前次表面散射模糊方向
-    let uBlurDir = vec2f(1.0, 0.0);
+    let uBlurDir = select(vec2f(0.0, 1.0), vec2f(1.0, 0.0), BLUR_SSS == 1u);
     // 当前像素的次表面散射强度
     let scatter_profile = fetchScatter(uv);
     // 当前像素的次表面散射覆盖范围（打包scatter参数时乘了uScatteringFactorPacker，scatterWorld除uSubsurfaceScatteringFactor等于scatter）
     let scatterWorld = scatter_profile.x / uScatteringFactorPacker;
     // 视锥深度范围
-    let depthRange = (uNearFar.y - uNearFar.x);
+    // TODO: 我们发现乘上10倍效果更理想
+    let depthRange = (frameUniforms.cameraNearFar.y - frameUniforms.cameraNearFar.x) * 10.0;
     // 两像素间归一化深度差为0时：abs(colorM.a - fetch.a) * depthNormBias == 0
     // 两像素间归一化深度差为（(scatterWorld * 0.05) / (depthRange * 0.05)）时：abs(colorM.a - fetch.a) * depthNormBias == 0.05
     // 两像素间归一化深度差为（scatterWorld / (depthRange * 0.05)）时：abs(colorM.a - fetch.a) * depthNormBias == 1
     // 引入0.05降低深度值范围大小，提供计算精度：smoothstep(0.0, 0.05, abs(colorM.a - fetch.a) * depthNormBias)
     let depthNormBias = depthRange * 0.05 / scatterWorld;
     // 当前像素在视锥中的深度
-    let worldPos = uNearFar.x + depthRange * colorM.a;
+    let worldPos = frameUniforms.cameraNearFar.x + depthRange * colorM.a;
     // 根据视锥平面深度缩放平面上的单位向量：(uBlurDir * uProjFactor) / worldPos
     // 次表面模糊像素数
     var finalStep = uBlurDir * uProjFactor * scatterWorld / worldPos;
     // 模糊的步长（3步模糊）
     finalStep *= 1.0 / 3.0;
-    // 如果模型放大，将后面的0.1倍数移除
-    finalStep *= 2.0 * 0.1;
 
     let yProfile = 1.0 - (f32(scatter_profile.y) - 0.5) / 3.0;
     let xKernelSize = 1.0 / 9.0;
@@ -1015,25 +1063,10 @@ fn sssBlur(uv: vec2f) ->vec4f {
         colorBlurred += kernel.rgb * fetch;
     }
 
-    //C0_D1_G0
-    //return vec3f(colorM.rgb);
-    //return vec3f(colorM.rgb * 10.0);
-    //return vec3f(colorM.aaa);
-    //return vec3f(scatter_profile.x);
-    //return vec3f(scatter_profile.y);
-    //return vec3f(scatterWorld);
-    //return vec3f(depthNormBias * 0.1);
-    //return vec3f(worldPos / 127.0);
-    //return vec3f(finalStep * 10.0, 0.0);
-    //return vec3f(kernel0);
-    //return vec3f(colorM.rgb * kernel0);
-    //return vec3f(offKernelNearest * 10.0, 0.0);
-    //return vec3f(rnd);
-    //return vec3f(offKernelJitter * 10.0, 0.0);
-
     return vec4f(colorBlurred, colorM.a);
 }
 
+// 模糊SSS
 fn postprocess_blur_sss(uv: vec2f) {
     let color = sssBlur(uv);
 
@@ -1043,12 +1076,150 @@ fn postprocess_blur_sss(uv: vec2f) {
 
 // ============================-------------------------------------
 
+// 计算颜色亮度值
 fn getLuminance(color: vec3f) ->f32 {
     let colorBright = vec3f(0.2126, 0.7152, 0.0722);
     return dot(color, colorBright);
 }
 
+// 与周边像素颜色平均
+fn box4x4(s0: vec3f, s1: vec3f, s2: vec3f, s3: vec3f) ->vec3f {
+    return (s0 + s1 + s2 + s3) * 0.25;
+}
+
+// 辉光效果
+fn postprocess_bloom(uv: vec2f) {
+    // see SIGGRAPH 2014: Advances in Real-Time Rendering
+    //     "Next Generation Post-Processing in Call of Duty Advanced Warfare"
+    //      Jorge Jimenez
+
+    let uBloomThreshold = 0.5118;
+
+    // 第1趟，从LOD0提取高光到LOD1
+    if (PROC_BLOOM == 1u) {
+        let coord = uv * infoRT.y;
+        let coordMax = vec2f(infoRT.y - 1.0);
+        let coordToUV = 1.0  / infoRT.x;
+
+        var color = decodeRGBM(textureSampleLevel(curRT, splln1, (max(min(coord, coordMax), vec2f(1.0)) * coordToUV), 0.0), uRGBMRange);
+
+        color = clamp(color * clamp(getLuminance(color) - uBloomThreshold, 0.0, 1.0), vec3f(0.0), vec3f(1.0));
+
+        material_emissive = color.rgb;
+        material_alpha = 1.0;
+    }
+    // 降采样，分别写入LOD2-LOD5
+    else if (PROC_BLOOM < 6u) {
+        let levelScale = 1.0 / pow(2.0, f32(i32(PROC_BLOOM - 1u)));
+        let coord = uv * infoRT.y * levelScale;
+        let coordMax = vec2f(infoRT.y * levelScale - 1.0);
+        let coordToUV = 1.0  / (infoRT.x  * levelScale);
+
+        let uv_lt = (max(min(coord + vec2f(-1, -1), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_rt = (max(min(coord + vec2f( 1, -1), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_rb = (max(min(coord + vec2f( 1,  1), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_lb = (max(min(coord + vec2f(-1,  1), coordMax), vec2f(1.0)) * coordToUV);
+
+        let uv_lt2 = (max(min(coord + vec2f(-2, -2), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_rt2 = (max(min(coord + vec2f( 2, -2), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_rb2 = (max(min(coord + vec2f( 2,  2), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_lb2 = (max(min(coord + vec2f(-2,  2), coordMax), vec2f(1.0)) * coordToUV);
+
+        let uv_l = (max(min(coord + vec2f(-2,  0), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_t = (max(min(coord + vec2f( 0, -2), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_r = (max(min(coord + vec2f( 2,  0), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_b = (max(min(coord + vec2f( 0,  2), coordMax), vec2f(1.0)) * coordToUV);
+
+        let uv_c = (max(min(coord, coordMax), vec2f(1.0)) * coordToUV);
+
+        // ====================--------------------------------
+        // 我们只绑定了1个贴图MIPMAP层级范围，level参数是相对于该范围的，所以我们总是取0
+
+        let lt  = textureSampleLevel(curRT, splln1, uv_lt, 0.0).rgb;
+        let rt  = textureSampleLevel(curRT, splln1, uv_rt, 0.0).rgb;
+        let rb  = textureSampleLevel(curRT, splln1, uv_rb, 0.0).rgb;
+        let lb  = textureSampleLevel(curRT, splln1, uv_lb, 0.0).rgb;
+
+        let lt2 = textureSampleLevel(curRT, splln1, uv_lt2, 0.0).rgb;
+        let rt2 = textureSampleLevel(curRT, splln1, uv_rt2, 0.0).rgb;
+        let rb2 = textureSampleLevel(curRT, splln1, uv_rb2, 0.0).rgb;
+        let lb2 = textureSampleLevel(curRT, splln1, uv_lb2, 0.0).rgb;
+
+        let l   = textureSampleLevel(curRT, splln1, uv_l, 0.0).rgb;
+        let t   = textureSampleLevel(curRT, splln1, uv_t, 0.0).rgb;
+        let r   = textureSampleLevel(curRT, splln1, uv_r, 0.0).rgb;
+        let b   = textureSampleLevel(curRT, splln1, uv_b, 0.0).rgb;
+
+        let c   = textureSampleLevel(curRT, splln1, uv_c, 0.0).rgb;
+
+        // ====================--------------------------------
+        // five h4x4 boxes
+
+        var c0 = vec3f(0.0);
+        var c1 = vec3f(0.0);
+
+        c0  = box4x4(lt, rt, rb, lb);
+        c1  = box4x4(c, l, t, lt2);
+        c1 += box4x4(c, r, t, rt2);
+        c1 += box4x4(c, r, b, rb2);
+        c1 += box4x4(c, l, b, lb2);
+
+        // weighted average of the five boxes
+        material_emissive = c0 * 0.5 + c1 * 0.125;
+        material_alpha = 1.0;
+    }
+    // 升采样（6-5、7-4、8-3、9-2）
+    else {
+        let level = f32(i32(5u - (PROC_BLOOM - 6u)));
+        let levelScale = 1.0 / pow(2.0, level);
+        let coord = uv * infoRT.y * levelScale;
+        let coordMax = vec2f(infoRT.y * levelScale - 1.0);
+        let coordToUV = 1.0  / (infoRT.x  * levelScale);
+
+        let uv_lt = (max(min(coord + vec2f(-1, -1), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_rt = (max(min(coord + vec2f( 1, -1), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_rb = (max(min(coord + vec2f( 1,  1), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_lb = (max(min(coord + vec2f(-1,  1), coordMax), vec2f(1.0)) * coordToUV);
+
+        let uv_l = (max(min(coord + vec2f(-1,  0), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_t = (max(min(coord + vec2f( 0, -1), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_r = (max(min(coord + vec2f( 1,  0), coordMax), vec2f(1.0)) * coordToUV);
+        let uv_b = (max(min(coord + vec2f( 0,  1), coordMax), vec2f(1.0)) * coordToUV);
+
+        let uv_c = (max(min(coord, coordMax), vec2f(1.0)) * coordToUV);
+
+        // ====================--------------------------------
+
+        var c0 = vec3f(0.0);
+        var c1 = vec3f(0.0);
+
+        c0  = textureSampleLevel(curRT, splln1, uv_lt, 0.0).rgb;
+        c0 += textureSampleLevel(curRT, splln1, uv_rt, 0.0).rgb;
+        c0 += textureSampleLevel(curRT, splln1, uv_rb, 0.0).rgb;
+        c0 += textureSampleLevel(curRT, splln1, uv_lb, 0.0).rgb;
+
+        c0 += textureSampleLevel(curRT, splln1, uv_c, 0.0).rgb * 4.0;
+
+        c1  = textureSampleLevel(curRT, splln1, uv_l, 0.0).rgb;
+        c1 += textureSampleLevel(curRT, splln1, uv_t, 0.0).rgb;
+        c1 += textureSampleLevel(curRT, splln1, uv_r, 0.0).rgb;
+        c1 += textureSampleLevel(curRT, splln1, uv_b, 0.0).rgb;
+
+        material_emissive = (c0 + 2.0 * c1) * (1.0 / 16.0);
+        material_alpha = 1.0;
+    }
+}
+
+// ============================-------------------------------------
+
+// 色阶映射
 fn toneMapping(color: vec3f) ->vec3f {
+    let uToneExposure = 1.0;
+    let uToneBrightness = 0.0;
+    let uToneSaturation = 1.0;
+    let uToneContrast = 0.0;
+    let uToneMethod = 2;
+
     var col = color * uToneExposure;
     let luminance = dot(col * (1.0 + uToneBrightness), vec3f(0.2126, 0.7152, 0.0722));
     col = mix(vec3f(luminance), col * (1.0 + uToneBrightness), vec3f(uToneSaturation));
@@ -1071,44 +1242,37 @@ var<private> material_alpha: f32 = 1.0;
 var<private> material_emissive: vec3f = vec3f(0.0);
 
 fn material_fs() {
+    let MIPMAP_COLOR_ = MIPMAP_COLOR;
     let MIPMAP_ZDEPTH_ = MIPMAP_ZDEPTH;
     let EXTRACT_SSAO_ = EXTRACT_SSAO;
     let EXTRACT_SSR_ = EXTRACT_SSR;
     let EXTRACT_SSS_ = EXTRACT_SSS;
     let BLUR_SSS_ = BLUR_SSS;
+    let PROC_BLOOM_ = PROC_BLOOM;
     let BLIT_CANVAS_ = BLIT_CANVAS;
     let BLIT_CANVAS_COMBINE_SSS_ = BLIT_CANVAS_COMBINE_SSS;
+    let BLIT_CANVAS_COMBINE_BLOOM_ = BLIT_CANVAS_COMBINE_BLOOM;
     let BLIT_CANVAS_TONE_MAPPING_ = BLIT_CANVAS_TONE_MAPPING;
 
     // ============================-------------------------------------
 
     let uv = vec2f(inputs_uv.x, 1.0 - inputs_uv.y);
 
-    let resolution = frameUniforms.resolution;
-    let pi_z = 1.0 / frameUniforms.cfvMat[0][0];
-    let pi_w = 1.0 / frameUniforms.cfvMat[1][1];
-    let pi_xy = pi_w / (resolution.y * 0.5);
-
-    //深度缓存写入时映射的深度范围并不要求与后处理中解码映射的深度范围相同，但需要保证写入的精度
-    //当然如果映射范围前后不一致，解码出的相机空间坐标也不一致，因此最好设置为一致的范围
-    //深度范围对SSR效果影响很大
-    uNearFar = vec2f(frameUniforms.camera_params.x - (1.0 / frameUniforms.camera_params.y), frameUniforms.camera_params.x);
-    //将范围放大10倍可增强SSAO效果
-    uNearFar.y = uNearFar.x + (uNearFar.y - uNearFar.x) * 10.0;
-
-    // 在reconstructCSPosition用于计算相机空间坐标
-    uSsaoProjectionInfo = vec4f(pi_xy, -pi_xy, -pi_z, pi_w);
+    infoRT = frameUniforms.targetInfo;
 
     // ============================-------------------------------------
 
-    if (MIPMAP_ZDEPTH > 0u) {
+    if (MIPMAP_COLOR > 0u) {
+        postprocess_mipmap_color(uv);
+    }
+    else if (MIPMAP_ZDEPTH > 0u) {
         postprocess_mipmap_z(uv);
     }
     else if (EXTRACT_SSAO > 0u) {
         postprocess_ssao(uv);
     }
     else if (EXTRACT_SSR > 0u) {
-        postprocess_ssr(uv, resolution);
+        postprocess_ssr(uv);
     }
     else if (EXTRACT_SSS > 0u) {
         postprocess_extract_sss(uv);
@@ -1116,17 +1280,31 @@ fn material_fs() {
     else if (BLUR_SSS > 0u) {
         postprocess_blur_sss(uv);
     }
+    else if (PROC_BLOOM > 0u) {
+        postprocess_bloom(uv);
+    }
     else if (BLIT_CANVAS > 0u) {
-        let base = decodeRGBM(textureSampleLevel(curRT, splln1, uv, 0.0), uRGBMRange);
-        var color = base;
+        let coord = uv * infoRT.y;
+        let coordMax = vec2f(infoRT.y - 1.0);
+        let coordToUV = 1.0  / infoRT.x;
+        let rt_uv = max(min(coord, coordMax), vec2f(1.0)) * coordToUV;
+
+        var color = vec3f(0.0);
 
         if (BLIT_CANVAS_COMBINE_SSS > 0u) {
-            let sss = textureSampleLevel(colorRT, splln1, uv * 0.5 + vec2(0.5, 0.0), 0.0).rgb;
+            let sss = textureSampleLevel(colorRT, splln1, rt_uv * 0.5 + vec2(0.5, 0.0) * infoRT.w, 0.0).rgb;
             color = sssCombine(uv, sss).rgb;
+        }
+        else {
+            color = decodeRGBM(textureSampleLevel(curRT, splln1, rt_uv, 0.0), uRGBMRange);
         }
 
         if (BLIT_CANVAS_TONE_MAPPING > 0u) {
             color = toneMapping(color);
+        }
+
+        if (BLIT_CANVAS_COMBINE_BLOOM > 0u) {
+            color += textureSampleLevel(curRT, splln1, rt_uv, 1.0).rgb * 0.5;
         }
 
         color = linearTosRGB_vec3(color);

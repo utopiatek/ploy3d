@@ -32,6 +32,8 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
      * @param object3d 3D对象内核实例指针。
      */
     UpdateG1(object3d: Miaoverse.Object3D): void;
+    /** 网格资源实例。 */
+    get mesh(): Miaoverse.Mesh;
     /** 数据块在缓存中的字节大小（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
     get size(): number;
     /** 数据块在缓存中的字节偏移（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */

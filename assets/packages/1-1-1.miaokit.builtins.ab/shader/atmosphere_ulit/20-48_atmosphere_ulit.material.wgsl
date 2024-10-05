@@ -29,7 +29,7 @@ fn material_fs() {
     color = color * (color * (color * 0.305306011 + 0.682171111) + 0.012522878);
 
     let linZ = ((inputs_depth / frameUniforms.vsmExponent) + 1.0) * 0.5;
-    let depth_scatter_alpha = earlyProc(linZ, 0.0, color.b, 1.0, 0.0, 0.0, false);
+    let depth_scatter_alpha = earlyProc(linZ, 0.0, color.b, 1.0, 0.0, 0.0, 1.0, false);
 
     if (SHADING_SKIP) {
         return;

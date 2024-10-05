@@ -546,6 +546,8 @@ export class Ploy3D {
         webgl: false,
         /** 是否是移动端。 */
         mobile: false,
+        /** 是否启用4K支持。 */
+        enable4k: false,
     };
 }
 
@@ -1101,6 +1103,395 @@ export class PloyApp {
     public static SDL2_SolveEvent: () => void;
     /** CanvasKit初始化主画布。 */
     public static CK_InitUI: (app: PloyApp) => Promise<void>;
+}
+
+/** 信号对象。 */
+export class SimpleSignal<T, G> {
+    /**
+     * 构造函数。
+     * @param generator 事件最新参数生成器。
+     */
+    public constructor(generator?: () => Promise<T>, cfg?: G) {
+        this._signal = new Signal();
+        this._data = null;
+        this._generator = generator;
+        this._generatorParam = cfg;
+    }
+
+    /**
+     * 添加事件监听器。
+     * @param listener 事件监听器。
+     */
+    public AddListener(listener: (data: T, old?: T) => void) {
+        this._signal.add(listener, this);
+    }
+
+    /**
+     * 设置事件最新参数并触发事件。
+     * @param data 事件最新参数，未定义则内部通过参数生成器生成。
+     */
+    public async Dispatch(data?: T) {
+        if (data === undefined && this._generator) {
+            data = await this._generator(this._generatorParam);
+        }
+
+        const old = this._data;
+
+        this._data = data;
+        this._signal.dispatch(data, old);
+    }
+
+    /** 销毁事件管理器。 */
+    public Destroy() {
+        this._signal.dispose();
+        this._signal = undefined;
+        this._data = undefined;
+        this._generator = undefined;
+        this._generatorParam = undefined;
+    }
+
+    /** 事件最新参数。 */
+    public get data() {
+        return this._data;
+    }
+
+    /** 事件最新参数生成器生成参数。 */
+    public get generatorParam() {
+        return this._generatorParam;
+    }
+    public set generatorParam(param: G) {
+        this._generatorParam = param;
+    }
+
+    /** 事件管理器。 */
+    private _signal: Signal;
+    /** 事件最新参数。 */
+    private _data: T;
+    /** 事件最新参数生成器。 */
+    private _generator: (param: G) => Promise<T>;
+    /** 事件最新参数生成器生成参数。 */
+    private _generatorParam?: G;
+}
+
+/** 信号对象。 */
+export class Signal {
+    /**
+     * 构造函数。
+     */
+    public constructor() {
+        const self = this;
+
+        this.dispatch = function () {
+            Signal.prototype.dispatch.apply(self, arguments);
+        };
+    }
+
+    /**
+     * 判断事件监听器是否已经绑定到信号上。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @returns
+     */
+    public has(listener: any, context: any) {
+        return this._indexOfListener(listener, context) !== -1;
+    }
+
+    /**
+     * 添加事件监听器。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @param priority 事件侦听器的优先级（默认值=0，越大越优先）。
+     * @returns
+     */
+    public add(listener: any, context: any, priority = 0) {
+        if (typeof listener !== 'function') {
+            throw new Error('listener is a required param of add() and should be a Function.');
+        }
+
+        return this._registerListener(listener, false, context, priority);
+    }
+
+    /**
+     * 添加事件监听器（在触发1次后自动移除）。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @param priority 事件侦听器的优先级（默认值=0，越大越优先）。
+     * @returns
+     */
+    public addOnce(listener: any, context: any, priority = 0) {
+        if (typeof listener !== 'function') {
+            throw new Error('listener is a required param of addOnce() and should be a Function.');
+        }
+
+        return this._registerListener(listener, true, context, priority);
+    }
+
+    /**
+     * 移除事件监听器。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @returns
+     */
+    public remove(listener: any, context: any) {
+        if (typeof listener !== 'function') {
+            throw new Error('listener is a required param of remove() and should be a Function.');
+        }
+
+        const i = this._indexOfListener(listener, context);
+        if (i !== -1) {
+            this._bindings[i].destroy();
+            this._bindings.splice(i, 1);
+        }
+
+        return listener;
+    }
+
+    /**
+     * 移除所有事件监听器。
+     */
+    public removeAll() {
+        let n = this._bindings.length;
+
+        while (n--) {
+            this._bindings[n].destroy();
+        }
+
+        this._bindings.length = 0;
+    }
+
+    /**
+     * 销毁当前信号对象。
+     */
+    public dispose() {
+        this.removeAll();
+
+        delete this._bindings;
+        delete this._prevParams;
+    }
+
+    /**
+     * 向添加到队列中的所有听众发送/广播信号。
+     * @param params 传递给事件监听器的参数列表。
+     * @returns
+     */
+    public dispatch(...params: any) {
+        if (!this._active) {
+            return;
+        }
+
+        const paramsArr = Array.prototype.slice.call(arguments);
+        let n = this._bindings.length;
+
+        if (this._memorize) {
+            this._prevParams = paramsArr;
+        }
+
+        if (!n) {
+            return;
+        }
+
+        // 存在派遣期间添加/移除事件绑定的可能性，因此要克隆数组
+        const bindings = this._bindings.slice();
+
+        // 在派遣期间，某个事件响应可能会调用halt()来阻止进一步传播事件
+        this._shouldPropagate = true;
+
+        // 执行所有回调，直到列表结束，或者直到回调返回“false”或停止传播
+        // 反向循环，因为具有较高优先级的侦听器将被添加到列表末尾
+        do {
+            n--;
+        }
+        while (bindings[n] && this._shouldPropagate && bindings[n].execute(paramsArr) !== false);
+    }
+
+    /**
+     * 停止事件的传播，阻止向队列上的下一个侦听器分派。
+     * 注意：只应在信号调度期间调用，在调度之前/之后调用它不会影响信号广播。
+     */
+    public halt() {
+        this._shouldPropagate = false;
+    }
+
+    /**
+     * 遗忘上一次事件派遣的参数列表。
+     */
+    public forget() {
+        this._prevParams = null;
+    }
+
+    /**
+     * 注册事件监听器。
+     * @param listener 事件监听器。
+     * @param isOnce 是否仅执行1次。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @param priority 事件侦听器的优先级（默认值=0）。
+     * @returns 返回事件绑定对象。
+     */
+    private _registerListener(listener: any, isOnce: boolean, context: any, priority = 0) {
+        const prevIndex = this._indexOfListener(listener, context);
+        let binding: SignalBinding = undefined;
+
+        if (prevIndex !== -1) {
+            binding = this._bindings[prevIndex];
+
+            if (binding.isOnce !== isOnce) {
+                throw new Error('You cannot add' + (isOnce ? '' : 'Once') + '() then add' + (!isOnce ? '' : 'Once') + '() the same listener without removing the relationship first.');
+            }
+        }
+        else {
+            binding = new SignalBinding(this, listener, isOnce, context, priority);
+            this._addBinding(binding);
+        }
+
+        if (this._memorize && this._prevParams) {
+            binding.execute(this._prevParams);
+        }
+
+        return binding;
+    }
+
+    /**
+     * 获取当前事件监听器的绑定编号。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @returns 返回绑定编号（-1表示不存在绑定）。
+     */
+    private _indexOfListener(listener: any, context: any) {
+        let n = this._bindings.length;
+        let cur: any = undefined;
+
+        while (n--) {
+            cur = this._bindings[n];
+
+            if (cur._listener === listener && cur.context === context) {
+                return n;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * 添加事件监听器绑定（按优先级排序）。
+     * @param binding 事件监听器绑定。
+     */
+    private _addBinding(binding: SignalBinding) {
+        let n = this._bindings.length;
+
+        do {
+            --n;
+        }
+        while (this._bindings[n] && binding.priority <= this._bindings[n].priority);
+
+        this._bindings.splice(n + 1, 0, binding);
+    }
+
+    /** 当前信号对象是否激活。*/
+    private _active: boolean = true;
+    /** 是否继续传播信号给事件监听器。 */
+    private _shouldPropagate: boolean = true;
+    /**
+     * 如果该属性为真，则信号记录上一次调用的参数。
+     * 如果信号之前以前发生过，则在添加新的事件绑定时会触发调用。
+     */
+    private _memorize: boolean = false;
+    /** 信号上一次派遣的参数列表。 */
+    private _prevParams: any[] = null;
+    /** 事件绑定列表。 */
+    private _bindings: SignalBinding[] = [];
+}
+
+/** 信号对象与事件监听器之间的绑定。 */
+class SignalBinding {
+    /**
+     * 构造函数。
+     * @param signal 信号对象。
+     * @param listener 事件监听器。
+     * @param isOnce 该绑定是否仅执行1次。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @param priority 事件侦听器的优先级（默认值=0）。
+     */
+    public constructor(signal: Signal, listener: any, isOnce: boolean, context: any, priority = 0) {
+        this._signal = signal;
+        this._listener = listener;
+        this._isOnce = isOnce;
+        this._context = context;
+        this._priority = priority || 0;
+    }
+
+    /**
+     * 执行事件响应方法。
+     * @param paramsArr 追加参数列表。
+     * @returns 事件响应方法返回值。
+     */
+    public execute(paramsArr: any[]) {
+        let handlerReturn: any = undefined;
+
+        if (this._active && !!this._listener) {
+            const params = this._params ? this._params.concat(paramsArr) : paramsArr;
+
+            handlerReturn = this._listener.apply(this._context, params);
+
+            if (this._isOnce) {
+                this.detach();
+            }
+        }
+
+        return handlerReturn;
+    }
+
+    /**
+     * 销毁事件绑定实例属性。
+     */
+    public destroy() {
+        delete this._signal;
+        delete this._listener;
+        delete this._context;
+    }
+
+    /**
+     * 从信号上拆下绑定。
+     * @returns 返回事件监听器绑定到的信号，如果绑定之前已分离，则为null。
+     */
+    private detach() {
+        return this.isBound ? this._signal.remove(this._listener, this._context) : null;
+    }
+
+    /**
+     * 判断当前绑定是否有效。
+     * @returns
+     */
+    public get isBound() {
+        return (!!this._signal && !!this._listener);
+    }
+
+    /** 
+     * 该绑定是否仅执行1次。
+     */
+    public get isOnce() {
+        return this._isOnce;
+    }
+
+    /** 事件侦听器的优先级（默认值=0）。 */
+    public get priority() {
+        return this._priority;
+    }
+
+    /** 当前绑定是否激活。 */
+    private _active: boolean = true;
+    /** 响应方法执行默认参数集。 */
+    private _params: any[] = null;
+
+    /** 信号对象。 */
+    private _signal: Signal;
+    /** 事件监听器。 */
+    private _listener: any;
+    /** 该绑定是否仅执行1次。 */
+    private _isOnce: boolean;
+    /** 事件监听器上下文（事件监听器方法内的this变量）。 */
+    private _context: any;
+    /** 事件侦听器的优先级（默认值=0）。 */
+    private _priority: number;
 }
 
 /**

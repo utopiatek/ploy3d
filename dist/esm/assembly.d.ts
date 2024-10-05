@@ -24,10 +24,6 @@ export declare class Assembly {
      * @returns 返回帧通道集。
      */
     GetFramePassList(key: string): {
-        /** 是否为延迟着色模式。 */
-        deferred?: boolean;
-        /** 渲染目标动态渲染分辨率倍数，可选值：1.0倍，0.75倍，0.5倍。 */
-        rt_scale: number;
         /** 渲染管线使用的帧通道列表。 */
         framePassName: string[];
         /** 渲染管线使用的帧通道列表。 */
@@ -56,6 +52,8 @@ export declare class Assembly {
     }>;
     /** 默认IBL高光反射贴图资源视图。 */
     get default_iblSpecular(): GPUTextureView;
+    /** 渲染管线装配器配置。 */
+    get config(): Miaoverse.Assembly_config;
     /** 模块实例对象。 */
     private _global;
     /**
@@ -96,6 +94,8 @@ export interface Assembly_config {
         width: number;
         /** 渲染目标高度。 */
         height: number;
+        /** 渲染目标动态渲染分辨率倍数。 */
+        scale: number;
         /** 渲染目标定义列表。 */
         list: {
             /** 唯一标识。 */
@@ -145,10 +145,6 @@ export interface Assembly_config {
     };
     /** 渲染管线配置。 */
     pipelines: Record<string, {
-        /** 是否为延迟着色模式。 */
-        deferred?: boolean;
-        /** 渲染目标动态渲染分辨率倍数，可选值：1.0倍，0.75倍，0.5倍。 */
-        rt_scale: number;
         /** 渲染管线使用的帧通道列表。 */
         framePassName: string[];
         /** 渲染管线使用的帧通道列表。 */
@@ -164,7 +160,7 @@ export interface Assembly_config {
             writeRT: string;
             /** 数据写入目标贴图层索引。 */
             writeLayer: number;
-            /** 数据写入目标贴图LOD级别。 */
+            /** 数据写入目标贴图LOD级别（128大小的贴图，4K情况下写入L5，否则写入L4）。 */
             writeLevel: number;
             /** 数据写入目标贴图X偏移。 */
             writeOffsetX: number;

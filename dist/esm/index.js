@@ -289,6 +289,7 @@ export class Ploy3D {
         web: false,
         webgl: false,
         mobile: false,
+        enable4k: false,
     };
 }
 export class PloyApp {
@@ -607,6 +608,200 @@ export class PloyApp {
     static SDL2_InitEvent;
     static SDL2_SolveEvent;
     static CK_InitUI;
+}
+export class SimpleSignal {
+    constructor(generator, cfg) {
+        this._signal = new Signal();
+        this._data = null;
+        this._generator = generator;
+        this._generatorParam = cfg;
+    }
+    AddListener(listener) {
+        this._signal.add(listener, this);
+    }
+    async Dispatch(data) {
+        if (data === undefined && this._generator) {
+            data = await this._generator(this._generatorParam);
+        }
+        const old = this._data;
+        this._data = data;
+        this._signal.dispatch(data, old);
+    }
+    Destroy() {
+        this._signal.dispose();
+        this._signal = undefined;
+        this._data = undefined;
+        this._generator = undefined;
+        this._generatorParam = undefined;
+    }
+    get data() {
+        return this._data;
+    }
+    get generatorParam() {
+        return this._generatorParam;
+    }
+    set generatorParam(param) {
+        this._generatorParam = param;
+    }
+    _signal;
+    _data;
+    _generator;
+    _generatorParam;
+}
+export class Signal {
+    constructor() {
+        const self = this;
+        this.dispatch = function () {
+            Signal.prototype.dispatch.apply(self, arguments);
+        };
+    }
+    has(listener, context) {
+        return this._indexOfListener(listener, context) !== -1;
+    }
+    add(listener, context, priority = 0) {
+        if (typeof listener !== 'function') {
+            throw new Error('listener is a required param of add() and should be a Function.');
+        }
+        return this._registerListener(listener, false, context, priority);
+    }
+    addOnce(listener, context, priority = 0) {
+        if (typeof listener !== 'function') {
+            throw new Error('listener is a required param of addOnce() and should be a Function.');
+        }
+        return this._registerListener(listener, true, context, priority);
+    }
+    remove(listener, context) {
+        if (typeof listener !== 'function') {
+            throw new Error('listener is a required param of remove() and should be a Function.');
+        }
+        const i = this._indexOfListener(listener, context);
+        if (i !== -1) {
+            this._bindings[i].destroy();
+            this._bindings.splice(i, 1);
+        }
+        return listener;
+    }
+    removeAll() {
+        let n = this._bindings.length;
+        while (n--) {
+            this._bindings[n].destroy();
+        }
+        this._bindings.length = 0;
+    }
+    dispose() {
+        this.removeAll();
+        delete this._bindings;
+        delete this._prevParams;
+    }
+    dispatch(...params) {
+        if (!this._active) {
+            return;
+        }
+        const paramsArr = Array.prototype.slice.call(arguments);
+        let n = this._bindings.length;
+        if (this._memorize) {
+            this._prevParams = paramsArr;
+        }
+        if (!n) {
+            return;
+        }
+        const bindings = this._bindings.slice();
+        this._shouldPropagate = true;
+        do {
+            n--;
+        } while (bindings[n] && this._shouldPropagate && bindings[n].execute(paramsArr) !== false);
+    }
+    halt() {
+        this._shouldPropagate = false;
+    }
+    forget() {
+        this._prevParams = null;
+    }
+    _registerListener(listener, isOnce, context, priority = 0) {
+        const prevIndex = this._indexOfListener(listener, context);
+        let binding = undefined;
+        if (prevIndex !== -1) {
+            binding = this._bindings[prevIndex];
+            if (binding.isOnce !== isOnce) {
+                throw new Error('You cannot add' + (isOnce ? '' : 'Once') + '() then add' + (!isOnce ? '' : 'Once') + '() the same listener without removing the relationship first.');
+            }
+        }
+        else {
+            binding = new SignalBinding(this, listener, isOnce, context, priority);
+            this._addBinding(binding);
+        }
+        if (this._memorize && this._prevParams) {
+            binding.execute(this._prevParams);
+        }
+        return binding;
+    }
+    _indexOfListener(listener, context) {
+        let n = this._bindings.length;
+        let cur = undefined;
+        while (n--) {
+            cur = this._bindings[n];
+            if (cur._listener === listener && cur.context === context) {
+                return n;
+            }
+        }
+        return -1;
+    }
+    _addBinding(binding) {
+        let n = this._bindings.length;
+        do {
+            --n;
+        } while (this._bindings[n] && binding.priority <= this._bindings[n].priority);
+        this._bindings.splice(n + 1, 0, binding);
+    }
+    _active = true;
+    _shouldPropagate = true;
+    _memorize = false;
+    _prevParams = null;
+    _bindings = [];
+}
+class SignalBinding {
+    constructor(signal, listener, isOnce, context, priority = 0) {
+        this._signal = signal;
+        this._listener = listener;
+        this._isOnce = isOnce;
+        this._context = context;
+        this._priority = priority || 0;
+    }
+    execute(paramsArr) {
+        let handlerReturn = undefined;
+        if (this._active && !!this._listener) {
+            const params = this._params ? this._params.concat(paramsArr) : paramsArr;
+            handlerReturn = this._listener.apply(this._context, params);
+            if (this._isOnce) {
+                this.detach();
+            }
+        }
+        return handlerReturn;
+    }
+    destroy() {
+        delete this._signal;
+        delete this._listener;
+        delete this._context;
+    }
+    detach() {
+        return this.isBound ? this._signal.remove(this._listener, this._context) : null;
+    }
+    get isBound() {
+        return (!!this._signal && !!this._listener);
+    }
+    get isOnce() {
+        return this._isOnce;
+    }
+    get priority() {
+        return this._priority;
+    }
+    _active = true;
+    _params = null;
+    _signal;
+    _listener;
+    _isOnce;
+    _context;
+    _priority;
 }
 export function Start(instance, appid = "default", title = "PLOY3D引擎", width = 1920, height = 1080) {
     const app_class = instance.appLut[appid];

@@ -60,7 +60,7 @@ fn sample_opacity() ->f32 {
 }
 
 fn sample_metalness() ->f32 {
-    var metalness = 0.0;
+    var metalness = 1.0;
 
     if (materialParams.metallicRoughnessTexture_sampler.x > 0) {
         metalness = textureSample(metallicRoughnessTexture, sampler_metallicRoughnessTexture, inputs_uv * materialParams.metallicRoughnessTexture_uvts.zw + materialParams.metallicRoughnessTexture_uvts.xy).b;
@@ -146,7 +146,9 @@ fn material_sketchfab() {
     let profile = uSubsurfaceScatteringProfile;
     let scatter = uScatteringFactorPacker * uSubsurfaceScatteringFactor * sample_scattering();
 
-    let depth_scatter_alpha = earlyProc(linZ, thinLayer, alpha, alphaCutoff, profile, scatter, true);
+    var materialRoughness = getMaterialRoughness();
+
+    let depth_scatter_alpha = earlyProc(linZ, thinLayer, alpha, alphaCutoff, profile, scatter, materialRoughness, true);
 
     if (SHADING_SKIP) {
         return;
@@ -165,8 +167,6 @@ fn material_sketchfab() {
     var materialSpecular = mix(vec3f(f0), materialDiffuse, metal);
 
     materialDiffuse *= 1.0 - metal;
-
-    var materialRoughness = getMaterialRoughness();
 
     var materialNormal = frontNormal;
     materialNormal = getMaterialNormalMap();

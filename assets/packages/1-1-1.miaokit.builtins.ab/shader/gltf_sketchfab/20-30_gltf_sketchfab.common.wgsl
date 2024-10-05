@@ -69,7 +69,7 @@ fn f0ClearCoatToSurface(f0: vec3f) ->vec3f {
 
 // DFG贴图采样方法
 fn TextureLod_light_iblDFG(uv: vec2f, level: f32) ->vec4f {
-    return textureSampleLevel(colorRT, splln1, vec2f(uv.x * 0.1240 + 0.0000, uv.y * 0.1240 + 0.0000), 1.0);
+    return textureSampleLevel(colorRT, splln1, uv, select(4.0, 5.0, frameUniforms.targetInfo.x == 4096));
 }
 
 // 根据LOD和NoV采样DFG数据
@@ -331,6 +331,14 @@ fn anisotropicLobe(precomputeGGX: vec4f, normal: vec3f, eyeVector: vec3f, eyeLig
     return (D * V * 3.141593) * F;
 }
 
+fn getSquareFalloffAttenuation(distanceSquare: f32, falloff: f32) ->f32 {
+    let factor = distanceSquare * falloff;
+    let smoothFactor = saturate(1.0 - factor * factor);
+    // We would normally divide by the square distance here
+    // but we do it at the call site
+    return smoothFactor * smoothFactor;
+}
+
 fn computeLightLambertGGX(
     normal: vec3f,
     eyeVector: vec3f,
@@ -351,9 +359,8 @@ fn computeLightLambertGGX(
 }
 
 fn PBR_main() ->vec4f {
-    let uEnvironmentExposure            = 0.2; // frameUniforms.iblLuminance;
+    let uEnvironmentExposure            = frameUniforms.iblLuminance;
     let uAOPBROccludeSpecular           = 1;
-    let uSketchfabLight0_diffuse        = vec4f(0.3894, 0.3983, 0.4988, 1.0) * 2.0;
 
     let materialDiffuse = material_diffuseColor;
     let materialSpecular = material_f0;
@@ -363,6 +370,7 @@ fn PBR_main() ->vec4f {
     let materialNormal = shading_normal;
     let eyeVector = shading_view;
     let bentAnisotropicNormal = computeAnisotropicBentNormal(eyeVector, materialNormal);
+    let ssuv = gl_FragCoord.xy * (1.0 / frameUniforms.targetInfo.x);
 
     getPixelParams();
 
@@ -371,10 +379,15 @@ fn PBR_main() ->vec4f {
     var diffuse = materialDiffuse * computeDiffuseSPH(materialNormal);
     var specular = computeIBLSpecularUE4(bentAnisotropicNormal, eyeVector, materialRoughness, materialSpecular, frontNormal, materialF90);
 
+    if (frameUniforms.ssrDisable == 0u) {
+        let ssrColor = textureSampleLevel(colorRT, splln1, ((ssuv * 0.5) + vec2f(0.0, 0.5 * frameUniforms.targetInfo.w)), 0.0).rgb;
+        // TODO: 混合环境反射与屏幕空间反射
+        specular = materialSpecular * ssrColor * integrateBRDF();
+    }
+
     var materialAO = 1.0; // TODO: material_ambientOcclusion;
-    if (true) {
-        let uv = gl_FragCoord.xy * (1.0 / 2048.0) * 0.25 + vec2f(0.25, 0.0);
-        let ssao = textureSampleLevel(colorRT, splln1, uv, 0.0).a;
+    if (frameUniforms.ssaoDisable == 0u) {
+        let ssao = textureSampleLevel(colorRT, splln1, ssuv * 0.5, 0.0).a;
         materialAO = min(materialAO, ssao);
     }
 
@@ -399,84 +412,119 @@ fn PBR_main() ->vec4f {
     var eyeLightDir = vec3f(0.0);
     var lighted = true;
 
-    //precomputeSun
-    {
-        attenuation = 1.0;
-        eyeLightDir = -uSketchfabLight0_viewDirection;
-        dotNL = dot(eyeLightDir, materialNormal);
-    }
+    var froxelCoord = vec3<u32>(vec3f(shading_normalizedViewportCoord.xy * vec2f(frameUniforms.froxelCount.yz), 0.0));
+    var froxelZ = u32(log2(-shading_position.z / frameUniforms.froxelCountZ.y) / frameUniforms.froxelCountZ.z + f32(frameUniforms.froxelCount.w));
 
-    //computeLightLambertGGX(materialNormal, eyeVector, dotNL, prepGGX, materialDiffuse, materialSpecular, attenuation, uSketchfabLight0_diffuse.rgb, eyeLightDir, materialF90, lightDiffuse, lightSpecular, lighted);
-    {
-        let normal = materialNormal;
-        let NoL = dotNL;
-        let diffuse_ = materialDiffuse;
-        let specular_ = materialSpecular;
-        let lightColor = uSketchfabLight0_diffuse.rgb;
-        let f90 = materialF90;
+    // 存在从相机背后照到相机前面物体的情况（视锥裁剪排除掉了大部分这种情况），这种情况始终使用第一个截面
+    froxelZ = select(0u, froxelZ, shading_position.z < 0.0);
+    froxelZ = clamp(froxelZ, 0, frameUniforms.froxelCount.w - 1u);
+    froxelCoord.z = froxelZ;
 
-        lighted = NoL > 0.0;
+    let froxelIndex = dot(froxelCoord, vec3<u32>(frameUniforms.froxelParamsF.xyz));
+    let froxelLights = lightVoxel.data[froxelIndex / 4u][froxelIndex % 4u];
 
-        if (lighted == false) {
-            lightSpecular = vec3f(0.0);
-            lightDiffuse = vec3f(0.0);
+    // ========================--------------------------------
+
+    let vfwMat = frameUniforms.vfgMat * frameUniforms.gfwMat;
+
+    for (var i = 0u; i < 4u; i++) {
+        let litIndex = (froxelLights >> (8u * i)) & 0xFFu;
+        if (litIndex > 0u) {
+            let litData = lightList.data[litIndex];
+            let litType = u32(litData.extra) & 0xFFu;
+            let litColor = litData.color;
+
+            if (litType == 30u) { // POINT
+                let litPos = mulMat4x4Float3(vfwMat, litData.position).xyz;
+                eyeLightDir = litPos - shading_position;
+                let dist = length(eyeLightDir);
+                attenuation = getSquareFalloffAttenuation(dist * dist, litData.falloff) * litData.lux;
+                eyeLightDir = select(vec3f(0.0, 1.0, 0.0), eyeLightDir / dist, dist > 0.0);
+                dotNL = dot(eyeLightDir, materialNormal);
+            }
+            else if (litType == 20u) { // DIRECTIONAL
+                attenuation = 1.0;
+                eyeLightDir = mulMat3x3Float3(vfwMat, normalize(litData.direction));
+                dotNL = dot(eyeLightDir, materialNormal);
+            }
+
+            //computeLightLambertGGX(materialNormal, eyeVector, dotNL, prepGGX, materialDiffuse, materialSpecular, attenuation, uSketchfabLight0_diffuse.rgb, eyeLightDir, materialF90, lightDiffuse, lightSpecular, lighted);
+            {
+                let normal = materialNormal;
+                let NoL = dotNL;
+                let diffuse_ = materialDiffuse;
+                let specular_ = materialSpecular;
+                let lightColor = litColor;
+                let f90 = materialF90;
+
+                lighted = NoL > 0.0;
+
+                if (lighted == false) {
+                    lightSpecular = vec3f(0.0);
+                    lightDiffuse = vec3f(0.0);
+                }
+                else {
+                    let colorAttenuate = attenuation * NoL * lightColor;
+                    lightSpecular = colorAttenuate * specularLobe(prepGGX, normal, eyeVector, eyeLightDir, specular_, NoL, f90);
+                    lightDiffuse = colorAttenuate * diffuse_;
+                }
+            }
+
+            diffuse += lightDiffuse;
+            specular += lightSpecular;
         }
-        else {
-            let colorAttenuate = attenuation * NoL * lightColor;
-            lightSpecular = colorAttenuate * specularLobe(prepGGX, normal, eyeVector, eyeLightDir, specular_, NoL, f90);
-            lightDiffuse = colorAttenuate * diffuse_;
+    }
+
+    // ========================--------------------------------
+
+    if (frameUniforms.sunlitDirection.w == 0.0) {
+        //precomputeSun
+        {
+            attenuation = 1.0;
+            eyeLightDir = mulMat3x3Float3(vfwMat, normalize(frameUniforms.sunlitDirection.xyz));
+            dotNL = dot(eyeLightDir, materialNormal);
         }
-    }
 
-    diffuse += lightDiffuse;
-    specular += lightSpecular;
+        //computeLightLambertGGX(materialNormal, eyeVector, dotNL, prepGGX, materialDiffuse, materialSpecular, attenuation, uSketchfabLight0_diffuse.rgb, eyeLightDir, materialF90, lightDiffuse, lightSpecular, lighted);
+        {
+            let normal = materialNormal;
+            let NoL = dotNL;
+            let diffuse = materialDiffuse;
+            let specular = materialSpecular;
+            let lightColor = frameUniforms.sunlitColorIntensity.rgb * frameUniforms.sunlitColorIntensity.a;
+            let f90 = materialF90;
 
-    //precomputeSun
-    {
-        attenuation = 1.0;
-        //eyeLightDir = -uSketchfabLight1_viewDirection;
-        eyeLightDir = mulMat3x3Float3(frameUniforms.vfgMat * frameUniforms.gfwMat, normalize(vec3f(1.0, 1.0, 0.0)));
-        dotNL = dot(eyeLightDir, materialNormal);
-    }
+            lighted = NoL > 0.0;
 
-    //computeLightLambertGGX(materialNormal, eyeVector, dotNL, prepGGX, materialDiffuse, materialSpecular, attenuation, uSketchfabLight0_diffuse.rgb, eyeLightDir, materialF90, lightDiffuse, lightSpecular, lighted);
-    {
-        let normal = materialNormal;
-        let NoL = dotNL;
-        let diffuse = materialDiffuse;
-        let specular = materialSpecular;
-        let lightColor = uSketchfabLight1_diffuse.rgb * 0.5;
-        let f90 = materialF90;
-
-        lighted = NoL > 0.0;
-
-        if (lighted == false) {
-            lightSpecular = vec3f(0.0);
-            lightDiffuse = vec3f(0.0);
+            if (lighted == false) {
+                lightSpecular = vec3f(0.0);
+                lightDiffuse = vec3f(0.0);
+            }
+            else {
+                let colorAttenuate = attenuation * NoL * lightColor;
+                lightSpecular = colorAttenuate * specularLobe(prepGGX, normal, eyeVector, eyeLightDir, specular, NoL, f90);
+                lightDiffuse = colorAttenuate * diffuse;
+            }
         }
-        else {
-            let colorAttenuate = attenuation * NoL * lightColor;
-            lightSpecular = colorAttenuate * specularLobe(prepGGX, normal, eyeVector, eyeLightDir, specular, NoL, f90);
-            lightDiffuse = colorAttenuate * diffuse;
+
+        var visibility = select(1.0, 0.0, VARIANT_HAS_SHADOWING);
+        let cascadeIndex = getShadowCascade(-shading_position.z);
+
+        if (VARIANT_HAS_SHADOWING && dotNL > 0.0) {
+            visibility = shadow(cascadeIndex);
         }
+
+        diffuse += lightDiffuse * visibility;
+        specular += lightSpecular * visibility;
     }
 
-    var visibility = select(1.0, 0.0, VARIANT_HAS_SHADOWING);
-
-    if (VARIANT_HAS_SHADOWING && dotNL > 0.0) {
-        visibility = shadow(0);
-    }
-
-    diffuse += lightDiffuse * visibility;
-    specular += lightSpecular * visibility;
-
-    var frag = mix(specular, diffuse, checkerboard(gl_FragCoord.xy, uHalton));
-
-    frag += material_emissive;
+    var frag = specular + diffuse +  material_emissive;
 
     if (!SHADING_OUTPUT_LINEAR) {
         frag = linearTosRGB_vec3(frag);
     }
 
-    return encodeRGBM(frag, uRGBMRange);
+    /// =======================--------------------------------
+
+    return encodeRGBM(max(frag, vec3f(0.0)), uRGBMRange);
 }

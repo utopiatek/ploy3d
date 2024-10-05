@@ -109,6 +109,278 @@ export class DrawQueue {
     }
 
     /**
+     * 对资源包进行快照渲染。
+     */
+    public async Snapshot(scene: Miaoverse.Scene, menu: Miaoverse.PackageReg["menu"]) {
+        const resources = this._global.resources;
+
+        // ====================--------------------------------
+
+        const prefab_thumbnail_start = 0;
+        const prefabs: {
+            thumbnail_index: number;
+            prefab: Miaoverse.Prefab;
+        }[] = [];
+
+        for (let entry of menu.list) {
+            if (entry.classid == Miaoverse.CLASSID.ASSET_PREFAB) {
+                const thumbnail_index = prefab_thumbnail_start + prefabs.length;
+                const prefab = await resources.Scene.InstancePrefab(scene, entry.uuid);
+
+                prefabs.push({
+                    thumbnail_index,
+                    prefab
+                });
+            }
+        }
+
+        // ====================--------------------------------
+
+        const mesh_thumbnail_start = prefab_thumbnail_start + prefabs.length;
+        const meshes: {
+            thumbnail_index: number;
+            object: Miaoverse.Object3D;
+            mesh: Miaoverse.Mesh;
+        }[] = [];
+
+        for (let entry of menu.list) {
+            if (entry.classid == Miaoverse.CLASSID.ASSET_MESH) {
+                const thumbnail_index = mesh_thumbnail_start + meshes.length;
+                const mesh = await resources.Mesh.Load(entry.uuid);
+
+                meshes.push({
+                    thumbnail_index,
+                    object: null,
+                    mesh
+                });
+            }
+        }
+
+        // ====================--------------------------------
+
+        const material_thumbnail_start = mesh_thumbnail_start + meshes.length;
+        const materials: {
+            thumbnail_index: number;
+            material: Miaoverse.Material;
+        }[] = [];
+
+        for (let entry of menu.list) {
+            if (entry.classid == Miaoverse.CLASSID.ASSET_MATERIAL) {
+                const thumbnail_index = material_thumbnail_start + materials.length;
+                const material = await resources.Material.Load(entry.uuid) as Miaoverse.Material;
+
+                materials.push({
+                    thumbnail_index,
+                    material
+                });
+            }
+        }
+
+        // ====================--------------------------------
+
+        const texture_thumbnail_start = material_thumbnail_start + materials.length;
+        const textures: {
+            thumbnail_index: number;
+            texture: Miaoverse.Texture;
+        }[] = [];
+
+        for (let entry of menu.list) {
+            if (entry.classid == Miaoverse.CLASSID.ASSET_TEXTURE_FILE) {
+                const thumbnail_index = texture_thumbnail_start + textures.length;
+                const texture = await resources.Texture.Load(entry.uuid);
+
+                textures.push({
+                    thumbnail_index,
+                    texture
+                });
+            }
+        }
+
+        // ====================--------------------------------
+
+        let unproc = meshes.length;
+
+        let proc = (obj: Miaoverse.Object3D) => {
+            const meshRenderer = obj.meshRenderer;
+            if (meshRenderer) {
+                const mesh = meshRenderer.mesh;
+                if (mesh) {
+                    for (let item of meshes) {
+                        if (item.mesh == mesh) {
+                            item.object = obj;
+                            unproc--;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return unproc == 0 ? true : false;
+        };
+
+        for (let prefab of prefabs) {
+            for (let obj of prefab.prefab.instanceList) {
+                proc(obj);
+            }
+        }
+
+        let mat_obj: Miaoverse.Object3D = null;
+
+        // ====================--------------------------------
+
+        const thumbnail_count = texture_thumbnail_start + textures.length;
+        const cols = Math.ceil(Math.sqrt(thumbnail_count));
+        let rows = Math.floor(Math.sqrt(thumbnail_count));
+        if (thumbnail_count > (cols * rows)) {
+            rows++;
+        }
+
+        const canvas_rt = this._global.config.surface as HTMLCanvasElement;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = 128 * cols;
+        canvas.height = 128 * rows;
+
+        const complete = (callback: () => void) => {
+            canvas.toBlob((blob) => {
+                menu.thumbnail = window.URL.createObjectURL(blob);
+                menu.thumbnail_per_row = cols;
+                menu.thumbnail_blob = blob;
+
+                callback();
+            }, "image/jpeg", 0.5);
+        };
+
+        // ====================--------------------------------
+
+        type DrawPass = {
+            drawTexture: typeof textures[0];
+            drawObjects: Miaoverse.Object3D[];
+            forceMat: Miaoverse.Material;
+            variantCount: number;
+            UseVariant: (index: number, queue: DrawQueue) => void;
+            EndVariant: (index: number, queue: DrawQueue, callback: () => void) => void;
+        };
+
+        const passes: DrawPass[] = [];
+
+        if (0 < prefabs.length) {
+            // 绘制单个预制件预览
+            const pass: DrawPass = {
+                drawTexture: null,
+                drawObjects: [],
+                forceMat: null,
+                variantCount: prefabs.length,
+                UseVariant: (index: number, queue: DrawQueue) => {
+                    pass.drawObjects = [];
+
+                    for (let obj of prefabs[index].prefab.instanceList) {
+                        if (obj.meshRenderer) {
+                            pass.drawObjects.push(obj);
+                        }
+                    }
+                },
+                EndVariant: (index: number, queue: DrawQueue, callback: () => void) => {
+                    const icon = prefabs[index].thumbnail_index;
+                    const col = icon % cols;
+                    const row = Math.floor(index / cols);
+
+                    ctx.drawImage(canvas_rt, 128 * col, 128 * row, 128, 128);
+
+                    callback();
+                }
+            };
+
+            passes.push(pass);
+        }
+
+        if (0 < meshes.length) {
+            const pass: DrawPass = {
+                drawTexture: null,
+                drawObjects: [],
+                forceMat: null,
+                variantCount: meshes.length,
+                UseVariant: (index: number, queue: DrawQueue) => {
+                    const obj = meshes[index].object;
+                    if (obj) {
+                        pass.drawObjects = [obj];
+                    }
+                    else {
+                        pass.drawObjects = [];
+                    }
+                },
+                EndVariant: (index: number, queue: DrawQueue, callback: () => void) => {
+                    const icon = meshes[index].thumbnail_index;
+                    const col = icon % cols;
+                    const row = Math.floor(icon / cols);
+
+                    ctx.drawImage(canvas_rt, 128 * col, 128 * row, 128, 128);
+
+                    callback();
+                }
+            };
+
+            passes.push(pass);
+        }
+
+        if (0 < materials.length) {
+            const pass: DrawPass = {
+                drawTexture: null,
+                drawObjects: [mat_obj],
+                forceMat: null,
+                variantCount: materials.length,
+                UseVariant: (index: number, queue: DrawQueue) => {
+                    pass.forceMat = materials[index].material;
+                },
+                EndVariant: (index: number, queue: DrawQueue, callback: () => void) => {
+                    const icon = materials[index].thumbnail_index;
+                    const col = icon % cols;
+                    const row = Math.floor(icon / cols);
+
+                    ctx.drawImage(canvas_rt, 128 * col, 128 * row, 128, 128);
+
+                    callback();
+                }
+            };
+
+            passes.push(pass);
+        }
+
+        if (0 < textures.length) {
+            const pass: DrawPass = {
+                drawTexture: null,
+                drawObjects: [],
+                forceMat: null,
+                variantCount: textures.length,
+                UseVariant: (index: number, queue: DrawQueue) => {
+                    pass.drawTexture = textures[index];
+                },
+                EndVariant: (index: number, queue: DrawQueue, callback: () => void) => {
+                    const icon = textures[index].thumbnail_index;
+                    const col = icon % cols;
+                    const row = Math.floor(icon / cols);
+
+                    ctx.drawImage(canvas_rt, 128 * col, 128 * row, 128, 128);
+
+                    callback();
+                }
+            };
+
+            passes.push(pass);
+        }
+
+        // ====================--------------------------------
+
+        console.error("prefabs:", prefabs);
+        console.error("meshes:", meshes);
+        console.error("materials:", materials);
+        console.error("textures:", textures);
+        console.error("mat_obj:", mat_obj);
+        console.error("thumbnail_count:", cols, rows, thumbnail_count);
+    }
+
+    /**
      * 执行帧绘制。
      * @param camera 相机组件实例。
      * @param volume 体积组件实例。
@@ -142,8 +414,9 @@ export class DrawQueue {
             computeCount: 0,
         };
 
-        this.camera.width = this.target.texture.width;
-        this.camera.height = this.target.texture.height;
+        // 相机宽高比与画布元素宽高比相关，而不与渲染目标贴图宽高比相关
+        this.camera.width = this._global.width;
+        this.camera.height = this._global.height;
 
         // ===================-------------------------
 
@@ -240,10 +513,12 @@ export class DrawQueue {
         const device = this._global.device.device;
 
         this.framePass = framePass;
-        this.cmdEncoder = device.createCommandEncoder();
 
         for (let v = 0; v < (framePass.variantCount || 1); v++) {
             framePass.PreExecute(v, this);
+
+            // 帧通道变体会更新G0，因此分配独立命令编码器
+            this.cmdEncoder = device.createCommandEncoder();
 
             // 为了便于调试，不应设置复杂对象为参数
             // this.passEncoder = this.cmdEncoder.beginRenderPass(framePass);
@@ -257,14 +532,16 @@ export class DrawQueue {
             this.activeG2 = null;
             this.activeG3 = null;
 
+            this.activePipeline = null;
+
             this.computeEncoder = null;
 
             framePass.Execute(v, this);
 
             this.passEncoder.end();
-        }
 
-        device.queue.submit([this.cmdEncoder.finish()]);
+            device.queue.submit([this.cmdEncoder.finish()]);
+        }
     }
 
     /**
@@ -273,10 +550,13 @@ export class DrawQueue {
      * @param shadow_cast_index 阴影投射通道索引（Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵））。
      */
     public BindFrameUniforms(frameUniforms: Miaoverse.FrameUniforms, shadow_cast_index = -1) {
+        const infoRT = this._global.assembly.config.renderTargets;
+
         frameUniforms.UpdateFrameUniforms(this.camera, this.volume);
+        frameUniforms.view.targetInfo = [infoRT.width, infoRT.width * infoRT.scale, 1.0 / (infoRT.width * infoRT.scale), infoRT.scale];
 
         if (shadow_cast_index > -1) {
-            frameUniforms.ComputeLightSpaceMatrixes(shadow_cast_index);
+            frameUniforms.ComputeLightSpaceMatrixes(this.camera, shadow_cast_index);
         }
 
         frameUniforms.Bind(this.passEncoder);

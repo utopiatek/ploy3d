@@ -61,6 +61,194 @@ export class DrawQueue {
             this.Begin(waiting);
         }
     }
+    async Snapshot(scene, menu) {
+        const resources = this._global.resources;
+        const prefab_thumbnail_start = 0;
+        const prefabs = [];
+        for (let entry of menu.list) {
+            if (entry.classid == 65) {
+                const thumbnail_index = prefab_thumbnail_start + prefabs.length;
+                const prefab = await resources.Scene.InstancePrefab(scene, entry.uuid);
+                prefabs.push({
+                    thumbnail_index,
+                    prefab
+                });
+            }
+        }
+        const mesh_thumbnail_start = prefab_thumbnail_start + prefabs.length;
+        const meshes = [];
+        for (let entry of menu.list) {
+            if (entry.classid == 39) {
+                const thumbnail_index = mesh_thumbnail_start + meshes.length;
+                const mesh = await resources.Mesh.Load(entry.uuid);
+                meshes.push({
+                    thumbnail_index,
+                    object: null,
+                    mesh
+                });
+            }
+        }
+        const material_thumbnail_start = mesh_thumbnail_start + meshes.length;
+        const materials = [];
+        for (let entry of menu.list) {
+            if (entry.classid == 32) {
+                const thumbnail_index = material_thumbnail_start + materials.length;
+                const material = await resources.Material.Load(entry.uuid);
+                materials.push({
+                    thumbnail_index,
+                    material
+                });
+            }
+        }
+        const texture_thumbnail_start = material_thumbnail_start + materials.length;
+        const textures = [];
+        for (let entry of menu.list) {
+            if (entry.classid == 29) {
+                const thumbnail_index = texture_thumbnail_start + textures.length;
+                const texture = await resources.Texture.Load(entry.uuid);
+                textures.push({
+                    thumbnail_index,
+                    texture
+                });
+            }
+        }
+        let unproc = meshes.length;
+        let proc = (obj) => {
+            const meshRenderer = obj.meshRenderer;
+            if (meshRenderer) {
+                const mesh = meshRenderer.mesh;
+                if (mesh) {
+                    for (let item of meshes) {
+                        if (item.mesh == mesh) {
+                            item.object = obj;
+                            unproc--;
+                            break;
+                        }
+                    }
+                }
+            }
+            return unproc == 0 ? true : false;
+        };
+        for (let prefab of prefabs) {
+            for (let obj of prefab.prefab.instanceList) {
+                proc(obj);
+            }
+        }
+        let mat_obj = null;
+        const thumbnail_count = texture_thumbnail_start + textures.length;
+        const cols = Math.ceil(Math.sqrt(thumbnail_count));
+        let rows = Math.floor(Math.sqrt(thumbnail_count));
+        if (thumbnail_count > (cols * rows)) {
+            rows++;
+        }
+        const canvas_rt = this._global.config.surface;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 128 * cols;
+        canvas.height = 128 * rows;
+        const complete = (callback) => {
+            canvas.toBlob((blob) => {
+                menu.thumbnail = window.URL.createObjectURL(blob);
+                menu.thumbnail_per_row = cols;
+                menu.thumbnail_blob = blob;
+                callback();
+            }, "image/jpeg", 0.5);
+        };
+        const passes = [];
+        if (0 < prefabs.length) {
+            const pass = {
+                drawTexture: null,
+                drawObjects: [],
+                forceMat: null,
+                variantCount: prefabs.length,
+                UseVariant: (index, queue) => {
+                    pass.drawObjects = [];
+                    for (let obj of prefabs[index].prefab.instanceList) {
+                        if (obj.meshRenderer) {
+                            pass.drawObjects.push(obj);
+                        }
+                    }
+                },
+                EndVariant: (index, queue, callback) => {
+                    const icon = prefabs[index].thumbnail_index;
+                    const col = icon % cols;
+                    const row = Math.floor(index / cols);
+                    ctx.drawImage(canvas_rt, 128 * col, 128 * row, 128, 128);
+                    callback();
+                }
+            };
+            passes.push(pass);
+        }
+        if (0 < meshes.length) {
+            const pass = {
+                drawTexture: null,
+                drawObjects: [],
+                forceMat: null,
+                variantCount: meshes.length,
+                UseVariant: (index, queue) => {
+                    const obj = meshes[index].object;
+                    if (obj) {
+                        pass.drawObjects = [obj];
+                    }
+                    else {
+                        pass.drawObjects = [];
+                    }
+                },
+                EndVariant: (index, queue, callback) => {
+                    const icon = meshes[index].thumbnail_index;
+                    const col = icon % cols;
+                    const row = Math.floor(icon / cols);
+                    ctx.drawImage(canvas_rt, 128 * col, 128 * row, 128, 128);
+                    callback();
+                }
+            };
+            passes.push(pass);
+        }
+        if (0 < materials.length) {
+            const pass = {
+                drawTexture: null,
+                drawObjects: [mat_obj],
+                forceMat: null,
+                variantCount: materials.length,
+                UseVariant: (index, queue) => {
+                    pass.forceMat = materials[index].material;
+                },
+                EndVariant: (index, queue, callback) => {
+                    const icon = materials[index].thumbnail_index;
+                    const col = icon % cols;
+                    const row = Math.floor(icon / cols);
+                    ctx.drawImage(canvas_rt, 128 * col, 128 * row, 128, 128);
+                    callback();
+                }
+            };
+            passes.push(pass);
+        }
+        if (0 < textures.length) {
+            const pass = {
+                drawTexture: null,
+                drawObjects: [],
+                forceMat: null,
+                variantCount: textures.length,
+                UseVariant: (index, queue) => {
+                    pass.drawTexture = textures[index];
+                },
+                EndVariant: (index, queue, callback) => {
+                    const icon = textures[index].thumbnail_index;
+                    const col = icon % cols;
+                    const row = Math.floor(icon / cols);
+                    ctx.drawImage(canvas_rt, 128 * col, 128 * row, 128, 128);
+                    callback();
+                }
+            };
+            passes.push(pass);
+        }
+        console.error("prefabs:", prefabs);
+        console.error("meshes:", meshes);
+        console.error("materials:", materials);
+        console.error("textures:", textures);
+        console.error("mat_obj:", mat_obj);
+        console.error("thumbnail_count:", cols, rows, thumbnail_count);
+    }
     Execute(camera, volume, target, framePassList, draw, callback) {
         const device = this._global.device.device;
         const env = this._global.env;
@@ -75,8 +263,8 @@ export class DrawQueue {
             drawPartCount: 0,
             computeCount: 0,
         };
-        this.camera.width = this.target.texture.width;
-        this.camera.height = this.target.texture.height;
+        this.camera.width = this._global.width;
+        this.camera.height = this._global.height;
         const MeshRenderer = this._global.resources.MeshRenderer;
         const GetInstanceSlot = MeshRenderer["_GetInstanceSlot"];
         const VerifyInstance = MeshRenderer["_VerifyInstance"];
@@ -134,9 +322,9 @@ export class DrawQueue {
     ExecuteFramePass(framePass) {
         const device = this._global.device.device;
         this.framePass = framePass;
-        this.cmdEncoder = device.createCommandEncoder();
         for (let v = 0; v < (framePass.variantCount || 1); v++) {
             framePass.PreExecute(v, this);
+            this.cmdEncoder = device.createCommandEncoder();
             this.passEncoder = this.cmdEncoder.beginRenderPass({
                 colorAttachments: framePass.colorAttachments,
                 depthStencilAttachment: framePass.depthStencilAttachment,
@@ -145,16 +333,19 @@ export class DrawQueue {
             this.activeG1 = null;
             this.activeG2 = null;
             this.activeG3 = null;
+            this.activePipeline = null;
             this.computeEncoder = null;
             framePass.Execute(v, this);
             this.passEncoder.end();
+            device.queue.submit([this.cmdEncoder.finish()]);
         }
-        device.queue.submit([this.cmdEncoder.finish()]);
     }
     BindFrameUniforms(frameUniforms, shadow_cast_index = -1) {
+        const infoRT = this._global.assembly.config.renderTargets;
         frameUniforms.UpdateFrameUniforms(this.camera, this.volume);
+        frameUniforms.view.targetInfo = [infoRT.width, infoRT.width * infoRT.scale, 1.0 / (infoRT.width * infoRT.scale), infoRT.scale];
         if (shadow_cast_index > -1) {
-            frameUniforms.ComputeLightSpaceMatrixes(shadow_cast_index);
+            frameUniforms.ComputeLightSpaceMatrixes(this.camera, shadow_cast_index);
         }
         frameUniforms.Bind(this.passEncoder);
         this.activeG0 = frameUniforms;

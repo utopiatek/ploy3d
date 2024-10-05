@@ -1,5 +1,5 @@
 /** 导入PLOY3D引擎。 */
-import { Ploy3D, PloyApp, Scene, Object3D, Camera, Volume, Canvas2D } from "../dist/esm/mod.js"
+import { Ploy3D, PloyApp, Scene, Object3D, Camera, Volume, Assembly } from "../dist/esm/mod.js"
 
 /** 扩展实现APP类[meta_human]。 */
 export class PloyApp_meta_human extends PloyApp {
@@ -25,6 +25,32 @@ export class PloyApp_meta_human extends PloyApp {
         this.object3d = await resources.Object.Create(this.scene);
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
+
+        this.volume.shadowBias = 0.1;
+        this.volume.iblLuminance = 0.2;
+        this.volume.sunlitColorIntensity = [0.22, 0.22, 0.22, 0.5];
+        this.volume.sunlitDirection = engine.Vector3([2.0, 1.0, 0.0]).normalized.values;
+
+        // 自定义渲染管线帧通道列表（我们排除了默认设置中的"ssr_extract","proc_bloom"）
+        {
+            this.framePassList = {};
+
+            this.framePassList.framePassName = [
+                "shadow_cast",  // 0
+                "early_z",      // 1
+                "ssao_extract", // 2
+                "opaque",       // 3
+                "sss_extract",  // 4
+                "sss_blur",     // 5
+                "blit",         // 6
+            ];
+
+            this.framePassList.framePass = this.framePassList.framePassName.map((label) => {
+                return engine.assembly.GetFramePass(label);
+            });
+
+            this.framePassList.framePass[6].shaderMacro.BLIT_CANVAS_COMBINE_BLOOM = 0;
+        }
 
         // 创建地平面立方体网格对象
         {
@@ -60,6 +86,30 @@ export class PloyApp_meta_human extends PloyApp {
             object3d.localPosition = this.engine.Vector3([0, -0.5, 0]);
         }
 
+        // 添加方向光源
+        {
+            const lightObj = await resources.Object.Create(this.scene);
+
+            lightObj.localPosition = this.engine.Vector3([0, 2, 0]);
+            lightObj.localRotation = engine.Quaternion(engine.internal.Quaternion_FromVectors(0, 0, 1, 0.5919, -0.3152, 0.7418));
+
+            const light = await resources.Light.Create(lightObj, {
+                uuid: "",
+                classid: 50,
+                name: "light",
+                label: "light",
+
+                enabled: true,
+                type: "directional",
+                channels: 1,
+                color: [0.3894 * 2.0, 0.3983 * 2.0, 0.4988 * 2.0],
+                intensity: 100,
+                radius: 3.0
+            });
+
+            this.lightObj = lightObj;
+        }
+
         // 装载角色模型资源（https://sketchfab.com/3d-models/kitana-mk11-in-mk9-suit-e4305dd16079455885ba8c57cbf297c3）
         this.character = await (async () => {
             const pkg = await engine.worker.Import_gltf(1, "./.git.assets/kitana_mk11_in_mk9_suit.min.zip", () => { });
@@ -80,7 +130,7 @@ export class PloyApp_meta_human extends PloyApp {
         // 默认相机姿态
         this.camera.Set3D([0, 2, 0], 5.5, 5, 60);
         this.camera.nearZ = 0.1;
-        this.camera.farZ = 4.0;
+        this.camera.farZ = 100.0;
         this.camera.fov = 45 / 180 * Math.PI;
 
         // 注册鼠标滚轮事件监听器
@@ -194,6 +244,15 @@ export class PloyApp_meta_human extends PloyApp {
                 this._transformCtrl.Update(this.camera, null);
             }
         }
+
+        // 令该光源在相机空间中的方向固定（TODO: 应先应用相机更新）
+        if (this.lightObj) {
+            const wfvMat = this.camera.GetMatrix("wfgMat").Multiply(this.camera.GetMatrix("gfvMat"));
+            const wDir = wfvMat.MultiplyVector3(0, this.engine.Vector3([0.5919, -0.3152, 0.7418]));
+            const wRot = this.engine.Quaternion(this.engine.internal.Quaternion_FromVectors(0, 0, 1, wDir.x, wDir.y, wDir.z));
+
+            this.lightObj.localRotation = wRot;
+        }
     }
 
     /**
@@ -213,7 +272,7 @@ export class PloyApp_meta_human extends PloyApp {
 
         // ========================----------------------------------------
 
-        const framePassList = this.engine.assembly.GetFramePassList("low");
+        const framePassList = this.framePassList || this.engine.assembly.GetFramePassList("low");
         const texture = this.engine.device._swapchain.getCurrentTexture();
         const target = {
             texture: texture,
@@ -241,4 +300,10 @@ export class PloyApp_meta_human extends PloyApp {
     camera;
     /** @type {Volume} 体积组件实例。 */
     volume;
+
+    /** @type {ReturnType<Assembly["GetFramePassList"]>} 自定义渲染管线帧通道列表。 */
+    framePassList;
+
+    /** @type {Object3D} 动态方向光源3D对象实例。 */
+    lightObj;
 }

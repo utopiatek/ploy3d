@@ -44,33 +44,45 @@ fn evaluateVSM(moments: vec2f, depth: f32) -> f32 {
 }
 
 // 采样阴影贴图
-fn sampleSM(uv: vec2f, cascade: u32) ->vec2f {
-
-    // [0, 1024, 1024, 1024]
-    // [1024, 1024, 1024, 1024]
-    // [0, 512, 512, 512]
-
-    let rects : array<vec4f, 6> = array<vec4f, 6>(
-        vec4f(0.0, 0.50, 0.4995, 0.4995),
-        vec4f(0.0, 0.50, 0.4995, 0.4995),
-        vec4f(0.5, 0.50, 0.4995, 0.4995),
-        vec4f(0.5, 0.50, 0.4995, 0.4995),
-        vec4f(0.0, 0.25, 0.2495, 0.2495),
-        vec4f(0.0, 0.25, 0.2495, 0.2495)
+fn sampleSM(uv_: vec2f, cascade: u32) ->vec2f {
+    let rects : array<vec4f, 4> = array<vec4f, 4>(
+        vec4f(0.0, 0.0, 1.0, 0.5),
+        vec4f(0.0, 0.0, 1.0, 0.5),
+        vec4f(0.0, 0.5, 1.0, 0.5),
+        vec4f(0.0, 0.5, 1.0, 0.5),
     );
 
     let rect = rects[cascade];
+    let uv = vec2f(uv_.x, 1.0 - uv_.y) * rect.zw + rect.xy;
 
-    let uvstride = vec2f(2.0 / 1024.0);
-    var uv_ = vec2f(uv.x * rect[2] + rect[0], (1.0 - uv.y) * rect[3] + rect[1]);
+    // 贴图L1大小
+    let rtSize = frameUniforms.targetInfo.x * 0.5;
+    // 贴图L1绘制大小
+    let drawSize = frameUniforms.targetInfo.y * 0.5;
+
+    let coordCenter = min(uv * drawSize, vec2f(drawSize - 1.0)) + 0.5;
+    let coordToUV = vec2f(1.0 / rtSize);
+    let offset = vec3f(1.0, 1.0, 0.0);
+    let uv0 = coordCenter * coordToUV;
+
+    let uv1 = min((coordCenter + offset.xz), vec2f(drawSize - 1.0)) * coordToUV;
+    let uv2 = max((coordCenter - offset.xz), vec2f(0.0)) * coordToUV;
+    let uv3 = min((coordCenter + offset.zy), vec2f(drawSize - 1.0)) * coordToUV;
+    let uv4 = max((coordCenter - offset.zy), vec2f(0.0)) * coordToUV;
+
+    // ======================----------------------------------
 
     // TODO: 优化，生成阴影贴图MIPMAP
-    let data0 = textureSampleLevel(colorRT, splln1, uv_, 0.0);
-    let data1 = textureSampleLevel(colorRT, splln1, uv_ + uvstride, 0.0);
-    let data2 = textureSampleLevel(colorRT, splln1, uv_ - uvstride, 0.0);
-    let data3 = textureSampleLevel(colorRT, splln1, vec2f(uv_.x + uvstride.x, uv_.y - uvstride.y), 0.0);
-    let data4 = textureSampleLevel(colorRT, splln1, vec2f(uv_.x - uvstride.x, uv_.y + uvstride.y), 0.0);
+
+    let data0 = textureSampleLevel(colorRT, splln1, uv0, 1.0);
+    let data1 = textureSampleLevel(colorRT, splln1, uv1, 1.0);
+    let data2 = textureSampleLevel(colorRT, splln1, uv2, 1.0);
+    let data3 = textureSampleLevel(colorRT, splln1, uv3, 1.0);
+    let data4 = textureSampleLevel(colorRT, splln1, uv4, 1.0);
+
     let data  = (data0 + (data1 + data2 + data3 + data4) * 0.25) * 0.5;
+
+    // ======================----------------------------------
 
     if ((cascade % 2) == 1u) {
         return data.zw;
@@ -89,11 +101,11 @@ fn sampleVSM(shadowPosition: vec4f, cascade: u32) -> f32{
     // 采样阴影贴图深度的期望和深度平方的期望
     let moments = sampleSM(position.xy, cascade);
 
-    if (shadowPosition.x < 0.0 || shadowPosition.x > 1.0 || shadowPosition.y < 0.0 || shadowPosition.y > 1.0) {
+    var depth = position.z;
+
+    if (shadowPosition.x < 0.0 || shadowPosition.x > 1.0 || shadowPosition.y < 0.0 || shadowPosition.y > 1.0 || depth > 0.999) {
         return 1;
     }
-
-    var depth = position.z;
 
     // EVSM pre-mapping，结果在[-vsmExponent, +vsmExponent]之间，表示指数，其后用exp方法转换为曲线
     depth = depth * 2.0 - 1.0;
@@ -104,8 +116,22 @@ fn sampleVSM(shadowPosition: vec4f, cascade: u32) -> f32{
     return p;
 }
 
+// 返回阴影级联索引[0, 3]
+// 因为光照方向不垂直于观察方向，即光照方向不平行于视锥屏幕，而我们使用视锥平面划分区块，因此会有一个像素属于多个区块的情况，我们总取最大的索引
+// TODO: 投射物在第0区块，接收物在第1区块，能否往第0区块采样以提高精度
+fn getShadowCascade(z: f32) ->u32 {
+    // 判断是否位于各级别深度阈值之前
+    let greaterZ = step(frameUniforms.cascadeSplits, vec4f(z));
+    // 点乘方法是对应元素相乘然后累加，因此此处点乘结果是能通过greaterThan判断的离相机最近的级别索引
+    return clamp(u32(dot(greaterZ, vec4f(1.0))), 0u, 3u);
+}
+
 // 在光照空间中指定位置点采样光照可见度，返回结果可以用于与光照强度相乘
 fn shadow(cascade: u32) -> f32 {
+    if (frameUniforms.shadowDisable > 0u) {
+        return 1.0;
+    }
+
     let shadowPosition = getCascadeLightSpacePosition(cascade);
     return sampleVSM(shadowPosition, cascade);
 }

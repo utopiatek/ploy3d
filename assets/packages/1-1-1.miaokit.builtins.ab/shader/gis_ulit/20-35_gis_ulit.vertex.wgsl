@@ -114,7 +114,7 @@ fn material_vs() ->OutputVS {
     // 在相机空间中，该值保证在[-znear，-zfar]之间，使用output.viewPosition.w存储内插光照空间深度
     let z_ = output.viewPosition.z;
     // 重新缩放 [near, far] 到 [0, 1]
-    let depth = -z_ * frameUniforms.camera_params.y/*oneOverFarMinusNear*/ - frameUniforms.camera_params.z/*nearOverFarMinusNear*/;
+    let depth = -z_ * frameUniforms.cameraNearFar.z - frameUniforms.cameraNearFar.w;
     // EVSM pre-mapping，结果在[-vsmExponent, +vsmExponent]之间，表示指数，其后用exp方法转换为曲线
     output.viewPosition.w = frameUniforms.vsmExponent * (depth * 2.0 - 1.0);
 

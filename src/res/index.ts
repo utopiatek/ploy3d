@@ -541,6 +541,77 @@ export class Resources {
         }
     }
 
+    /**
+     * 浏览资源包中的可用资源。
+     * @param pkg 资源包注册信息。
+     * @returns 资源信息列表。
+     */
+    public async Browse(pkg: PackageReg) {
+        if (pkg.menu) {
+            return pkg.menu;
+        }
+
+        if (!pkg.resid_path) {
+            await this.Preview(pkg);
+        }
+
+        pkg.menu = {
+            thumbnail: "",
+            thumbnail_per_row: 1,
+            list: []
+        };
+
+        const export_keys = [29, 32, 39, 48, 65];
+
+        for (let asset_id in pkg.resid_path) {
+            const entry = pkg.resid_path[asset_id];
+            const classid_index = asset_id.split("-");
+            const classid = parseInt(classid_index[0]);
+            const index = parseInt(classid_index[1]);
+
+            // 字符串类型表示的是资源路径
+            const name = (typeof entry == "string") ? entry.substring(entry.lastIndexOf("/") + 1) : entry.label;
+
+            if (-1 < export_keys.indexOf(classid)) {
+                pkg.menu.list.push({
+                    classid: classid,
+                    index: index,
+                    uuid: pkg.uuid + "-" + asset_id,
+                    label: name,
+                    thumbnail_href: "",
+                    thumbnail_index: 0,
+                });
+            }
+        }
+
+        return pkg.menu;
+    }
+
+    /**
+     * 根据资源包UUID获取资源包注册信息。
+     * @param uuid 资源包UUID。
+     * @returns 返回资源包注册信息。
+     */
+    public GetPackageByUUID(uuid: string) {
+        const index = this._pkg_uuidLut[uuid];
+        return this._pkg_list[index];
+    }
+
+    /**
+     * 根据资源包名称获取资源包注册信息。
+     * @param key 资源包名称。
+     * @returns 返回资源包注册信息。
+     */
+    public GetPackageByKey(key: string) {
+        const index = this._pkg_keyLut[key];
+        return this._pkg_list[index];
+    }
+
+    /** 资源包注册表（该清单可缓存）。 */
+    public get packageList() {
+        return this._pkg_list;
+    }
+
     /** 模块实例对象。 */
     private _global: Miaoverse.Ploy3D;
 
@@ -636,6 +707,43 @@ export interface PackageReg {
     /** 资源包是否压缩存储。 */
     zip: boolean;
 
+    /** 资源包存储位置（默认"memory"）。 */
+    location?: "memory" | "local" | "store";
+    /** 包是否私有。 */
+    private?: boolean;
+    /** 知识共享许可协议。 */
+    license?: string;
+    /** 包售价。 */
+    price?: number;
+    /** 包归档目录（限3级） */
+    folder?: string;
+    /** 包标签。 */
+    tags?: string;
+    /** 资源选单（用于在UI中显示可用资源列表）。 */
+    menu?: {
+        /** 缩略图文件路径。 */
+        thumbnail?: string;
+        /** 缩略图文件中每行包含缩略图数量。 */
+        thumbnail_per_row?: number;
+        /** 缩略图数据对象。 */
+        thumbnail_blob?: Blob;
+        /** 资源清单。 */
+        list: {
+            /** 资源类型ID。 */
+            classid: number;
+            /** 资源索引（可用于排序）。 */
+            index: number;
+            /** 资源完整UUID。 */
+            uuid: string;
+            /** 资源标签。 */
+            label: string;
+            /** 资源缩略图URL。 */
+            thumbnail_href: string;
+            /** 资源缩略图索引。 */
+            thumbnail_index: number;
+        }[];
+    };
+
     /** 资源包元数据缓存（空表示当前资源包仅已注册但未缓存）。 */
     meta?: Package;
     /** 资源ID到资源文件路径映射表（通过Package.library构建）。 */
@@ -664,21 +772,6 @@ export interface Package {
     engine: number;
     /** 包创建时间戳。 */
     timestrap: number;
-
-    /** 作者邮箱。*/
-    email?: string;
-    /** 知识共享许可协议。 */
-    license?: string;
-    /** 包售价。 */
-    price?: number;
-    /** 包归档目录（限3级） */
-    folder?: string;
-    /** 包标签。 */
-    tags?: string;
-    /** 缩略图文件路径。 */
-    thumbnail?: string;
-    /** 缩略图文件中每行包含缩略图数量。 */
-    thumbnail_per_row?: number;
 
     /** 内嵌网格资源列表。 */
     mesh_library?: Miaoverse.Asset_mesh[];

@@ -67,6 +67,12 @@ export declare class Camera extends Miaoverse.Resource<Camera> {
         origin: Miaoverse.Vector3;
         dir: Miaoverse.Vector3;
     };
+    /**
+     * 获取相机相关变换矩阵。
+     * @param key 变换矩阵名称。
+     * @returns 返回矩阵数据。
+     */
+    GetMatrix(key: "vfgMat" | "gfvMat" | "cfvMat" | "vfcMat" | "cfgMat" | "gfcMat" | "gfwMat" | "wfgMat" | "uvfvMat" | "last_uvfvMat" | "lastcfwMat" | "cullingMat"): Miaoverse.Matrix4x4;
     /** 相机参数更新时间戳（计算各个变换矩阵的时间戳）。 */
     get writeTS(): number;
     set writeTS(value: number);
@@ -176,6 +182,18 @@ export declare const Camera_member_index: {
     readonly object: Miaoverse.Kernel_member;
     readonly lastSib: Miaoverse.Kernel_member;
     readonly nextSib: Miaoverse.Kernel_member;
+    readonly vfgMat: Miaoverse.Kernel_member;
+    readonly gfvMat: Miaoverse.Kernel_member;
+    readonly cfvMat: Miaoverse.Kernel_member;
+    readonly vfcMat: Miaoverse.Kernel_member;
+    readonly cfgMat: Miaoverse.Kernel_member;
+    readonly gfcMat: Miaoverse.Kernel_member;
+    readonly gfwMat: Miaoverse.Kernel_member;
+    readonly wfgMat: Miaoverse.Kernel_member;
+    readonly uvfvMat: Miaoverse.Kernel_member;
+    readonly last_uvfvMat: Miaoverse.Kernel_member;
+    readonly lastcfwMat: Miaoverse.Kernel_member;
+    readonly cullingMat: Miaoverse.Kernel_member;
     readonly wPos: Miaoverse.Kernel_member;
     readonly wDir: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;

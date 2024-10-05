@@ -21,6 +21,10 @@ export class MeshRenderer extends Miaoverse.Uniform {
     UpdateG1(object3d) {
         this._impl["_UpdateG1"](this._ptr, object3d.internalPtr);
     }
+    get mesh() {
+        const ptr = this._impl.Get(this._ptr, "meshPTR");
+        return this._global.resources.Mesh.GetInstanceByPtr(ptr);
+    }
     get size() {
         return this._impl.Get(this._ptr, "bufferBlockSize") - 256;
     }

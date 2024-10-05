@@ -15,6 +15,7 @@ export class VMath_kernel {
     Quaternion_Multiply;
     Quaternion_ToEulerAngles;
     Quaternion_FromEulerAngles;
+    Quaternion_FromVectors;
     Quaternion_Invert;
     Quaternion_Slerp;
     Matrix4x4_Invert;

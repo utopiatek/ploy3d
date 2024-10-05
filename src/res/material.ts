@@ -244,14 +244,16 @@ export class FrameUniforms extends Miaoverse.Uniform<Material_kernel> {
      */
     public UpdateFrameUniforms(camera: Miaoverse.Camera, volume: Miaoverse.Volume) {
         this._impl["_UpdateFrameUniforms"](this.internalPtr, camera.internalPtr, volume.internalPtr);
+        this.updated = true;
     }
 
     /**
      * 计算用于阴影投影的相关矩阵。
+     * @param camera 相机组件实例，用于获取视锥信息。
      * @param cascadeIndex Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵）。
      */
-    public ComputeLightSpaceMatrixes(cascadeIndex: number) {
-        this._impl["_ComputeLightSpaceMatrixes"](this.internalPtr, cascadeIndex);
+    public ComputeLightSpaceMatrixes(camera: Miaoverse.Camera, cascadeIndex: number) {
+        this._impl["_ComputeLightSpaceMatrixes"](this.internalPtr, camera.internalPtr, cascadeIndex);
     }
 
     /** 相关状态标志集。 */
@@ -531,7 +533,7 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
      * @param uniform G0资源内核实例指针。
      * @param cascadeIndex Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵）。
      */
-    protected _ComputeLightSpaceMatrixes: (uniform: Miaoverse.io_ptr, cascadeIndex: number) => void;
+    protected _ComputeLightSpaceMatrixes: (uniform: Miaoverse.io_ptr, camera: Miaoverse.io_ptr, cascadeIndex: number) => void;
 }
 
 /** 材质资源内核实现的数据结构成员列表。 */

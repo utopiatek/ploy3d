@@ -51,6 +51,10 @@ export class Vector3 {
     get length() {
         return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
     }
+    get normalized() {
+        const s = 1.0 / this.length;
+        return new Vector3(this._impl, [this.x * s, this.y * s, this.z * s]);
+    }
     get x() {
         return this._values[0];
     }

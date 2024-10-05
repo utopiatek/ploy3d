@@ -436,12 +436,10 @@ export declare class Gis_districts {
     get countries(): Record<string, Miaoverse.Gis_district>;
     /** GIS实例。 */
     private _gis;
-    /** 材质资源实例。 */
-    private _material;
-    /** 网格渲染器组件实例（用于提供绘制所需的G1数据）。 */
-    private _meshRenderer;
-    /** 着色器管线实例ID。 */
-    private _pipeline;
+    /** 矢量图形区域渲染资源。 */
+    private _area_renderer;
+    /** 矢量图形边线渲染资源。 */
+    private _line_renderer;
     /** 国家行政区域信息查找表。 */
     private _countries;
 }
@@ -484,30 +482,20 @@ export declare class Gis_district {
         indexBuffer: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
         /** 边界子图形列表。 */
         list: {
-            /** 子图形顶点索引偏移。 */
-            baseVertex: number;
+            /** 顶点数组起始偏移。 */
+            vertexStart: number;
+            /** 顶点数量。 */
+            vertexCount: number;
+            /** 索引数组起始偏移。 */
+            indexStart: number;
+            /** 索引数量。  */
+            indexCount: number;
             /** MC坐标包围盒。 */
             region: number[];
             /** MC坐标数组（自行保证图形左下角MC坐标在1倍墨卡托投影范围内）。 */
             points: number[];
-            /** 边界线。 */
-            lines: {
-                /** 边界线索引数组。 */
-                indices: number[];
-                /** 子图形索引数组偏移。 */
-                firstIndex: number;
-                /** 子图形索引数量。  */
-                indexCount: number;
-            };
-            /** 区域填充。 */
-            triangles: {
-                /** 三角形索引数组。 */
-                indices: number[];
-                /** 子图形索引数组偏移。 */
-                firstIndex: number;
-                /** 子图形索引数量。  */
-                indexCount: number;
-            };
+            /** 索引数组。 */
+            indices: number[];
         }[];
     };
 }

@@ -18,12 +18,19 @@ export class Assembly {
         const device = this._global.device;
         const context = this._global.context;
         const resources = this._global.resources;
+        const infoRT = this._config.renderTargets;
+        if (this._global.config.enable4k) {
+            this._config.ibl.dfg.writeLevel = 5;
 
-        const rtWidth = this._config.renderTargets.width;
-        const rtHeight = this._config.renderTargets.height;
+            infoRT.width = 4096;
+            infoRT.height = 4096;
+        }
 
-        const renderTargetsList = this._config.renderTargets.list;
-        const renderTargetsLut = this._config.renderTargets.lut = {} as Assembly_config["renderTargets"]["lut"];
+        const rtWidth = infoRT.width;
+        const rtHeight = infoRT.height;
+
+        const renderTargetsList = infoRT.list;
+        const renderTargetsLut = infoRT.lut = {} as Assembly_config["renderTargets"]["lut"];
 
         const frameUniformsList = this._config.frameUniforms.list;
         const frameUniformsLut = this._config.frameUniforms.lut = {} as Assembly_config["frameUniforms"]["lut"];
@@ -67,19 +74,80 @@ export class Assembly {
 
                 // BEG:该范围内代码非通用===============------------------------------------------------
 
-                if (queue.framePass.label == "mipmap_z") {
+                if (queue.framePass.label == "shadow_cast") {
+                    queue.framePass.index = queue.framePass.id + variant;
+
+                    if (variant < 2) {
+                        // L1的上半画幅
+                        queue.framePass.rect = [0.0, 0.0, 0.5, 0.25];
+                        // 写入RG通道或写入BA通道
+                        queue.framePass.colorAttachments[0].writeMask = variant == 0 ? 3 : 12;
+                        // 通道写入掩码不会影响清除操作
+                        queue.framePass.colorAttachments[0].loadOp = variant == 0 ? "clear" : "load";
+                    }
+                    else {
+                        // L1的下半画幅
+                        queue.framePass.rect = [0.0, 0.25, 0.5, 0.25];
+                        // 写入RG通道或写入BA通道
+                        queue.framePass.colorAttachments[0].writeMask = variant == 2 ? 3 : 12;
+                        // TODO: 视口设置不会影响清除全部操作？因为视口设置是在通道编码器设置之后？
+                        queue.framePass.colorAttachments[0].loadOp = "load";
+                    }
+                }
+                else if (queue.framePass.label == "mipmap_color") {
                     const attachment = queue.framePass.colorAttachments[0];
                     const target = attachment.target;
                     const rt = renderTargetsLut[target.name];
-                    const viewG3 = variant == 0 ? undefined : rt.views[0][variant - 1];
+                    const level = variant + 1;
+                    const viewG3 = rt.views[0][level - 1];
 
-                    target.level = variant;
-                    rt_scale = 1.0 / Math.pow(2, variant);
+                    target.level = level;
+
+                    rt_scale = 1.0 / Math.pow(2, level);
 
                     attachment.view = device.GetRenderTextureAttachment(rt.id, target.layer, target.level, target.format);
 
                     queue.framePass.index = queue.framePass.id + variant;
-                    queue.framePass.shaderMacro.MIPMAP_ZDEPTH = 1 + variant;
+                    queue.framePass.shaderMacro.MIPMAP_COLOR = 1 + variant;
+                    queue.framePass.materialSpec.g3 = postprocessG3(queue.framePass, viewG3);
+                }
+                else if (queue.framePass.label == "proc_bloom") {
+                    const attachment = queue.framePass.colorAttachments[0];
+                    const target = attachment.target;
+                    const rt = renderTargetsLut[target.name];
+
+                    let level = variant + 1;
+                    let viewG3 = rt.views[0][level - 1];
+
+                    attachment.blend = undefined;
+
+                    // 升采样
+                    if (variant > 4) {
+                        level = 5 - (variant - 4);
+                        viewG3 = rt.views[0][level + 1];
+
+                        attachment.blend = {
+                            color: {
+                                operation: "add",
+                                srcFactor: "one",
+                                dstFactor: "one"
+                            },
+                            alpha: {
+                                operation: "add",
+                                srcFactor: "one",
+                                dstFactor: "one"
+                            }
+                        };
+                    }
+
+                    target.level = level;
+
+                    rt_scale = 1.0 / Math.pow(2, level);
+
+                    attachment.view = device.GetRenderTextureAttachment(rt.id, target.layer, target.level, target.format);
+
+                    queue.framePass.index = queue.framePass.id + variant;
+                    queue.framePass.shaderMacro.PROC_BLOOM = 1 + variant;
                     queue.framePass.materialSpec.g3 = postprocessG3(queue.framePass, viewG3);
                 }
                 else if (queue.framePass.label == "sss_blur") {
@@ -108,7 +176,7 @@ export class Assembly {
                 // END:该范围内代码非通用===============------------------------------------------------
 
                 const rtRect = queue.framePass.rect;
-                const rtScale = queue.framePassList.rt_scale * rt_scale;
+                const rtScale = infoRT.scale * rt_scale;
                 const width = rtWidth * rtScale;
                 const height = rtHeight * rtScale;
 
@@ -142,7 +210,7 @@ export class Assembly {
                 queue.passEncoder.setViewport(vp[0], vp[1], vp[2], vp[3], vp[4], vp[5]);
 
                 if (queue.framePass.label.startsWith("shadow_cast")) {
-                    queue.BindFrameUniforms(frameUniforms, 0);
+                    queue.BindFrameUniforms(frameUniforms, variant);
                 }
                 else {
                     queue.BindFrameUniforms(frameUniforms);
@@ -354,10 +422,15 @@ export class Assembly {
         return texture.view;
     }
 
+    /** 渲染管线装配器配置。 */
+    public get config() {
+        return this._config;
+    }
+
     /** 模块实例对象。 */
     private _global: Miaoverse.Ploy3D;
 
-    /** 
+    /**
      * 渲染管线装配器配置。
      * 渲染贴图划分规则：
      * RT0绘制：DFG、阴影、SSAO、SSR、DEPTH，其中DFG存储于Level1，因此可以放心清空画布
@@ -389,6 +462,7 @@ export class Assembly {
         renderTargets: {
             width: 2048,
             height: 2048,
+            scale: 1.0,
             list: [
                 {
                     name: "C0",
@@ -420,13 +494,13 @@ export class Assembly {
                     name: "D0",
                     format: "depth32float",
                     layerCount: 1,
-                    levelCount: 6
+                    levelCount: 2
                 },
                 {
                     name: "D1",
                     format: "depth32float",
                     layerCount: 1,
-                    levelCount: 6
+                    levelCount: 1
                 }
             ]
         },
@@ -457,6 +531,7 @@ export class Assembly {
                 {
                     label: "shadow_cast",
                     mode: "shading",
+                    variantCount: 4,
                     shaderMacro: {
                         SHADING_SKIP: 1,
                         SHADING_CAST_SHADOW: 1,
@@ -466,7 +541,7 @@ export class Assembly {
 
                     frameUniforms: "C1_D1_G0",
                     queueRange: Miaoverse.RENDER_QUEUE_RANGE.ALL,
-                    rect: [0.0, 0.5, 0.5, 0.5],
+                    rect: [0.0, 0.0, 0.5, 0.25],
 
                     colorAttachments: [
                         {
@@ -477,7 +552,7 @@ export class Assembly {
                             target: {
                                 name: "C0",
                                 layer: 0,
-                                level: 0,
+                                level: 1,
                             },
 
                             view: null,
@@ -494,7 +569,7 @@ export class Assembly {
                         target: {
                             name: "D0",
                             layer: 0,
-                            level: 0,
+                            level: 1,
                         },
 
                         view: null,
@@ -573,7 +648,7 @@ export class Assembly {
 
                     frameUniforms: "C1_D1_G0",
                     queueRange: Miaoverse.RENDER_QUEUE_RANGE.NONE,
-                    rect: [0.25, 0.0, 0.25, 0.25],
+                    rect: [0.0, 0.0, 0.5, 0.5],
 
                     colorAttachments: [
                         {
@@ -617,7 +692,7 @@ export class Assembly {
 
                     frameUniforms: "C1_D1_G0",
                     queueRange: Miaoverse.RENDER_QUEUE_RANGE.NONE,
-                    rect: [0.25, 0.25, 0.25, 0.25],
+                    rect: [0.0, 0.5, 0.5, 0.5],
 
                     colorAttachments: [
                         {
@@ -772,6 +847,96 @@ export class Assembly {
                     depthStencilAttachment: undefined
                 },
                 {
+                    label: "mipmap_color",
+                    mode: "postprocess",
+                    variantCount: 5,
+                    shaderMacro: {
+                        MIPMAP_COLOR: 1,
+                    },
+                    materialSpec: {
+                        uuid: "",
+                        classid: Miaoverse.CLASSID.ASSET_MATERIAL,
+                        name: "framePass:blit",
+                        label: "framePass:blit",
+
+                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
+                        flags: Miaoverse.RENDER_FLAGS.DRAW_ARRAYS,
+                        properties: {
+                            textures: {},
+                            vectors: {}
+                        }
+                    },
+
+                    frameUniforms: "C0_D0",
+                    queueRange: Miaoverse.RENDER_QUEUE_RANGE.NONE,
+                    rect: [0.0, 0.0, 1.0, 1.0],
+
+                    colorAttachments: [
+                        {
+                            format: "rgba16float",
+                            writeMask: 0xF,
+                            blend: null,
+
+                            target: {
+                                name: "C1",
+                                layer: 0,
+                                level: 1,
+                            },
+
+                            view: null,
+                            clearValue: [0, 0, 0, 1],
+                            loadOp: "load",
+                            storeOp: "store"
+                        }
+                    ],
+                    depthStencilAttachment: undefined
+                },
+                {
+                    label: "proc_bloom",
+                    mode: "postprocess",
+                    variantCount: 9,
+                    shaderMacro: {
+                        PROC_BLOOM: 1,
+                    },
+                    materialSpec: {
+                        uuid: "",
+                        classid: Miaoverse.CLASSID.ASSET_MATERIAL,
+                        name: "framePass:blit",
+                        label: "framePass:blit",
+
+                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
+                        flags: Miaoverse.RENDER_FLAGS.DRAW_ARRAYS,
+                        properties: {
+                            textures: {},
+                            vectors: {}
+                        }
+                    },
+
+                    frameUniforms: "C0_D0",
+                    queueRange: Miaoverse.RENDER_QUEUE_RANGE.NONE,
+                    rect: [0.0, 0.0, 1.0, 1.0],
+
+                    colorAttachments: [
+                        {
+                            format: "rgba16float",
+                            writeMask: 0xF,
+                            blend: null,
+
+                            target: {
+                                name: "C1",
+                                layer: 0,
+                                level: 1,
+                            },
+
+                            view: null,
+                            clearValue: [0, 0, 0, 1],
+                            loadOp: "load",
+                            storeOp: "store"
+                        }
+                    ],
+                    depthStencilAttachment: undefined
+                },
+                {
                     label: "blit",
                     mode: "postprocess",
                     shaderMacro: {
@@ -814,59 +979,11 @@ export class Assembly {
                         }
                     ],
                     depthStencilAttachment: undefined
-                },
-
-                {
-                    label: "mipmap_z",
-                    mode: "postprocess",
-                    variantCount: 6,
-                    shaderMacro: {
-                        MIPMAP_ZDEPTH: 1,
-                    },
-                    materialSpec: {
-                        uuid: "",
-                        classid: Miaoverse.CLASSID.ASSET_MATERIAL,
-                        name: "framePass:blit",
-                        label: "framePass:blit",
-
-                        shader: "1-1-1.miaokit.builtins:/shader/postprocess_ulit/17-15_postprocess_ulit.json",
-                        flags: Miaoverse.RENDER_FLAGS.DRAW_ARRAYS,
-                        properties: {
-                            textures: {},
-                            vectors: {}
-                        }
-                    },
-
-                    frameUniforms: "C1_D1_G0",
-                    queueRange: Miaoverse.RENDER_QUEUE_RANGE.NONE,
-                    rect: [0.5, 0.0, 0.5, 0.5],
-
-                    colorAttachments: [
-                        {
-                            format: "rgba16float",
-                            writeMask: 0xF,
-                            blend: null,
-
-                            target: {
-                                name: "C0",
-                                layer: 0,
-                                level: 0,
-                            },
-
-                            view: null,
-                            clearValue: [0, 0, 0, 1],
-                            loadOp: "load",
-                            storeOp: "store"
-                        }
-                    ],
-                    depthStencilAttachment: undefined
                 }
             ]
         },
         pipelines: {
             low: {
-                deferred: false,
-                rt_scale: 1.0,
                 framePassName: [
                     "shadow_cast",
                     "early_z",
@@ -875,6 +992,7 @@ export class Assembly {
                     "opaque",
                     "sss_extract",
                     "sss_blur",
+                    "proc_bloom",
                     "blit",
                 ]
             }
@@ -884,7 +1002,7 @@ export class Assembly {
                 uri: "1-1-1.miaokit.builtins:/16-0_dfg.bin",
                 writeRT: "C0",
                 writeLayer: 0,
-                writeLevel: 1,
+                writeLevel: 4,
                 writeOffsetX: 0,
                 writeOffsetY: 0,
                 writeWidth: 128,
@@ -906,6 +1024,8 @@ export interface Assembly_config {
         width: number;
         /** 渲染目标高度。 */
         height: number;
+        /** 渲染目标动态渲染分辨率倍数。 */
+        scale: number;
         /** 渲染目标定义列表。 */
         list: {
             /** 唯一标识。 */
@@ -955,10 +1075,6 @@ export interface Assembly_config {
     },
     /** 渲染管线配置。 */
     pipelines: Record<string, {
-        /** 是否为延迟着色模式。 */
-        deferred?: boolean;
-        /** 渲染目标动态渲染分辨率倍数，可选值：1.0倍，0.75倍，0.5倍。 */
-        rt_scale: number;
         /** 渲染管线使用的帧通道列表。 */
         framePassName: string[];
         /** 渲染管线使用的帧通道列表。 */
@@ -974,7 +1090,7 @@ export interface Assembly_config {
             writeRT: string;
             /** 数据写入目标贴图层索引。 */
             writeLayer: number;
-            /** 数据写入目标贴图LOD级别。 */
+            /** 数据写入目标贴图LOD级别（128大小的贴图，4K情况下写入L5，否则写入L4）。 */
             writeLevel: number;
             /** 数据写入目标贴图X偏移。 */
             writeOffsetX: number;

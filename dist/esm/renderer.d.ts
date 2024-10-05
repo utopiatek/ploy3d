@@ -43,6 +43,10 @@ export declare class DrawQueue {
      */
     private Flush;
     /**
+     * 对资源包进行快照渲染。
+     */
+    Snapshot(scene: Miaoverse.Scene, menu: Miaoverse.PackageReg["menu"]): Promise<void>;
+    /**
      * 执行帧绘制。
      * @param camera 相机组件实例。
      * @param volume 体积组件实例。

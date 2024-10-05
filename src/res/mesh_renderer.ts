@@ -54,6 +54,12 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
         this._impl["_UpdateG1"](this._ptr, object3d.internalPtr);
     }
 
+    /** 网格资源实例。 */
+    public get mesh(): Miaoverse.Mesh {
+        const ptr = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "meshPTR");
+        return this._global.resources.Mesh.GetInstanceByPtr(ptr);
+    }
+
     /** 数据块在缓存中的字节大小（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
     public get size(): number {
         return this._impl.Get<number>(this._ptr, "bufferBlockSize") - 256;

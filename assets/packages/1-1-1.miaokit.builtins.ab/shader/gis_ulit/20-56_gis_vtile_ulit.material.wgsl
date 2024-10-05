@@ -3,7 +3,7 @@ override VARIANT_DRAW_LINE = false;
 
 fn material_fs() {
     let linZ = ((inputs_depth / frameUniforms.vsmExponent) + 1.0) * 0.5;
-    let depth_scatter_alpha = earlyProc(linZ, 0.0, 1.0, 1.0, 0.0, 0.0, true);
+    let depth_scatter_alpha = earlyProc(linZ, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, true);
 
     if (SHADING_SKIP) {
         return;

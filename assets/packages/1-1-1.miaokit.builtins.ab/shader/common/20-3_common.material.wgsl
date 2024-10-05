@@ -550,7 +550,8 @@ fn computeDepthMomentsVSM(depth: f32) -> vec2f {
 // alphaCutoff: Alpha裁剪阈值
 // profile: 是否保存次表面散射强度（scatter）
 // scatter: 次表面散射强度
-fn earlyProc(linZ: f32, thinLayer: f32, alpha: f32, alphaCutoff: f32, profile: f32, scatter: f32, castShadow: bool) ->vec4f {
+// roughness: 线性输入粗糙度
+fn earlyProc(linZ: f32, thinLayer: f32, alpha: f32, alphaCutoff: f32, profile: f32, scatter: f32, roughness: f32, castShadow: bool) ->vec4f {
     // 调整输出的不透明度
     var alpha_ = alpha;
     var profile_ = profile;
@@ -623,8 +624,9 @@ fn earlyProc(linZ: f32, thinLayer: f32, alpha: f32, alphaCutoff: f32, profile: f
         let profile__ = select(0u, 128u, profile_ > 0.0);
         let profile_scatter__ = profile__ + u32(floor(min(scatter_, 1.0) * 127.0));
         let profile_scatter_alpha__ = (profile_scatter__ << 8u) + u32(floor(min(scatter_, 1.0) * 255.0));
+        let roughness__ = u32(floor(roughness * 255.0));
 
-        fragData0 = vec4<u32>(depth__, profile_scatter_alpha__, 0u, ((MATERIAL_SLOT << 24u) + (inputs_instanceData.x & 0xFFFFFF)));
+        fragData0 = vec4<u32>(depth__, profile_scatter_alpha__, roughness__, ((MATERIAL_SLOT << 24u) + (inputs_instanceData.x & 0xFFFFFF)));
     }
 
     return out;    

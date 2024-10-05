@@ -114,6 +114,9 @@ export class Camera extends Miaoverse.Resource {
             dir: this._global.Vector3(ray.slice(3))
         };
     }
+    GetMatrix(key) {
+        return this._global.Matrix4x4(this._impl.Get(this._ptr, key));
+    }
     get writeTS() {
         return this._impl.Get(this._ptr, "writeTS");
     }
@@ -290,6 +293,18 @@ export const Camera_member_index = {
     object: ["ptrGet", "ptrSet", 1, 29],
     lastSib: ["ptrGet", "ptrSet", 1, 30],
     nextSib: ["ptrGet", "ptrSet", 1, 31],
+    vfgMat: ["farrayGet", "farraySet", 16, 32],
+    gfvMat: ["farrayGet", "farraySet", 16, 48],
+    cfvMat: ["farrayGet", "farraySet", 16, 64],
+    vfcMat: ["farrayGet", "farraySet", 16, 80],
+    cfgMat: ["farrayGet", "farraySet", 16, 96],
+    gfcMat: ["farrayGet", "farraySet", 16, 112],
+    gfwMat: ["farrayGet", "farraySet", 16, 128],
+    wfgMat: ["farrayGet", "farraySet", 16, 144],
+    uvfvMat: ["farrayGet", "farraySet", 16, 160],
+    last_uvfvMat: ["farrayGet", "farraySet", 16, 176],
+    lastcfwMat: ["farrayGet", "farraySet", 16, 192],
+    cullingMat: ["farrayGet", "farraySet", 16, 208],
     wPos: ["farrayGet", "farraySet", 3, 244],
     wDir: ["farrayGet", "farraySet", 3, 248],
 };

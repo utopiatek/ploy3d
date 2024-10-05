@@ -1,0 +1,16 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "../../lib",
+        "jsx": "react",
+        "skipLibCheck": true,
+        "allowJs": false,
+        "typeRoots": [
+            "../../node_modules/@webgpu/types",
+            "../../lib"
+        ],
+    },
+    "include": [
+        "."
+    ]
+}

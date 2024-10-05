@@ -113,6 +113,12 @@ export class Vector3 {
         return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
     }
 
+    /** 单位向量。 */
+    public get normalized(): Vector3 {
+        const s = 1.0 / this.length;
+        return new Vector3(this._impl, [this.x * s, this.y * s, this.z * s]);
+    }
+
     /** 向量X通道值。 */
     public get x() {
         return this._values[0];

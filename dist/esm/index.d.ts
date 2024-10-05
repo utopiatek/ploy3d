@@ -218,6 +218,8 @@ export declare class Ploy3D {
         webgl: boolean;
         /** 是否是移动端。 */
         mobile: boolean;
+        /** 是否启用4K支持。 */
+        enable4k: boolean;
     };
 }
 /** 应用基类。 */
@@ -286,14 +288,7 @@ export declare class PloyApp {
             frontFace: number;
             cullMode: number;
             topology?: Miaoverse.GLPrimitiveTopology;
-            mesh: Miaoverse.Mesh; /**
-             * 初始化窗口。
-             * @param title 主窗口标题。
-             * @param width 主窗口宽度。
-             * @param height 主窗口高度。
-             * @param progress 进度刷新函数。
-             * @returns 是否初始化成功。
-             */
+            mesh: Miaoverse.Mesh;
             materials: {
                 submesh: number;
                 material: Miaoverse.Material;
@@ -414,6 +409,185 @@ export declare class PloyApp {
     /** CanvasKit初始化主画布。 */
     static CK_InitUI: (app: PloyApp) => Promise<void>;
 }
+/** 信号对象。 */
+export declare class SimpleSignal<T, G> {
+    /**
+     * 构造函数。
+     * @param generator 事件最新参数生成器。
+     */
+    constructor(generator?: () => Promise<T>, cfg?: G);
+    /**
+     * 添加事件监听器。
+     * @param listener 事件监听器。
+     */
+    AddListener(listener: (data: T, old?: T) => void): void;
+    /**
+     * 设置事件最新参数并触发事件。
+     * @param data 事件最新参数，未定义则内部通过参数生成器生成。
+     */
+    Dispatch(data?: T): Promise<void>;
+    /** 销毁事件管理器。 */
+    Destroy(): void;
+    /** 事件最新参数。 */
+    get data(): T;
+    /** 事件最新参数生成器生成参数。 */
+    get generatorParam(): G;
+    set generatorParam(param: G);
+    /** 事件管理器。 */
+    private _signal;
+    /** 事件最新参数。 */
+    private _data;
+    /** 事件最新参数生成器。 */
+    private _generator;
+    /** 事件最新参数生成器生成参数。 */
+    private _generatorParam?;
+}
+/** 信号对象。 */
+export declare class Signal {
+    /**
+     * 构造函数。
+     */
+    constructor();
+    /**
+     * 判断事件监听器是否已经绑定到信号上。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @returns
+     */
+    has(listener: any, context: any): boolean;
+    /**
+     * 添加事件监听器。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @param priority 事件侦听器的优先级（默认值=0，越大越优先）。
+     * @returns
+     */
+    add(listener: any, context: any, priority?: number): SignalBinding;
+    /**
+     * 添加事件监听器（在触发1次后自动移除）。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @param priority 事件侦听器的优先级（默认值=0，越大越优先）。
+     * @returns
+     */
+    addOnce(listener: any, context: any, priority?: number): SignalBinding;
+    /**
+     * 移除事件监听器。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @returns
+     */
+    remove(listener: any, context: any): any;
+    /**
+     * 移除所有事件监听器。
+     */
+    removeAll(): void;
+    /**
+     * 销毁当前信号对象。
+     */
+    dispose(): void;
+    /**
+     * 向添加到队列中的所有听众发送/广播信号。
+     * @param params 传递给事件监听器的参数列表。
+     * @returns
+     */
+    dispatch(...params: any): void;
+    /**
+     * 停止事件的传播，阻止向队列上的下一个侦听器分派。
+     * 注意：只应在信号调度期间调用，在调度之前/之后调用它不会影响信号广播。
+     */
+    halt(): void;
+    /**
+     * 遗忘上一次事件派遣的参数列表。
+     */
+    forget(): void;
+    /**
+     * 注册事件监听器。
+     * @param listener 事件监听器。
+     * @param isOnce 是否仅执行1次。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @param priority 事件侦听器的优先级（默认值=0）。
+     * @returns 返回事件绑定对象。
+     */
+    private _registerListener;
+    /**
+     * 获取当前事件监听器的绑定编号。
+     * @param listener 事件监听器。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @returns 返回绑定编号（-1表示不存在绑定）。
+     */
+    private _indexOfListener;
+    /**
+     * 添加事件监听器绑定（按优先级排序）。
+     * @param binding 事件监听器绑定。
+     */
+    private _addBinding;
+    /** 当前信号对象是否激活。*/
+    private _active;
+    /** 是否继续传播信号给事件监听器。 */
+    private _shouldPropagate;
+    /**
+     * 如果该属性为真，则信号记录上一次调用的参数。
+     * 如果信号之前以前发生过，则在添加新的事件绑定时会触发调用。
+     */
+    private _memorize;
+    /** 信号上一次派遣的参数列表。 */
+    private _prevParams;
+    /** 事件绑定列表。 */
+    private _bindings;
+}
+/** 信号对象与事件监听器之间的绑定。 */
+declare class SignalBinding {
+    /**
+     * 构造函数。
+     * @param signal 信号对象。
+     * @param listener 事件监听器。
+     * @param isOnce 该绑定是否仅执行1次。
+     * @param context 事件监听器上下文（事件监听器方法内的this变量）。
+     * @param priority 事件侦听器的优先级（默认值=0）。
+     */
+    constructor(signal: Signal, listener: any, isOnce: boolean, context: any, priority?: number);
+    /**
+     * 执行事件响应方法。
+     * @param paramsArr 追加参数列表。
+     * @returns 事件响应方法返回值。
+     */
+    execute(paramsArr: any[]): any;
+    /**
+     * 销毁事件绑定实例属性。
+     */
+    destroy(): void;
+    /**
+     * 从信号上拆下绑定。
+     * @returns 返回事件监听器绑定到的信号，如果绑定之前已分离，则为null。
+     */
+    private detach;
+    /**
+     * 判断当前绑定是否有效。
+     * @returns
+     */
+    get isBound(): boolean;
+    /**
+     * 该绑定是否仅执行1次。
+     */
+    get isOnce(): boolean;
+    /** 事件侦听器的优先级（默认值=0）。 */
+    get priority(): number;
+    /** 当前绑定是否激活。 */
+    private _active;
+    /** 响应方法执行默认参数集。 */
+    private _params;
+    /** 信号对象。 */
+    private _signal;
+    /** 事件监听器。 */
+    private _listener;
+    /** 该绑定是否仅执行1次。 */
+    private _isOnce;
+    /** 事件监听器上下文（事件监听器方法内的this变量）。 */
+    private _context;
+    /** 事件侦听器的优先级（默认值=0）。 */
+    private _priority;
+}
 /**
  * 启动应用注册表中包含的指定应用。
  * @param instance 引擎实例。
@@ -424,3 +598,4 @@ export declare class PloyApp {
  * @returns 返回事件协程。
  */
 export declare function Start(instance: Ploy3D, appid?: string, title?: string, width?: number, height?: number): Promise<void>;
+export {};

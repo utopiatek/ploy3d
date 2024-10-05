@@ -116,6 +116,8 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
             return prefab;
         }
 
+        pkg = desc.pkg;
+
         prefab.root = await this._global.resources.Object.Create(scene);
         prefab.root.layers = Miaoverse.LAYER_FLAGS.PREFAB;
         prefab.instanceCount = data.instanceCount;

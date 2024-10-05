@@ -579,13 +579,25 @@ export class Context {
             if (webgl) {
                 code += "    mat4 sysMat1;\n";
                 code += "    mat4 sysMat2;\n";
+
+                if (uniformGroup.group == 0) {
+                    code += "    mat4 sm_uvfwMat[4];\n";
+                }
             }
             else {
                 code += "    sysMat1 : mat4x4<f32>,\n";
                 code += "    sysMat2 : mat4x4<f32>,\n";
+
+                if (uniformGroup.group == 0) {
+                    code += "    sm_uvfwMat : array<mat4x4<f32>, 4>,\n";
+                }
             }
 
             offset = 128;
+
+            if (uniformGroup.group == 0) {
+                offset += 256;
+            }
         }
 
         // 缓存结构编排，重新排序属性定义
@@ -825,10 +837,10 @@ export class Context {
 
             // 128===================----------------------------------
 
-            "sm_uvfwMat": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
-            "sm_uvfwMat1": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
-            "sm_uvfwMat2": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
-            "sm_uvfwMat3": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
+            //"sm_uvfwMat": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
+            //"sm_uvfwMat1": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
+            //"sm_uvfwMat2": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
+            //"sm_uvfwMat3": { note: "CASCADES阴影各级世界空间到阴影贴图UV变换矩阵。", sign: "mat4x4<f32>" },
 
             // 384===================----------------------------------
 
@@ -852,14 +864,14 @@ export class Context {
 
             "m_reserved768": { note: "预留空间。", sign: "mat4x4<f32>" },
 
-            "m_reserved832": { note: "预留空间。", sign: "vec4<f32>" },
+            "projectionInfo": { note: "用于从屏幕像素坐标转相机空间坐标的投影矩阵信息。", sign: "vec4<f32>" },
             "camera_wPos": { note: "相机，相机世界空间坐标。W位不使用。", sign: "vec4<f32>" },
             "camera_wDir": { note: "相机，相机世界空间观察方向和距观察目标距离。", sign: "vec4<f32>" },
-            "camera_params": { note: "相机，\nx : cameraFar 远平面距离。\ny : oneOverFarMinusNear 1/(f-n), 始终为正数。\nz : nearOverFarMinusNear n/(f-n), 始终为正数。\nw : ev100 EV100参数。", sign: "vec4<f32>" },
+            "cameraNearFar": { note: "相机远近平面参数：x: n, y: f, z: 1/(f-n), w: n/(f-n)", sign: "vec4<f32>" },
 
             "resolution": { note: "画布参数：width, height, 1/width, 1/height。", sign: "vec4<f32>", value: [1024.0, 1024.0, 0.000977, 0.000977] },
             "cascadeSplits": { note: "CSM，视锥在相机空间中的划分位置，不包含近平面。不使用的分量值为-INF。", sign: "vec4<f32>", value: [-6.3457, 0.0, 0.0, 0.0] },
-            "m_reserved928": { note: "预留空间。", sign: "vec4<f32>" },
+            "targetInfo": { note: "当前渲染目标信息：渲染贴图大小，渲染区域大小，1.0/渲染区域大小，渲染缩放。", sign: "vec4<f32>" },
             "m_reserved944": { note: "预留空间。", sign: "vec4<f32>" },
 
             "froxelCount": { note: "视锥体素化细分参数：Dim、CountX、CountY、CountZ。", sign: "vec4<u32>" },
@@ -901,8 +913,8 @@ export class Context {
 
             "iblLuminance": { note: "IBL，亮度", sign: "f32" },
             "iblRoughnessOneLevel": { note: "IBL，粗糙度为1的纹理链级别", sign: "f32" },
-            "m_reserved392": { note: "预留空间。", sign: "f32" },
-            "m_reserved396": { note: "预留空间。", sign: "f32" },
+            "ssaoDisable": { note: "是否禁用SSAO。", sign: "u32" },
+            "ssrDisable": { note: "是否禁用SSR。", sign: "u32" },
 
             "ssrThickness": { note: "屏幕空间反射用的物体厚度，用于相交测试。", sign: "f32", value: [0.1] },
             "ssrBias": { note: "屏幕空间反射用的射线的起点偏移。", sign: "f32", value: [0.01] },
@@ -927,7 +939,7 @@ export class Context {
             "shadowBias": { note: "阴影，法向偏移。", sign: "f32" },
             "shadowBulbRadiusLs": { note: "阴影，光照空间的光源半径。", sign: "f32" },
             "shadowPenumbraRatioScale": { note: " 阴影，用于DPCF、PCSS，用于艺术用途的比例半影。", sign: "f32" },
-            "m_reserved460": { note: "预留空间。", sign: "f32" },
+            "shadowDisable": { note: "阴影，禁用太阳光照阴影。", sign: "u32" },
 
             "vsmExponent": { note: "VSM阴影指数。", sign: "f32", value: [5.53999996] },
             "vsmDepthScale": { note: "用于VSM最小方差计算。", sign: "f32", value: [0.0277] },

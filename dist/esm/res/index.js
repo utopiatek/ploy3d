@@ -355,6 +355,49 @@ export class Resources {
             }
         }
     }
+    async Browse(pkg) {
+        if (pkg.menu) {
+            return pkg.menu;
+        }
+        if (!pkg.resid_path) {
+            await this.Preview(pkg);
+        }
+        pkg.menu = {
+            thumbnail: "",
+            thumbnail_per_row: 1,
+            list: []
+        };
+        const export_keys = [29, 32, 39, 48, 65];
+        for (let asset_id in pkg.resid_path) {
+            const entry = pkg.resid_path[asset_id];
+            const classid_index = asset_id.split("-");
+            const classid = parseInt(classid_index[0]);
+            const index = parseInt(classid_index[1]);
+            const name = (typeof entry == "string") ? entry.substring(entry.lastIndexOf("/") + 1) : entry.label;
+            if (-1 < export_keys.indexOf(classid)) {
+                pkg.menu.list.push({
+                    classid: classid,
+                    index: index,
+                    uuid: pkg.uuid + "-" + asset_id,
+                    label: name,
+                    thumbnail_href: "",
+                    thumbnail_index: 0,
+                });
+            }
+        }
+        return pkg.menu;
+    }
+    GetPackageByUUID(uuid) {
+        const index = this._pkg_uuidLut[uuid];
+        return this._pkg_list[index];
+    }
+    GetPackageByKey(key) {
+        const index = this._pkg_keyLut[key];
+        return this._pkg_list[index];
+    }
+    get packageList() {
+        return this._pkg_list;
+    }
     _global;
     _pkg_keyLut;
     _pkg_uuidLut;

@@ -3,10 +3,6 @@
 const uHalton: vec4f = vec4f(0.0, 0.0, -1.0, 12.0);
 const uFrameMod: f32 = 7.0;
 const uRGBMRange: f32 = 7.0;
-const uSketchfabLight0_viewDirection: vec3f = vec3f(-0.5919, 0.3152, -0.7418);
-const uSketchfabLight1_viewDirection: vec3f = vec3f(-0.2468, 0.8314, 0.4978);
-const uSketchfabLight0_diffuse: vec4f = vec4f(1.0);
-const uSketchfabLight1_diffuse: vec4f = vec4f(0.2200, 0.2200, 0.2200, 1.0);
 
 //------------------------------------------------------------------------------
 // 着色器通用宏定义

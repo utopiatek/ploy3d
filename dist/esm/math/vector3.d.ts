@@ -56,6 +56,8 @@ export declare class Vector3 {
     toQuaternion(order?: number): Miaoverse.Quaternion;
     /** 向量长度。 */
     get length(): number;
+    /** 单位向量。 */
+    get normalized(): Vector3;
     /** 向量X通道值。 */
     get x(): number;
     set x(x: number);

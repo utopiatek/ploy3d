@@ -26,6 +26,38 @@ export class PloyApp_gltf_skin_anim extends PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
+        this.volume.shadowBias = 0.1;
+        this.volume.iblLuminance = 0.2;
+        this.volume.sunlitColorIntensity = [0.22, 0.22, 0.22, 0.5];
+        this.volume.sunlitDirection = engine.Vector3([1.0, 1.0, 1.0]).normalized.values;
+
+        this.volume.ssrDisable = 1;
+        this.volume.ssaoDisable = 1;
+
+        // 自定义渲染管线帧通道列表（我们排出了默认设置中的"early_z","ssao_extract","ssr_extract","sss_extract","sss_blur","proc_bloom"）
+        {
+            this.framePassList = {};
+
+            this.framePassList.framePassName = [
+                "shadow_cast",  // 0
+                "opaque",       // 1
+                "blit",         // 2
+            ];
+
+            this.framePassList.framePass = this.framePassList.framePassName.map((label) => {
+                return engine.assembly.GetFramePass(label);
+            });
+
+            // 我们排除了"early_z"通道，以此需要修改"opaque"通道的深度测试配置
+            this.framePassList.framePass[1].depthStencilAttachment.depthCompare = "greater";
+            this.framePassList.framePass[1].depthStencilAttachment.depthLoadOp = "clear";
+            this.framePassList.framePass[1].depthStencilAttachment.depthWriteEnabled = true;
+
+            this.framePassList.framePass[2].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
+            this.framePassList.framePass[2].shaderMacro.BLIT_CANVAS_COMBINE_BLOOM = 0;
+            this.framePassList.framePass[2].shaderMacro.BLIT_CANVAS_TONE_MAPPING = 0;
+        }
+
         // 创建地平面立方体网格对象
         {
             const material = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_gltf_sketchfab.json");
@@ -60,9 +92,13 @@ export class PloyApp_gltf_skin_anim extends PloyApp {
             object3d.localPosition = this.engine.Vector3([0, -0.5, 0]);
         }
 
-        const chara_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shibahu.zip", () => { });
-        this.engine.resources.Register(chara_pkg.pkg, chara_pkg.files);
-        const chara_prefab = await this.engine.resources.Scene.InstancePrefab(this.scene, "65-0", chara_pkg.pkg);
+        {
+            const pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shibahu.zip", () => { });
+
+            this.engine.resources.Register(pkg.pkg, pkg.files);
+
+            const prefab = await this.engine.resources.Scene.InstancePrefab(this.scene, "65-0", pkg.pkg);
+        }
 
         // 创建地球大气层对象
         await this.CreateAtmosphere(this.scene);
@@ -73,7 +109,7 @@ export class PloyApp_gltf_skin_anim extends PloyApp {
         // 默认相机姿态
         this.camera.Set3D([0, 0.5, 0], 3, 20, 0);
         this.camera.nearZ = 0.1;
-        this.camera.farZ = 4.0;
+        this.camera.farZ = 100.0;
         this.camera.fov = 45 / 180 * Math.PI;
 
         // 注册鼠标滚轮事件监听器
@@ -206,23 +242,7 @@ export class PloyApp_gltf_skin_anim extends PloyApp {
 
         // ========================----------------------------------------
 
-        const framePassList = this.engine.assembly.GetFramePassList("low");
-
-        // 在当前场景中，我们不启用SSAO、SSR、SSS等效果通道
-        {
-            framePassList.framePassName = ["shadow_cast", "opaque", "blit"];
-            framePassList.framePass = [
-                this.engine.assembly.GetFramePass(framePassList.framePassName[0]),
-                this.engine.assembly.GetFramePass(framePassList.framePassName[1]),
-                this.engine.assembly.GetFramePass(framePassList.framePassName[2]),
-            ];
-            framePassList.framePass[1].depthStencilAttachment.depthCompare = "greater";
-            framePassList.framePass[1].depthStencilAttachment.depthLoadOp = "clear";
-            framePassList.framePass[1].depthStencilAttachment.depthWriteEnabled = true;
-            framePassList.framePass[2].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
-            framePassList.framePass[2].shaderMacro.BLIT_CANVAS_TONE_MAPPING = 0;
-        }
-
+        const framePassList = this.framePassList || this.engine.assembly.GetFramePassList("low");
         const texture = this.engine.device._swapchain.getCurrentTexture();
         const target = {
             texture: texture,
@@ -250,4 +270,7 @@ export class PloyApp_gltf_skin_anim extends PloyApp {
     camera;
     /** @type {Volume} 体积组件实例。 */
     volume;
+
+    /** @type {ReturnType<Assembly["GetFramePassList"]>} 自定义渲染管线帧通道列表。 */
+    framePassList;
 }

@@ -1,4 +1,4 @@
-import type * as sdl2 from '../lib/sdl2';
+import type * as sdl2 from 'sdl2';
 import type * as echarts from 'echarts/types/dist/echarts';
 import type JSZip from 'jszip';
 export { sdl2, echarts, JSZip };

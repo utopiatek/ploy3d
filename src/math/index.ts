@@ -29,6 +29,8 @@ export class VMath_kernel {
     public Quaternion_ToEulerAngles: (x: number, y: number, z: number, w: number) => number[];
     /** 从欧拉角（内旋顺序，默认102-[Y-X-Z]）转换到四元数，正方向为看向旋转轴方向顺时针旋转。 */
     public Quaternion_FromEulerAngles: (x: number, y: number, z: number, order: number) => number[];
+    /** 从两个向量方向变换构造四元数。 */
+    public Quaternion_FromVectors: (fromX: number, fromY: number, fromZ: number, toX: number, toY: number, toZ: number) => number[];
     /** 计算四元数的逆。 */
     public Quaternion_Invert: (x: number, y: number, z: number, w: number) => number[];
     /** 两四元数插值。。 */

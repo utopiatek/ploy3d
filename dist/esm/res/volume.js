@@ -74,8 +74,23 @@ export class Volume extends Miaoverse.Resource {
     get sunlitColorIntensity() {
         return this._impl.Get(this._ptr, "sunlitColorIntensity");
     }
+    set sunlitColorIntensity(value) {
+        this._impl.Set(this._ptr, "sunlitColorIntensity", value);
+        this.updated = true;
+    }
     get sunlitDirection() {
         return this._impl.Get(this._ptr, "sunlitDirection");
+    }
+    set sunlitDirection(value) {
+        this._impl.Set(this._ptr, "sunlitDirection", value);
+        this.updated = true;
+    }
+    get sunlitDisable() {
+        return this._impl.Get(this._ptr, "sunlitDisable");
+    }
+    set sunlitDisable(value) {
+        this._impl.Set(this._ptr, "sunlitDisable", value);
+        this.updated = true;
     }
     get lightFarAttenuationParams() {
         return this._impl.Get(this._ptr, "lightFarAttenuationParams");
@@ -96,6 +111,20 @@ export class Volume extends Miaoverse.Resource {
     }
     set iblRoughnessOneLevel(value) {
         this._impl.Set(this._ptr, "iblRoughnessOneLevel", value);
+        this.updated = true;
+    }
+    get ssaoDisable() {
+        return this._impl.Get(this._ptr, "ssaoDisable");
+    }
+    set ssaoDisable(value) {
+        this._impl.Set(this._ptr, "ssaoDisable", value);
+        this.updated = true;
+    }
+    get ssrDisable() {
+        return this._impl.Get(this._ptr, "ssrDisable");
+    }
+    set ssrDisable(value) {
+        this._impl.Set(this._ptr, "ssrDisable", value);
         this.updated = true;
     }
     get ssrThickness() {
@@ -201,6 +230,12 @@ export class Volume extends Miaoverse.Resource {
     set shadowPenumbraRatioScale(value) {
         this._impl.Set(this._ptr, "shadowPenumbraRatioScale", value);
         this.updated = true;
+    }
+    get shadowDisable() {
+        return this._impl.Get(this._ptr, "shadowDisable");
+    }
+    set shadowDisable(value) {
+        this._impl.Set(this._ptr, "shadowDisable", value);
     }
     get vsmExponent() {
         return this._impl.Get(this._ptr, "vsmExponent");
@@ -310,9 +345,12 @@ export const Volume_member_index = {
     sunParams: ["farrayGet", "farraySet", 4, 60],
     sunlitColorIntensity: ["farrayGet", "farraySet", 4, 64],
     sunlitDirection: ["farrayGet", "farraySet", 3, 68],
+    sunlitDisable: ["fscalarGet", "fscalarSet", 1, 71],
     lightFarAttenuationParams: ["farrayGet", "farraySet", 2, 112],
     iblLuminance: ["fscalarGet", "fscalarSet", 1, 116],
     iblRoughnessOneLevel: ["fscalarGet", "fscalarSet", 1, 117],
+    ssaoDisable: ["uscalarGet", "uscalarSet", 1, 118],
+    ssrDisable: ["uscalarGet", "uscalarSet", 1, 119],
     ssrThickness: ["fscalarGet", "fscalarSet", 1, 120],
     ssrBias: ["fscalarGet", "fscalarSet", 1, 121],
     ssrDistance: ["fscalarGet", "fscalarSet", 1, 122],
@@ -328,6 +366,7 @@ export const Volume_member_index = {
     shadowBias: ["fscalarGet", "fscalarSet", 1, 132],
     shadowBulbRadiusLs: ["fscalarGet", "fscalarSet", 1, 133],
     shadowPenumbraRatioScale: ["fscalarGet", "fscalarSet", 1, 134],
+    shadowDisable: ["uscalarGet", "uscalarSet", 1, 135],
     vsmExponent: ["fscalarGet", "fscalarSet", 1, 136],
     vsmDepthScale: ["fscalarGet", "fscalarSet", 1, 137],
     vsmLightBleedReduction: ["fscalarGet", "fscalarSet", 1, 138],

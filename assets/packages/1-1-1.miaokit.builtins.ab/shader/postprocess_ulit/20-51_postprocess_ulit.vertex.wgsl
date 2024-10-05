@@ -1,11 +1,14 @@
 
+override MIPMAP_COLOR = 0u;
 override MIPMAP_ZDEPTH = 0u;
 override EXTRACT_SSAO = 0u;
 override EXTRACT_SSR = 0u;
 override EXTRACT_SSS = 0u;
 override BLUR_SSS = 0u;
+override PROC_BLOOM = 0u;
 override BLIT_CANVAS = 0u;
 override BLIT_CANVAS_COMBINE_SSS = 1u;
+override BLIT_CANVAS_COMBINE_BLOOM = 1u;
 override BLIT_CANVAS_TONE_MAPPING = 1u;
 
 var<private> positions : array<vec4f, 3> = array<vec4f, 3>(
@@ -15,13 +18,16 @@ var<private> positions : array<vec4f, 3> = array<vec4f, 3>(
 );
 
 fn material_vs() ->OutputVS {
+    let MIPMAP_COLOR_ = MIPMAP_COLOR;
     let MIPMAP_ZDEPTH_ = MIPMAP_ZDEPTH;
     let EXTRACT_SSAO_ = EXTRACT_SSAO;
     let EXTRACT_SSR_ = EXTRACT_SSR;
     let EXTRACT_SSS_ = EXTRACT_SSS;
     let BLUR_SSS_ = BLUR_SSS;
+    let PROC_BLOOM_ = PROC_BLOOM;
     let BLIT_CANVAS_ = BLIT_CANVAS;
     let BLIT_CANVAS_COMBINE_SSS_ = BLIT_CANVAS_COMBINE_SSS;
+    let BLIT_CANVAS_COMBINE_BLOOM_ = BLIT_CANVAS_COMBINE_BLOOM;
     let BLIT_CANVAS_TONE_MAPPING_ = BLIT_CANVAS_TONE_MAPPING;
 
     // ============================-------------------------------------

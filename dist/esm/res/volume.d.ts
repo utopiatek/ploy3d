@@ -40,8 +40,13 @@ export declare class Volume extends Miaoverse.Resource<Volume> {
     set sunParams(value: ArrayLike<number>);
     /** 太阳光照颜色和强度。 */
     get sunlitColorIntensity(): Float32Array;
+    set sunlitColorIntensity(value: ArrayLike<number>);
     /** 太阳光照全局空间方向光方向。 */
     get sunlitDirection(): Float32Array;
+    set sunlitDirection(value: ArrayLike<number>);
+    /** 禁用太阳光照。 */
+    get sunlitDisable(): number;
+    set sunlitDisable(value: number);
     /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
     get lightFarAttenuationParams(): Float32Array;
     set lightFarAttenuationParams(value: ArrayLike<number>);
@@ -51,6 +56,12 @@ export declare class Volume extends Miaoverse.Resource<Volume> {
     /** IBL粗糙度为1的纹理链级别。 */
     get iblRoughnessOneLevel(): number;
     set iblRoughnessOneLevel(value: number);
+    /** 是否禁用SSAO。 */
+    get ssaoDisable(): number;
+    set ssaoDisable(value: number);
+    /** 是否禁用SSR。 */
+    get ssrDisable(): number;
+    set ssrDisable(value: number);
     /** 屏幕空间反射用的物体厚度，用于相交测试。 */
     get ssrThickness(): number;
     set ssrThickness(value: number);
@@ -104,6 +115,9 @@ export declare class Volume extends Miaoverse.Resource<Volume> {
     /** 阴影，用于DPCF、PCSS，用于艺术用途的比例半影。 */
     get shadowPenumbraRatioScale(): number;
     set shadowPenumbraRatioScale(value: number);
+    /** 阴影，禁用太阳光照阴影。 */
+    get shadowDisable(): number;
+    set shadowDisable(value: number);
     /** VSM阴影指数。 */
     get vsmExponent(): number;
     set vsmExponent(value: number);
@@ -188,12 +202,18 @@ export declare const Volume_member_index: {
     readonly sunlitColorIntensity: Miaoverse.Kernel_member;
     /** 太阳光照全局空间方向光方向。 */
     readonly sunlitDirection: Miaoverse.Kernel_member;
+    /** 禁用太阳光照。 */
+    readonly sunlitDisable: Miaoverse.Kernel_member;
     /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
     readonly lightFarAttenuationParams: Miaoverse.Kernel_member;
     /** IBL，亮度。 */
     readonly iblLuminance: Miaoverse.Kernel_member;
     /** IBL，粗糙度为1的纹理链级别。 */
     readonly iblRoughnessOneLevel: Miaoverse.Kernel_member;
+    /** 是否禁用SSAO。 */
+    readonly ssaoDisable: Miaoverse.Kernel_member;
+    /** 是否禁用SSR。 */
+    readonly ssrDisable: Miaoverse.Kernel_member;
     /** 屏幕空间反射用的物体厚度，用于相交测试。 */
     readonly ssrThickness: Miaoverse.Kernel_member;
     /** 屏幕空间反射用的射线的起点偏移。 */
@@ -232,6 +252,8 @@ export declare const Volume_member_index: {
     readonly shadowBulbRadiusLs: Miaoverse.Kernel_member;
     /** 阴影，用于DPCF、PCSS，用于艺术用途的比例半影。 */
     readonly shadowPenumbraRatioScale: Miaoverse.Kernel_member;
+    /** 阴影，禁用太阳光照阴影。 */
+    readonly shadowDisable: Miaoverse.Kernel_member;
     /** VSM阴影指数。 */
     readonly vsmExponent: Miaoverse.Kernel_member;
     /** 用于VSM最小方差计算。 */

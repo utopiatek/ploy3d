@@ -486,6 +486,14 @@ export class Device {
      * @returns 画布过小将返回假。
      */
     public Resize(width?: number, height?: number) {
+        /*/
+        我们的渲染贴图是2048*2048或4096*4096等
+        我们将canvas.width、canvas.height设置为与渲染贴图等大，以此将渲染结果的精度完全呈现
+        而相机的投影矩阵设置需要与canvas.clientWidth、canvas.clientHeight画布元素宽高比相关
+        我们将渲染贴图尺寸按画布元素宽高比约束后设置到global.width、global.height中
+        相机宽高设置在DrawQueue.Execute方法中进行
+        /*/
+
         if (width === undefined && height === undefined) {
             if (Deno) {
                 // SDL环境下不能缩放窗口，或者应当在外部处理缩放逻辑
@@ -495,15 +503,28 @@ export class Device {
                 const canvas = this._global.config.surface as HTMLCanvasElement;
                 const canvas2d = this._global.app.ui_canvas;
 
-                width = canvas.clientWidth * this._global.config.devicePixelRatio;
-                height = canvas.clientHeight * this._global.config.devicePixelRatio;
-
-                canvas.width = width;
-                canvas.height = height;
+                // 与渲染目标贴图等大
+                canvas.width = this._global.assembly.config.renderTargets.width;
+                canvas.height = this._global.assembly.config.renderTargets.height;
 
                 // 保持2D画布基于物理像素
                 canvas2d.width = canvas.clientWidth;
                 canvas2d.height = canvas.clientHeight;
+
+                // 以下对尺寸进行画布元素宽高比约束，他将影响相机投影矩阵
+                /*
+                if (canvas.clientWidth > canvas.clientHeight) {
+                    width = canvas.width;
+                    height = canvas.clientHeight / canvas.clientWidth * width;
+                }
+                else {
+                    height = canvas.height;
+                    width = canvas.clientWidth / canvas.clientHeight * height;
+                }
+                */
+                // 相关事件处理需要使用真实画布大小 
+                width = canvas.clientWidth * this._global.config.devicePixelRatio;
+                height = canvas.clientHeight * this._global.config.devicePixelRatio;
             }
         }
 

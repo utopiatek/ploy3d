@@ -33,7 +33,7 @@ fn material_vs() ->OutputVS {
     let z = output.viewPosition.z;
     // 重新缩放 [near, far] 到 [0, 1]
     // 实际上我们使用的裁剪矩阵可以通过渲染无限远处的对象，但我们仍约束深度范围在一个区间内，超过上限视为最大深度
-    let depth = -z * frameUniforms.camera_params.y/*oneOverFarMinusNear*/ - frameUniforms.camera_params.z/*nearOverFarMinusNear*/;
+    let depth = -z * frameUniforms.cameraNearFar.z - frameUniforms.cameraNearFar.w;
     // EVSM pre-mapping，结果在[-vsmExponent, +vsmExponent]之间，表示指数，其后用exp方法转换为曲线
     output.viewPosition.w = frameUniforms.vsmExponent * (depth * 2.0 - 1.0);
 

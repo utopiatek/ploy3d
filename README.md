@@ -20,10 +20,10 @@ Ploy3D是一个基于JavaScript、WebAssembly、WebGPU的国产自研3D引擎。
 
 | 预览 | 链接 | 预览 | 链接 |
 |:------:|:------:|:------:|:------:|
-| <img src="./docs/meta_human.png" width="256" height="256"> | [角色渲染](https://www.ploycloud.com/ploy3d/?sdk=b1_24&appid=meta_human) | <img src="./docs/dior_base.png" width="256" height="256">  | [倾斜摄影模型](https://www.ploycloud.com/ploy3d/?sdk=b1_24&appid=dior_base) |
-| <img src="./docs/gltf_skin_anim.png" width="256" height="256"> | [骨骼蒙皮动画](https://www.ploycloud.com/ploy3d/?sdk=b1_24&appid=gltf_skin_anim) | <img src="./docs/gis_base.png" width="256" height="256">  | [GIS地图](https://www.ploycloud.com/ploy3d/?sdk=b1_24&appid=gis_base) |
-|  |  | <img src="./docs/gis_dior.png" width="256" height="256">  | [GIS+倾斜摄影模型](https://www.ploycloud.com/ploy3d/?sdk=b1_24&appid=gis_dior) |
-|  |  | <img src="./docs/gis_vtile.png" width="256" height="256">  | [GIS+矢量瓦片](https://www.ploycloud.com/ploy3d/?sdk=b1_24&appid=gis_vtile) |
+| <img src="./docs/meta_human.png" width="256" height="256"> | [角色渲染](https://www.ploycloud.com/ploy3d/?sdk=b1_25&appid=meta_human) | <img src="./docs/dior_base.png" width="256" height="256">  | [倾斜摄影模型](https://www.ploycloud.com/ploy3d/?sdk=b1_25&appid=dior_base) |
+| <img src="./docs/gltf_skin_anim.png" width="256" height="256"> | [骨骼蒙皮动画](https://www.ploycloud.com/ploy3d/?sdk=b1_25&appid=gltf_skin_anim) | <img src="./docs/gis_base.png" width="256" height="256">  | [GIS地图](https://www.ploycloud.com/ploy3d/?sdk=b1_25&appid=gis_base) |
+| <img src="./docs/postprocess_base.png" width="256" height="256"> | [后期特效](https://www.ploycloud.com/ploy3d/?sdk=b1_25&appid=postprocess_base) | <img src="./docs/gis_dior.png" width="256" height="256">  | [GIS+倾斜摄影模型](https://www.ploycloud.com/ploy3d/?sdk=b1_25&appid=gis_dior) |
+|  |  | <img src="./docs/gis_vtile.png" width="256" height="256">  | [GIS+矢量瓦片](https://www.ploycloud.com/ploy3d/?sdk=b1_25&appid=gis_vtile) |
 
 #### 选择Ploy3D的优势:
 * 有别于Unity3D引擎使用C#开发、将.NET运行时打包为WebAssembly以在浏览器上运行，Ploy3D是直接基于JavaScript、WebAssembly、WebGPU开发的原生Web3D引擎。Ploy3D具有体量更轻、内存利用率更高、开箱即用、更易于与Web应用集成等优势。Web前端工程师基于一套技术即可完成项目开发，同时依托Deno运行时，我们可以发布本机应用。

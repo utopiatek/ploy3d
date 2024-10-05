@@ -204,6 +204,15 @@ export class Camera extends Miaoverse.Resource<Camera> {
         };
     }
 
+    /**
+     * 获取相机相关变换矩阵。
+     * @param key 变换矩阵名称。
+     * @returns 返回矩阵数据。
+     */
+    public GetMatrix(key: "vfgMat" | "gfvMat" | "cfvMat" | "vfcMat" | "cfgMat" | "gfcMat" | "gfwMat" | "wfgMat" | "uvfvMat" | "last_uvfvMat" | "lastcfwMat" | "cullingMat") {
+        return this._global.Matrix4x4(this._impl.Get(this._ptr, key));
+    }
+
     /** 相机参数更新时间戳（计算各个变换矩阵的时间戳）。 */
     public get writeTS(): number {
         return this._impl.Get(this._ptr, "writeTS");
@@ -465,6 +474,24 @@ export const Camera_member_index = {
     object: ["ptrGet", "ptrSet", 1, 29] as Miaoverse.Kernel_member,
     lastSib: ["ptrGet", "ptrSet", 1, 30] as Miaoverse.Kernel_member,
     nextSib: ["ptrGet", "ptrSet", 1, 31] as Miaoverse.Kernel_member,
+
+    vfgMat: ["farrayGet", "farraySet", 16, 32] as Miaoverse.Kernel_member,
+    gfvMat: ["farrayGet", "farraySet", 16, 48] as Miaoverse.Kernel_member,
+
+    cfvMat: ["farrayGet", "farraySet", 16, 64] as Miaoverse.Kernel_member,
+    vfcMat: ["farrayGet", "farraySet", 16, 80] as Miaoverse.Kernel_member,
+
+    cfgMat: ["farrayGet", "farraySet", 16, 96] as Miaoverse.Kernel_member,
+    gfcMat: ["farrayGet", "farraySet", 16, 112] as Miaoverse.Kernel_member,
+
+    gfwMat: ["farrayGet", "farraySet", 16, 128] as Miaoverse.Kernel_member,
+    wfgMat: ["farrayGet", "farraySet", 16, 144] as Miaoverse.Kernel_member,
+
+    uvfvMat: ["farrayGet", "farraySet", 16, 160] as Miaoverse.Kernel_member,
+    last_uvfvMat: ["farrayGet", "farraySet", 16, 176] as Miaoverse.Kernel_member,
+
+    lastcfwMat: ["farrayGet", "farraySet", 16, 192] as Miaoverse.Kernel_member,
+    cullingMat: ["farrayGet", "farraySet", 16, 208] as Miaoverse.Kernel_member,
 
     wPos: ["farrayGet", "farraySet", 3, 244] as Miaoverse.Kernel_member,
     wDir: ["farrayGet", "farraySet", 3, 248] as Miaoverse.Kernel_member,

@@ -105,11 +105,28 @@ export class Volume extends Miaoverse.Resource<Volume> {
         // TODO: 需要先应用参数更新
         return this._impl.Get(this._ptr, "sunlitColorIntensity");
     }
+    public set sunlitColorIntensity(value: ArrayLike<number>) {
+        this._impl.Set(this._ptr, "sunlitColorIntensity", value);
+        this.updated = true;
+    }
 
     /** 太阳光照全局空间方向光方向。 */
     public get sunlitDirection(): Float32Array {
         // TODO: 需要先应用参数更新
         return this._impl.Get(this._ptr, "sunlitDirection");
+    }
+    public set sunlitDirection(value: ArrayLike<number>) {
+        this._impl.Set(this._ptr, "sunlitDirection", value);
+        this.updated = true;
+    }
+
+    /** 禁用太阳光照。 */
+    public get sunlitDisable(): number {
+        return this._impl.Get(this._ptr, "sunlitDisable");
+    }
+    public set sunlitDisable(value: number) {
+        this._impl.Set(this._ptr, "sunlitDisable", value);
+        this.updated = true;
     }
 
     /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
@@ -136,6 +153,24 @@ export class Volume extends Miaoverse.Resource<Volume> {
     }
     public set iblRoughnessOneLevel(value: number) {
         this._impl.Set(this._ptr, "iblRoughnessOneLevel", value);
+        this.updated = true;
+    }
+
+    /** 是否禁用SSAO。 */
+    public get ssaoDisable(): number {
+        return this._impl.Get(this._ptr, "ssaoDisable");
+    }
+    public set ssaoDisable(value: number) {
+        this._impl.Set(this._ptr, "ssaoDisable", value);
+        this.updated = true;
+    }
+
+    /** 是否禁用SSR。 */
+    public get ssrDisable(): number {
+        return this._impl.Get(this._ptr, "ssrDisable");
+    }
+    public set ssrDisable(value: number) {
+        this._impl.Set(this._ptr, "ssrDisable", value);
         this.updated = true;
     }
 
@@ -279,6 +314,14 @@ export class Volume extends Miaoverse.Resource<Volume> {
     public set shadowPenumbraRatioScale(value: number) {
         this._impl.Set(this._ptr, "shadowPenumbraRatioScale", value);
         this.updated = true;
+    }
+
+    /** 阴影，禁用太阳光照阴影。 */
+    public get shadowDisable(): number {
+        return this._impl.Get(this._ptr, "shadowDisable");
+    }
+    public set shadowDisable(value: number) {
+        this._impl.Set(this._ptr, "shadowDisable", value);
     }
 
     /** VSM阴影指数。 */
@@ -459,6 +502,8 @@ export const Volume_member_index = {
     sunlitColorIntensity: ["farrayGet", "farraySet", 4, 64] as Miaoverse.Kernel_member,
     /** 太阳光照全局空间方向光方向。 */
     sunlitDirection: ["farrayGet", "farraySet", 3, 68] as Miaoverse.Kernel_member,
+    /** 禁用太阳光照。 */
+    sunlitDisable: ["fscalarGet", "fscalarSet", 1, 71] as Miaoverse.Kernel_member,
 
     /** 太阳光光照距离衰减参数：a, a/far (a=1/pct-of-far)。 */
     lightFarAttenuationParams: ["farrayGet", "farraySet", 2, 112] as Miaoverse.Kernel_member,
@@ -467,6 +512,10 @@ export const Volume_member_index = {
     iblLuminance: ["fscalarGet", "fscalarSet", 1, 116] as Miaoverse.Kernel_member,
     /** IBL，粗糙度为1的纹理链级别。 */
     iblRoughnessOneLevel: ["fscalarGet", "fscalarSet", 1, 117] as Miaoverse.Kernel_member,
+    /** 是否禁用SSAO。 */
+    ssaoDisable: ["uscalarGet", "uscalarSet", 1, 118] as Miaoverse.Kernel_member,
+    /** 是否禁用SSR。 */
+    ssrDisable: ["uscalarGet", "uscalarSet", 1, 119] as Miaoverse.Kernel_member,
 
     /** 屏幕空间反射用的物体厚度，用于相交测试。 */
     ssrThickness: ["fscalarGet", "fscalarSet", 1, 120] as Miaoverse.Kernel_member,
@@ -508,6 +557,8 @@ export const Volume_member_index = {
     shadowBulbRadiusLs: ["fscalarGet", "fscalarSet", 1, 133] as Miaoverse.Kernel_member,
     /** 阴影，用于DPCF、PCSS，用于艺术用途的比例半影。 */
     shadowPenumbraRatioScale: ["fscalarGet", "fscalarSet", 1, 134] as Miaoverse.Kernel_member,
+    /** 阴影，禁用太阳光照阴影。 */
+    shadowDisable: ["uscalarGet", "uscalarSet", 1, 135] as Miaoverse.Kernel_member,
 
     /** VSM阴影指数。 */
     vsmExponent: ["fscalarGet", "fscalarSet", 1, 136] as Miaoverse.Kernel_member,

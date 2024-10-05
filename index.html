@@ -20,8 +20,10 @@
 
         // 指定使用的SDK版本
         globalThis.sdk = UrlQuery("sdk");
+        // 指定启用4K支持
+        globalThis.enable4k = UrlQuery("4k");
         // 指定启动的应用ID
-        globalThis.appid = UrlQuery("appid") || "gis_base";
+        globalThis.appid = UrlQuery("appid") || "editor";
 
         // 根据指定的SDK版本重定向站点根目录
         {
