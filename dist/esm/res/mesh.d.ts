@@ -8,6 +8,18 @@ export declare class Mesh extends Miaoverse.Resource<Mesh> {
      * @param id 实例ID。
      */
     constructor(impl: Mesh_kernel, ptr: Miaoverse.io_ptr, id: number);
+    /**
+     * 释放实例引用。
+     */
+    Release(): void;
+    /**
+     * 增加实例引用。
+     */
+    AddRef(): void;
+    /**
+     * 清除对象。
+     */
+    protected Dispose(): void;
     /** 顶点缓存数组布局（组合标记）。 */
     get vbLayout(): number;
     /** 顶点缓存数量。 */
@@ -64,7 +76,7 @@ export declare class Mesh extends Miaoverse.Resource<Mesh> {
         joints: string[];
         /** 根关节（建模空间）索引。 */
         root: number;
-        /** 骨架数据指针。 */
+        /** 骨架数据指针（提供建模空间到初始骨骼空间变换矩阵数据）。 */
         skeleton: never;
     };
     /** 内核实现。 */
@@ -219,11 +231,24 @@ export declare class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh
         segments: number;
     }): Parameters<Mesh_kernel["MakeGeometry"]>[0];
     /**
+     * 移除网资源实例。
+     * @param id 网资源ID。
+     */
+    protected Remove(id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
+    /**
      * 实例化网格资源内核实例。
      * @param data 网格资源文件数据指针。
      * @returns 返回网格资源内核实例指针。
      */
     protected _Create: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    /**
+     * 释放网格资源引用。
+     */
+    protected _Release: (mesh: Miaoverse.io_ptr) => number;
     /**
      * 创建网格资源文件数据。
      * @param geo 网格几何数据指针（数据布局结构请查阅MakeGeometry代码）。
@@ -240,30 +265,8 @@ export declare class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh
      * 服装网格自适应包裹身体网格。
      */
     protected _AutoFit: (moveToSurface: number, moveToSurfaceOffset: number, surfaceOffset: number, additionalThicknessMultiplier: number, lossyScale: number, clothMesh: Miaoverse.io_ptr, skinMesh: Miaoverse.io_ptr) => void;
-}
-/** 几何UV数据内核实现。 */
-export declare class UVSet_kernel extends Miaoverse.Base_kernel<any, typeof UVSet_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    constructor(_global: Miaoverse.Ploy3D);
-}
-/** 几何数据内核实现。 */
-export declare class Geometry_kernel extends Miaoverse.Base_kernel<any, typeof Geometry_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    constructor(_global: Miaoverse.Ploy3D);
-}
-/** 网格变形数据内核实现。 */
-export declare class Morph_kernel extends Miaoverse.Base_kernel<any, typeof Morph_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    constructor(_global: Miaoverse.Ploy3D);
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList;
 }
 /** 网格资源内核实现的数据结构成员列表。 */
 export declare const Mesh_member_index: {

@@ -223,9 +223,32 @@ export class Object_kernel extends Miaoverse.Base_kernel {
         this._instanceCount++;
         return instance;
     }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Object_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的3D对象实例", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+    }
     _Instance;
     _Destroy;
     _Flush;
+    _GetAABB;
     _vfmMat;
     _SetLocalMatrix;
     _SetPosition;
@@ -234,6 +257,7 @@ export class Object_kernel extends Miaoverse.Base_kernel {
     _SetMeshRenderer;
     _GetMeshRenderer;
     _SetAnimator;
+    _Draw;
 }
 export const Node_member_index = {
     ...Miaoverse.Binary_member_index,
@@ -278,4 +302,3 @@ export const Object_member_index = {
     mfwMat: ["farrayGet", "farraySet", 16, 112],
 };
 ;
-//# sourceMappingURL=object3d.js.map

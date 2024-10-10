@@ -164,11 +164,13 @@ export class Resources {
                 height: 128
             }
         });
+        this.Texture.default2D.AddRef();
         this.Texture.defaultAtlas = this._global.device.CreateTexture2D(4096, 4096, 2, 1, "rgba8unorm", GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT);
 
         // ========================-------------------------------
 
         this.MeshRenderer.defaultG1 = await this.MeshRenderer.Create(null, null);
+        this.MeshRenderer.defaultG1.AddRef();
 
         // ========================-------------------------------
 
@@ -189,6 +191,204 @@ export class Resources {
         // ========================-------------------------------
 
         return this;
+    }
+
+    /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        this.GC();
+
+        // 释放所有倾斜摄影模型【dioramas_3mx.ts】 ====--------------------------------
+
+        // 需要关闭子线程前释放，因此移到另处释放
+        // await this.Dioramas["Dispose"]();
+        this.Dioramas = null;
+
+        // 释放所有场景【scene.ts】 ===================--------------------------------
+
+        this.Scene["DisposeAll"]();
+        this.Scene = null;
+
+        // 释放所有3D对象【object3d.ts】 ==============--------------------------------
+
+        this.Object["DisposeAll"]();
+        this.Object = null;
+
+        // 释放所有相机【camera.ts】 ==================--------------------------------
+
+        this.Camera["DisposeAll"]();
+        this.Camera = null;
+
+        // 释放所有光源【light.ts】 ===================--------------------------------
+
+        this.Light["DisposeAll"]();
+        this.Light = null;
+
+        // 释放所有体积【volume.ts】 ==================--------------------------------
+
+        this.Volume["DisposeAll"]();
+        this.Volume = null;
+
+        // 释放所有动画【animator.ts】 ================--------------------------------
+
+        this.Animator["DisposeAll"]();
+        this.Animator = null;
+
+        // 释放所有网格渲染器组件【mesh_renderer.ts】 =--------------------------------
+
+        this.MeshRenderer["DisposeAll"]();
+        this.MeshRenderer = null;
+
+        // 释放所有统一资源组【material.ts】 ==========--------------------------------
+
+        this.Material["DisposeAll"]();
+        this.Material = null;
+
+        // 释放所有网格【mesh.ts】 ====================--------------------------------
+
+        this.Mesh["DisposeAll"]();
+        this.Mesh = null;
+
+        // 释放所有贴图【texture.ts】 =================--------------------------------
+
+        this.Texture["DisposeAll"]();
+        this.Texture = null;
+
+        // 释放所有着色器【shader.ts】 ================--------------------------------
+
+        this.Shader["DisposeAll"]();
+        this.Shader = null;
+
+        // ============================================--------------------------------
+
+        this.VMath = null;
+
+        this._pkg_keyLut = null;
+        this._pkg_uuidLut = null;
+        this._pkg_list = null;
+        this._pkg_caches = null;
+
+        this._global.resources = null;
+        this._global = null;
+    }
+
+    /**
+     * 进行动态资源回收。
+     */
+    public GC() {
+        let gcList = this.Animator["_gcList"];
+
+        for (let func of gcList) {
+            func();
+        }
+
+        this.Animator["_gcList"] = [];
+
+        // ====================--------------------------------
+
+        gcList = this.MeshRenderer["_gcList"];
+
+        for (let func of gcList) {
+            func();
+        }
+
+        this.MeshRenderer["_gcList"] = [];
+
+        // ====================--------------------------------
+
+        gcList = this.Mesh["_gcList"];
+
+        for (let func of gcList) {
+            func();
+        }
+
+        this.Mesh["_gcList"] = [];
+
+        // ====================--------------------------------
+
+        gcList = this.Material["_gcList"];
+
+        for (let func of gcList) {
+            func();
+        }
+
+        this.Material["_gcList"] = [];
+
+        // ====================--------------------------------
+
+        gcList = this.Texture["_gcList"];
+
+        for (let func of gcList) {
+            func();
+        }
+
+        this.Texture["_gcList"] = [];
+
+        // ====================--------------------------------
+
+        for (let cache of this._pkg_caches) {
+            if (cache) {
+                if (cache.zip) {
+                    cache.zip = null;
+                }
+
+                const location = this._pkg_list[cache.index].location || "memory";
+                if (location != "memory") {
+                    cache.files = {};
+                }
+            }
+        }
+    }
+
+    /**
+     * 移除资源类型（何时移除交由内核实现决定）。
+     * @param classid 资源类型ID。
+     * @param id 资源实例ID。
+     */
+    public Remove(classid: Miaoverse.CLASSID, id: number) {
+        if (classid == Miaoverse.CLASSID.ASSET_COMPONENT_CAMERA) {
+            this.Camera["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_COMPONENT_LIGHT) {
+            this.Light["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_COMPONENT_VOLUME) {
+            this.Volume["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_COMPONENT_ANIMATOR) {
+            this.Animator["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_COMPONENT_MESH_RENDERER) {
+            this.MeshRenderer["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_MATERIAL) {
+            this.Material["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_FRAME_UNIFORMS) {
+            this.Material["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_MESH) {
+            this.Mesh["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_OBJECT) {
+            this.Object["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.ASSET_SCENE) {
+            this.Scene["Remove"](id);
+        }
+        else if (classid == Miaoverse.CLASSID.GPU_UNIFORM_BUFFER) {
+            this._global.device.FreeBuffer(id);
+        }
+        else if (classid == Miaoverse.CLASSID.GPU_VERTEX_BUFFER) {
+            this._global.device.FreeBuffer(id);
+        }
+        else if (classid == Miaoverse.CLASSID.GPU_INDEX_BUFFER) {
+            this._global.device.FreeBuffer(id);
+        }
+        else {
+            console.error("Resources.Remove 非法类型ID:", classid);
+        }
     }
 
     /**
@@ -457,6 +657,11 @@ export class Resources {
      * @param entry 资源包注册信息。
      */
     public Register(entry: PackageReg, files?: Record<string, any>) {
+        if (this._pkg_keyLut[entry.key]) {
+            console.warn("资源包已注册！", entry.key);
+            return;
+        }
+
         entry.index = this._pkg_list.length;
 
         this._pkg_list.push(entry);
@@ -561,7 +766,8 @@ export class Resources {
             list: []
         };
 
-        const export_keys = [29, 32, 39, 48, 65];
+        // 尽量重用网格渲染器组件而非网格资源，而且我们还是可以从网格渲染器组件中获取网格资源引用，因此我们不暴露网格资源
+        const export_keys = [CLASSID.ASSET_TEXTURE_FILE, CLASSID.ASSET_MATERIAL, CLASSID.ASSET_COMPONENT_MESH_RENDERER, CLASSID.ASSET_PREFAB];
 
         for (let asset_id in pkg.resid_path) {
             const entry = pkg.resid_path[asset_id];
@@ -725,6 +931,8 @@ export interface PackageReg {
         thumbnail?: string;
         /** 缩略图文件中每行包含缩略图数量。 */
         thumbnail_per_row?: number;
+        /** 缩略图行数。 */
+        thumbnail_row_count?: number;
         /** 缩略图数据对象。 */
         thumbnail_blob?: Blob;
         /** 资源清单。 */

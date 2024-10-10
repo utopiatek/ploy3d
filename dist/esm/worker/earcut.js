@@ -493,4 +493,3 @@ export function flatten(data) {
     }
     return { vertices, holes, dimensions };
 }
-//# sourceMappingURL=earcut.js.map

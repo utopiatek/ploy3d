@@ -128,6 +128,28 @@ export class Light_kernel extends Miaoverse.Base_kernel {
         }
         return instance;
     }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Light_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的光源组件实例", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+    }
     _Create;
     _typeLut = ["undefined", "sun", "directional", "point", "focused_spot", "spot"];
 }
@@ -149,4 +171,3 @@ export const Light_member_index = {
     spotCone: ["farrayGet", "farraySet", 2, 32],
     spotScaleOffset: ["farrayGet", "farraySet", 2, 34],
 };
-//# sourceMappingURL=light.js.map

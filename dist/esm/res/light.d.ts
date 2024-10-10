@@ -71,6 +71,15 @@ export declare class Light_kernel extends Miaoverse.Base_kernel<Light, typeof Li
      */
     Create(object3d: Miaoverse.Object3D, asset: Asset_light): Promise<Miaoverse.Light>;
     /**
+     * 移除光源组件实例。
+     * @param id 光源组件实例ID。
+     */
+    protected Remove(id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
+    /**
      * 创建光源组件内核实例。
      * @param object3d 3D对象内核实例指针（光源组件唯一属于某个3D对象并跟随3D对象被销毁）。
      * @returns 返回光源组件内核实例指针。

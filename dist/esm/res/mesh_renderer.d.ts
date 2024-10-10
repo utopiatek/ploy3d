@@ -32,6 +32,18 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
      * @param object3d 3D对象内核实例指针。
      */
     UpdateG1(object3d: Miaoverse.Object3D): void;
+    /**
+     * 释放实例引用。
+     */
+    Release(): void;
+    /**
+     * 增加实例引用。
+     */
+    AddRef(): void;
+    /**
+     * 清除对象。
+     */
+    protected Dispose(): void;
     /** 网格资源实例。 */
     get mesh(): Miaoverse.Mesh;
     /** 数据块在缓存中的字节大小（256对齐，G1前256字节为系统字段且不绑定到着色器）。 */
@@ -69,6 +81,8 @@ export declare class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel>
     drawCustom: (queue: Miaoverse.DrawQueue, method: string, params: number[]) => void;
     /** 属性访问视图。 */
     private _view;
+    /** 通过资源装载的组件记录UUID。 */
+    private _uuid;
 }
 /** 网格渲染器组件内核实现。 */
 export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typeof MeshRendere_member_index> {
@@ -98,11 +112,24 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
         material: Miaoverse.Material;
     }[]): Promise<Miaoverse.MeshRenderer>;
     /**
+     * 移除网格渲染器组件实例。
+     * @param id 网格渲染器组件实例ID。
+     */
+    protected Remove(id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
+    /**
      * 实例化网格渲染器组件内核实例。
      * @param mesh 网格资源内核实例。
      * @param skeleton 骨架定义数据内核实例。
      */
     protected _Create: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+    /**
+     * 释放网格渲染器组件引用。
+     */
+    protected _Release: (mesh_renderer: Miaoverse.io_ptr) => number;
     /**
      * 设置材质节点。
      * @param mesh_renderer 网格渲染器组件实例指针。
@@ -140,6 +167,8 @@ export declare class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRende
     defaultG1: MeshRenderer;
     /** 实例绘制数据顶点缓存布局。 */
     instanceVBL: GPUVertexBufferLayout;
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList;
 }
 /** 网格渲染器组件内核实现的数据结构成员列表。 */
 export declare const MeshRendere_member_index: {

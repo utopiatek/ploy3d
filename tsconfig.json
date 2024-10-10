@@ -11,7 +11,7 @@
         "alwaysStrict": true,
         "allowJs": true,
         "allowSyntheticDefaultImports": true,
-        "sourceMap": true,
+        "sourceMap": false,
         "typeRoots": [ "node_modules/@webgpu/types", "lib" ]
     },
     "include": [

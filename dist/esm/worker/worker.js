@@ -83,9 +83,11 @@ const __worker = new Miaoworker();
                     this.Track("Miaoworker内核不应调用Update方法！");
                     return 0;
                 },
-                Release: (classid, id) => {
-                    this.Track("Miaoworker内核不应调用Release方法！");
-                    return 0;
+                Remove: (classid, id) => {
+                    this.Track("Miaoworker内核不应调用Remove方法！");
+                },
+                DrawPart: (g1, g2, pipeline, mesh, submesh, instanceCount, firstInstance, materialSlot) => {
+                    this.Track("Miaoworker内核不应调用DrawPart方法！");
                 },
             });
             if (!this.kernel) {
@@ -133,8 +135,15 @@ const __worker = new Miaoworker();
                 reject("事务处理器已关闭！");
                 return;
             }
+            if (this.gltfCache[url]) {
+                resolve(this.gltfCache[url]);
+                return;
+            }
             if (0 === worker) {
-                this.importer.Import_gltf(url, progress).then(resolve).catch(reject);
+                this.importer.Import_gltf(url, progress).then((res) => {
+                    this.gltfCache[url] = res;
+                    resolve(res);
+                }).catch(reject);
             }
             else {
                 this.PostMessage({
@@ -143,7 +152,10 @@ const __worker = new Miaoworker();
                     args: {
                         url: url
                     },
-                }).then(resolve).catch(reject);
+                }).then((res) => {
+                    this.gltfCache[url] = res;
+                    resolve(res);
+                }).catch(reject);
             }
         });
     }
@@ -460,5 +472,5 @@ const __worker = new Miaoworker();
     env;
     internal;
     importer;
+    gltfCache = {};
 }
-//# sourceMappingURL=worker.js.map

@@ -431,4 +431,3 @@ export class TransformCtrl {
     mat_blue_scale;
     mat_white_scale;
 }
-//# sourceMappingURL=transform_ctrl.js.map

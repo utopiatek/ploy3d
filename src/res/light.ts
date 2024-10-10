@@ -212,6 +212,42 @@ export class Light_kernel extends Miaoverse.Base_kernel<Light, typeof Light_memb
     }
 
     /**
+     * 移除光源组件实例。
+     * @param id 光源组件实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Light_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的光源组件实例", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
+    }
+
+    /**
      * 创建光源组件内核实例。
      * @param object3d 3D对象内核实例指针（光源组件唯一属于某个3D对象并跟随3D对象被销毁）。
      * @returns 返回光源组件内核实例指针。

@@ -3,10 +3,30 @@ export class ShaderRes extends Miaoverse.Resource {
     constructor(impl, shader, id) {
         super(impl["_global"], 0, id);
         this._impl = impl;
+        this._refCount = 1;
         this._shader = shader;
+        this._shader.refCount++;
+    }
+    Release() {
+        if (--this._refCount == 0) {
+            this.Dispose();
+        }
+    }
+    AddRef() {
+        this._refCount++;
+    }
+    Dispose() {
+        this._impl["_instanceLut"][this.uuid] = undefined;
+        this._global.context.FreeShader(this.internalID);
+        this._refCount = 0;
+        this._shader = null;
+        this._impl["Remove"](this.id);
     }
     get uuid() {
         return this._shader.asset.name;
+    }
+    get internalID() {
+        return this._shader.id;
     }
     get shader() {
         return this._shader;
@@ -15,6 +35,7 @@ export class ShaderRes extends Miaoverse.Resource {
         return this._shader.tuple.size;
     }
     _impl;
+    _refCount;
     _shader = null;
 }
 export class Shader_kernel extends Miaoverse.Base_kernel {
@@ -53,8 +74,36 @@ export class Shader_kernel extends Miaoverse.Base_kernel {
         const instance = this._instanceList[id] = new ShaderRes(this, shader, id);
         this._instanceLut[uuid] = instance;
         this._instanceCount++;
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
         return instance;
     }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Shader_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    DisposeAll() {
+        for (let func of this._gcList) {
+            func();
+        }
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的着色器资源实例", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+        this._gcList = null;
+    }
+    _gcList = [];
 }
-//# sourceMappingURL=shader.js.map

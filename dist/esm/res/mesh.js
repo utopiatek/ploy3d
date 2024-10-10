@@ -30,6 +30,23 @@ export class Mesh extends Miaoverse.Resource {
             };
         }
     }
+    Release() {
+        if (this.internalPtr) {
+            this._impl["_Release"](this.internalPtr);
+        }
+    }
+    AddRef() {
+        const refCount = this._impl.Get(this._ptr, "refCount");
+        this._impl.Set(this._ptr, "refCount", refCount + 1);
+    }
+    Dispose() {
+        if (this._skeleton?.skeleton) {
+            this._global.internal.System_Delete(this._skeleton?.skeleton);
+        }
+        this._vertices = null;
+        this._triangles = null;
+        this._skeleton = null;
+    }
     get vbLayout() {
         return this._impl.Get(this._ptr, "vertexBufferLayout");
     }
@@ -205,7 +222,9 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new Mesh(this, ptr, id);
         this._instanceCount++;
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
         if (uuid) {
             this.Set(ptr, "uuid", uuid);
             this._instanceLut[uuid] = instance;
@@ -735,25 +754,36 @@ export class Mesh_kernel extends Miaoverse.Base_kernel {
             groups
         };
     }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Mesh_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["Dispose"]();
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的网格资源", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+        this._gcList = null;
+    }
     _Create;
+    _Release;
     _CreateData;
     _DecodeCTM;
     _AutoFit;
-}
-export class UVSet_kernel extends Miaoverse.Base_kernel {
-    constructor(_global) {
-        super(_global, UVSet_member_index);
-    }
-}
-export class Geometry_kernel extends Miaoverse.Base_kernel {
-    constructor(_global) {
-        super(_global, Geometry_member_index);
-    }
-}
-export class Morph_kernel extends Miaoverse.Base_kernel {
-    constructor(_global) {
-        super(_global, Morph_member_index);
-    }
+    _gcList = [];
 }
 export const Mesh_member_index = {
     ...Miaoverse.Binary_member_index,
@@ -841,4 +871,3 @@ export const Skeleton_member_index = {
     inverseBindMatrices: ["ptrGet", "ptrSet", 1, 18],
     jointsName: ["ptrGet", "ptrSet", 1, 19],
 };
-//# sourceMappingURL=mesh.js.map

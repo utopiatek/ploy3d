@@ -26,6 +26,38 @@ export class PloyApp_daz_base extends PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
+        this.volume.shadowBias = 0.1;
+        this.volume.iblLuminance = 0.2;
+        this.volume.sunlitColorIntensity = [0.22, 0.22, 0.22, 0.5];
+        this.volume.sunlitDirection = engine.Vector3([1.0, 1.0, 1.0]).normalized.values;
+
+        this.volume.shadowDisable = 1;
+        this.volume.ssrDisable = 1;
+        this.volume.ssaoDisable = 1;
+
+        // 自定义渲染管线帧通道列表（我们排出了默认设置中的"shadow_cast","early_z","ssao_extract","ssr_extract","sss_extract","sss_blur","proc_bloom"）
+        {
+            this.framePassList = {};
+
+            this.framePassList.framePassName = [
+                "opaque",       // 0
+                "blit",         // 1
+            ];
+
+            this.framePassList.framePass = this.framePassList.framePassName.map((label) => {
+                return engine.assembly.GetFramePass(label);
+            });
+
+            // 我们排除了"early_z"通道，以此需要修改"opaque"通道的深度测试配置
+            this.framePassList.framePass[0].depthStencilAttachment.depthCompare = "greater";
+            this.framePassList.framePass[0].depthStencilAttachment.depthLoadOp = "clear";
+            this.framePassList.framePass[0].depthStencilAttachment.depthWriteEnabled = true;
+
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_BLOOM = 0;
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_TONE_MAPPING = 0;
+        }
+
         // 创建地平面立方体网格对象
         {
             const material = await resources.Material.Load("1-1-1.miaokit.builtins:/material/32-0_standard_gltf_sketchfab.json");
@@ -75,7 +107,7 @@ export class PloyApp_daz_base extends PloyApp {
         // 默认相机姿态
         this.camera.Set3D([0, 2, 0], 5.5, 5, 60);
         this.camera.nearZ = 0.1;
-        this.camera.farZ = 4.0;
+        this.camera.farZ = 100.0;
         this.camera.fov = 45 / 180 * Math.PI;
 
         // 注册鼠标滚轮事件监听器
@@ -208,7 +240,7 @@ export class PloyApp_daz_base extends PloyApp {
 
         // ========================----------------------------------------
 
-        const framePassList = this.engine.assembly.GetFramePassList("low");
+        const framePassList = this.framePassList || this.engine.assembly.GetFramePassList("low");
         const texture = this.engine.device._swapchain.getCurrentTexture();
         const target = {
             texture: texture,
@@ -236,4 +268,7 @@ export class PloyApp_daz_base extends PloyApp {
     camera;
     /** @type {Volume} 体积组件实例。 */
     volume;
+
+    /** @type {ReturnType<Assembly["GetFramePassList"]>} 自定义渲染管线帧通道列表。 */
+    framePassList;
 }

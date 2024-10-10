@@ -25,6 +25,14 @@ export declare class Device {
      */
     protected InitGL(config: Miaoverse.Ploy3D["config"]): Promise<this>;
     /**
+     * 清除对象。
+     */
+    Dispose(): Promise<void>;
+    /**
+     * 垃圾回收。
+     */
+    GC(): void;
+    /**
      * 重设渲染目标大小。
      * @param width 宽度。
      * @param height 高度。
@@ -262,10 +270,6 @@ export declare class Device {
     private _texturesRT;
     /** 贴图采样器实例容器。 */
     private _samplers;
-    /** 统一资源组绑定对象实例容器（统一资源组绑定对象关联若干着色器资源并指定资源读写偏移，用于在绘制前将这些资源一次性绑定到着色器）。 */
-    private _bindings;
-    /** 顶点布局实例容器。 */
-    private _vertexLayouts;
     /** 资源销毁任务列表。 */
     private _destroyList;
 }

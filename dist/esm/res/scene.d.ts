@@ -8,6 +8,10 @@ export declare class Scene extends Miaoverse.Resource<Scene> {
      * @param id 实例ID。
      */
     constructor(impl: Scene_kernel, ptr: Miaoverse.io_ptr, id: number);
+    /**
+     * 销毁场景。
+     */
+    Destroy(): void;
     /** 内核实现。 */
     private _impl;
 }
@@ -23,6 +27,15 @@ export declare class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Sc
      * @returns 返回场景实例。
      */
     Create(): Promise<Miaoverse.Scene>;
+    /**
+     * 移除场景实例。
+     * @param id 场景实例ID。
+     */
+    protected Remove(id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
     /**
      * 基于相机视锥裁剪场景绘制对象。
      * @param camera 相机组件实例。
@@ -97,10 +110,6 @@ export declare const Scene_member_index: {
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
-    /**
-     * 创建场景实例。
-     * @returns 返回场景实例。
-     */
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
     readonly uuid: Miaoverse.Kernel_member;

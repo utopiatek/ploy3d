@@ -77,6 +77,45 @@ export class Kernel {
         this._global.env = await (new SharedENV(this._global)).Init(memory.buffer, ptrEnv);
         return this;
     }
+    async Dispose() {
+        this._global.internal.System_Shutdown();
+        const status = this.Status();
+        await this._global.env.Dispose();
+        this._global.internal = null;
+        this._wasm = null;
+        this._memory = null;
+        this._global.kernel = null;
+        this._global = null;
+        return status;
+    }
+    Status() {
+        const env = this._global.env;
+        const ptr = this._global.internal.System_Analyse();
+        let count = 0;
+        return {
+            Memory_growSize: env.buffer.byteLength / (1024 * 1024),
+            Memory_blockCount: env.uscalarGet(ptr, count++),
+            Memory_useCount: env.uscalarGet(ptr, count++),
+            Memory_freeCount: env.uscalarGet(ptr, count++),
+            Memory_blockSize: env.uscalarGet(ptr, count++),
+            Memory_useSize: env.uscalarGet(ptr, count++),
+            Memory_freeSize: env.uscalarGet(ptr, count++),
+            System_frameTS: env.uscalarGet(ptr, count++),
+            System_moduleCount: env.uscalarGet(ptr, count++),
+            Engine_sceneCount: env.uscalarGet(ptr, count++),
+            Engine_objectCount: env.uscalarGet(ptr, count++),
+            Engine_cameraCount: env.uscalarGet(ptr, count++),
+            Engine_lightCount: env.uscalarGet(ptr, count++),
+            Engine_volumeCount: env.uscalarGet(ptr, count++),
+            Engine_meshRendererCount: env.uscalarGet(ptr, count++),
+            Engine_meshCount: env.uscalarGet(ptr, count++),
+            Engine_materialCount: env.uscalarGet(ptr, count++),
+            Engine_spriteCount: env.uscalarGet(ptr, count++),
+            Engine_frameUniformsCount: env.uscalarGet(ptr, count++),
+            Engine_uniformCount: env.uscalarGet(ptr, count++),
+            Engine_uniformBufferCount: env.uscalarGet(ptr, count++),
+        };
+    }
     _global;
     _wasm;
     _memory;
@@ -111,6 +150,19 @@ export class SharedENV {
         this._fview = new Float32Array(buffer);
         this._dview = new Float64Array(buffer);
         this._view = [this._ubview, this._iview, this._uview, this._fview];
+    }
+    async Dispose() {
+        this._ptr = 0;
+        this._textDecoder = null;
+        this._textEncoder = null;
+        this._ubview = null;
+        this._iview = null;
+        this._uview = null;
+        this._fview = null;
+        this._dview = null;
+        this._view = null;
+        this._global.env = null;
+        this._global = null;
     }
     AllocaCall(size, func) {
         size = (size + 0x3) & 0xFFFFFFFC;
@@ -383,9 +435,6 @@ export class SharedENV {
     get webGL() {
         return this.uscalarGet(this._ptr, 7);
     }
-    get shadowMapSize() {
-        return this.uscalarGet(this._ptr, 8);
-    }
     get defaultG2() {
         return this.ptrGet(this._ptr, 9);
     }
@@ -412,4 +461,3 @@ export class SharedENV {
     _dview;
     _view;
 }
-//# sourceMappingURL=kernel.js.map

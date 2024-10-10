@@ -1284,6 +1284,13 @@ fn material_fs() {
         postprocess_bloom(uv);
     }
     else if (BLIT_CANVAS > 0u) {
+        if (materialParams.drawTex > 0u) {
+            let color = textureSampleLevel(baseTex, splln1, uv, 0.0).rgb;
+            material_emissive = color.zyx;
+            material_alpha = 1.0;
+            return;
+        }
+
         let coord = uv * infoRT.y;
         let coordMax = vec2f(infoRT.y - 1.0);
         let coordToUV = 1.0  / infoRT.x;
@@ -1308,6 +1315,10 @@ fn material_fs() {
         }
 
         color = linearTosRGB_vec3(color);
+
+        if (materialParams.rgbaOut > 0u) {
+            color = color.zyx;
+        }
 
         material_emissive = color;
         material_alpha = 1.0;

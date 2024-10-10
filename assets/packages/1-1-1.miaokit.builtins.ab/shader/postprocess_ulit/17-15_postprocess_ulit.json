@@ -16,6 +16,24 @@
                     1.0,
                     1.0
                 ]
+            },
+            "baseTex": {
+                "note": "",
+                "sign": "texture_2d<f32>"
+            },
+            "drawTex": {
+                "note": "",
+                "sign": "u32",
+                "value": [
+                    0
+                ]
+            },
+            "rgbaOut": {
+                "note": "",
+                "sign": "u32",
+                "value": [
+                    0
+                ]
             }
         },
         "codes": {

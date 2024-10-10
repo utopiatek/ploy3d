@@ -137,7 +137,7 @@ export class Device {
         swapchain.configure({
             device: this._device,
             format: "bgra8unorm",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
             colorSpace: config.colorSpace,
             alphaMode: config.alphaMode,
             width: config.initWidth,
@@ -362,16 +362,97 @@ export class Device {
         this.Resize(config.initWidth, config.initHeight);
         return this;
     }
+    async Dispose() {
+        if (this._buffers.usedCount > 0) {
+            console.error("存在未释放GPU缓存数量:", this._buffers.usedCount);
+            for (let i = 1; i < this._buffers.list.length; i++) {
+                const entry = this._buffers.list[i];
+                if (entry.id == i) {
+                    this.FreeBuffer(entry.id);
+                }
+            }
+            if (this._buffers.usedCount != 0 || this._buffers.usedSize != 0) {
+                console.error("GPU缓存清除不完整，剩余:", this._buffers.usedCount, this._buffers.usedSize);
+            }
+        }
+        this._buffers.list = [null];
+        this._buffers = null;
+        if (this._textures2D.usedCount > 0) {
+            console.error("存在未释放GPU贴图数量:", this._textures2D.usedCount);
+            for (let i = 1; i < this._textures2D.list.length; i++) {
+                const entry = this._textures2D.list[i];
+                if (entry.id == i) {
+                    this.FreeTexture2D(entry.id);
+                }
+            }
+            if (this._textures2D.usedCount != 0 || this._textures2D.usedSize != 0) {
+                console.error("GPU贴图清除不完整，剩余:", this._textures2D.usedCount, this._textures2D.usedSize);
+            }
+        }
+        this._textures2D.list = [null];
+        this._textures2D = null;
+        if (this._texturesRT.usedCount > 0) {
+            console.error("存在未释放GPU渲染贴图数量:", this._texturesRT.usedCount);
+            for (let i = 1; i < this._texturesRT.list.length; i++) {
+                const entry = this._texturesRT.list[i];
+                if (entry.id == i) {
+                    this.FreeTextureRT(entry.id);
+                }
+            }
+            if (this._texturesRT.usedCount != 0 || this._texturesRT.usedSize != 0) {
+                console.error("GPU渲染贴图清除不完整，剩余:", this._texturesRT.usedCount, this._texturesRT.usedSize);
+            }
+        }
+        if (this._texturesRT.readBuffer) {
+            const buffer = this._texturesRT.readBuffer;
+            this._destroyList.push(() => {
+                buffer.destroy();
+            });
+        }
+        this._texturesRT.readBuffer = null;
+        this._texturesRT.list = [null];
+        this._texturesRT = null;
+        if (this._samplers.usedCount > 0) {
+            console.error("存在未释放GPU贴图采样器数量:", this._samplers.usedCount);
+            for (let i = 1; i < this._samplers.list.length; i++) {
+                const entry = this._samplers.list[i];
+                if (entry.id == i) {
+                    this.FreeSampler(entry.id);
+                }
+            }
+            if (this._samplers.usedCount != 0) {
+                console.error("GPU贴图采样器清除不完整，剩余:", this._samplers.usedCount);
+            }
+        }
+        this._samplers.list = [null];
+        this._samplers.lut = {};
+        this._samplers = null;
+        this.GC();
+        this._textureFormatDescLut = null;
+        this._swapchain.unconfigure();
+        this._swapchain = null;
+        this._device.destroy();
+        this._device = null;
+        this._adapter = null;
+        this._global.device = null;
+        this._global = null;
+    }
+    GC() {
+        for (let func of this._destroyList) {
+            func();
+        }
+        this._destroyList = [];
+    }
     Resize(width, height) {
-        if (width === undefined && height === undefined) {
+        const canvas = this._global.config.surface;
+        const canvas2d = this._global.app.ui_canvas;
+        if (canvas && canvas2d) {
             if (Deno) {
                 return true;
             }
             else {
-                const canvas = this._global.config.surface;
-                const canvas2d = this._global.app.ui_canvas;
-                canvas.width = this._global.assembly.config.renderTargets.width;
-                canvas.height = this._global.assembly.config.renderTargets.height;
+                canvas.width = width || this._global.assembly.config.renderTargets.width;
+                canvas.height = height || this._global.assembly.config.renderTargets.height;
                 canvas2d.width = canvas.clientWidth;
                 canvas2d.height = canvas.clientHeight;
                 width = canvas.clientWidth * this._global.config.devicePixelRatio;
@@ -956,16 +1037,6 @@ export class Device {
             compareFunction: ["never", "less", "equal", "less-equal", "greater", "not-equal", "greater-equal", "always", undefined],
         }
     };
-    _bindings = {
-        freeId: 1,
-        usedCount: 0,
-        list: [null]
-    };
-    _vertexLayouts = {
-        freeId: 1,
-        usedCount: 0,
-        list: [null]
-    };
     _destroyList = [];
 }
 class GLDevice {
@@ -982,4 +1053,3 @@ class GLCanvasContext {
     }
     _gl;
 }
-//# sourceMappingURL=device.js.map

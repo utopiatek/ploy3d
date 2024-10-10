@@ -74,12 +74,13 @@ export class Camera extends Miaoverse.Resource<Camera> {
      * 使相机姿态适应观察内容范围。
      * @param bounding 观察内容范围。
      */
-    public Fit(bounding: { center: Miaoverse.Vector3; radius: number; }, pitch?: number, yaw?: number): void {
+    public Fit(bounding: { center: number[]; extents: number[]; }, pitch?: number, yaw?: number): void {
+        const radius = Math.sqrt(bounding.extents[0] * bounding.extents[0] + bounding.extents[1] * bounding.extents[1] + bounding.extents[2] * bounding.extents[2]);
         const aspect = this.width / this.height;
-        const size = 1 < aspect ? bounding.radius : bounding.radius / aspect;
+        const size = 1 < aspect ? radius : radius / aspect;
         const distance = size / Math.tan(0.5 * this.fov);
 
-        this.Set3D(bounding.center.values, distance, pitch || 0, yaw || 0);
+        this.Set3D(bounding.center, distance, pitch || 0, yaw || 0);
     }
 
     /**
@@ -425,6 +426,42 @@ export class Camera_kernel extends Miaoverse.Base_kernel<Camera, typeof Camera_m
         this._instanceCount++;
 
         return instance;
+    }
+
+    /**
+     * 移除相机组件实例。
+     * @param id 相机组件实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Camera_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的相机组件实例", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
     }
 
     /**

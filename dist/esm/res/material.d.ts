@@ -55,6 +55,18 @@ export declare class Material extends Miaoverse.Uniform<Material_kernel> {
      * @returns 返回true则包含指定属性。
      */
     HasProperty(name: string): boolean;
+    /**
+     * 释放实例引用。
+     */
+    Release(): void;
+    /**
+     * 增加实例引用。
+     */
+    AddRef(): void;
+    /**
+     * 清除对象。
+     */
+    protected Dispose(): void;
     /** 资源绑定组布局ID（同时也是着色器内部实例ID）。 */
     get layoutID(): number;
     /** 材质属性启用标志集（G2，RENDER_FLAGS高24位）。 */
@@ -88,6 +100,18 @@ export declare class FrameUniforms extends Miaoverse.Uniform<Material_kernel> {
      * @param cascadeIndex Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵）。
      */
     ComputeLightSpaceMatrixes(camera: Miaoverse.Camera, cascadeIndex: number): void;
+    /**
+     * 释放实例引用。
+     */
+    Release(): void;
+    /**
+     * 增加实例引用。
+     */
+    AddRef(): void;
+    /**
+     * 清除对象。
+     */
+    protected Dispose(): void;
     /** 相关状态标志集。 */
     get enableFlags(): number;
     set enableFlags(value: number);
@@ -159,10 +183,14 @@ export declare class Material_kernel extends Miaoverse.Base_kernel<Material | Fr
      */
     CreateFrameUniforms(colorRT: number, depthRT: number, gbufferRT: number, spriteAtlas: number): Promise<Miaoverse.FrameUniforms>;
     /**
-     * 释放材质引用的贴图资源（注意该方法仅提供给内核在释放材质前调用）。
-     * @param instance 材质实例对象。
+     * 移除材质资源实例。
+     * @param id 材质资源实例ID。
      */
-    Dispose(id: number): void;
+    protected Remove(id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
     /**
      * 实例化材质资源内核实例。
      * @param size 材质属性集字节大小。
@@ -171,10 +199,18 @@ export declare class Material_kernel extends Miaoverse.Base_kernel<Material | Fr
      */
     protected _Create: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
     /**
+     * 释放材质资源引用。
+     */
+    protected _Release: (uniform: Miaoverse.io_ptr) => number;
+    /**
      * 实例化G0资源内核实例。
      * @returns 返回G0资源内核实例指针。
      */
     protected _CreateFrameUniforms: () => Miaoverse.io_ptr;
+    /**
+     * 释放G0资源引用。
+     */
+    protected _ReleaseFrameUniforms: (uniform: Miaoverse.io_ptr) => number;
     /**
      * 根据相机组件数据和体积组件数据更新G0数据。
      * @param uniform G0资源内核实例指针。
@@ -188,6 +224,8 @@ export declare class Material_kernel extends Miaoverse.Base_kernel<Material | Fr
      * @param cascadeIndex Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵）。
      */
     protected _ComputeLightSpaceMatrixes: (uniform: Miaoverse.io_ptr, camera: Miaoverse.io_ptr, cascadeIndex: number) => void;
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList;
 }
 /** 材质资源内核实现的数据结构成员列表。 */
 export declare const Material_member_index: {
@@ -216,7 +254,7 @@ export declare const Material_member_index: {
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
     readonly updated: Miaoverse.Kernel_member;
-    readonly m_reserved76: Miaoverse.Kernel_member;
+    readonly m_reserved76: Miaoverse.Kernel_member; /** 属性访问视图。 */
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;

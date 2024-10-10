@@ -14,6 +14,13 @@ export class Scene extends Miaoverse.Resource<Scene> {
         this._impl.Set(this._ptr, "id", id);
     }
 
+    /**
+     * 销毁场景。
+     */
+    public Destroy() {
+        this._impl["_Destroy"](this.internalPtr);
+    }
+
     /** 内核实现。 */
     private _impl: Scene_kernel;
 }
@@ -45,6 +52,53 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
         this._instanceCount++;
 
         return instance;
+    }
+
+    /**
+     * 移除场景实例。
+     * @param id 场景实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Scene_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.info("销毁未释放的场景实例", this._instanceCount);
+        }
+
+        for (let i = 1; i < this._instanceList.length; i++) {
+            const instance = this._instanceList[i];
+            if (instance && instance.id == i) {
+                instance.Destroy();
+            }
+        }
+
+        if (this._instanceCount != 0) {
+            console.error("销毁异常！存在释放失败的场景实例", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
     }
 
     /**

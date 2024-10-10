@@ -35,6 +35,56 @@ export declare class Kernel {
     constructor(_global: Ploy3D);
     /** 初始化引擎内核。 */
     Init(_imports: {}): Promise<this>;
+    /**
+     * 清除对象。
+     */
+    Dispose(): Promise<{
+        Memory_growSize: number;
+        Memory_blockCount: number;
+        Memory_useCount: number;
+        Memory_freeCount: number;
+        Memory_blockSize: number;
+        Memory_useSize: number;
+        Memory_freeSize: number;
+        System_frameTS: number;
+        System_moduleCount: number;
+        Engine_sceneCount: number;
+        Engine_objectCount: number;
+        Engine_cameraCount: number;
+        Engine_lightCount: number;
+        Engine_volumeCount: number;
+        Engine_meshRendererCount: number;
+        Engine_meshCount: number;
+        Engine_materialCount: number;
+        Engine_spriteCount: number;
+        Engine_frameUniformsCount: number;
+        Engine_uniformCount: number;
+        Engine_uniformBufferCount: number;
+    }>;
+    /** 状态统计。 */
+    Status(): {
+        Memory_growSize: number;
+        Memory_blockCount: number;
+        Memory_useCount: number;
+        Memory_freeCount: number;
+        Memory_blockSize: number;
+        Memory_useSize: number;
+        Memory_freeSize: number;
+        System_frameTS: number;
+        System_moduleCount: number;
+        Engine_sceneCount: number;
+        Engine_objectCount: number;
+        Engine_cameraCount: number;
+        Engine_lightCount: number;
+        Engine_volumeCount: number;
+        Engine_meshRendererCount: number;
+        Engine_meshCount: number;
+        Engine_materialCount: number;
+        Engine_spriteCount: number;
+        Engine_frameUniformsCount: number;
+        Engine_uniformCount: number;
+        Engine_uniformBufferCount: number;
+    };
     /** 模块实例对象。 */
     private _global;
     /** 内核实例。*/
@@ -61,6 +111,10 @@ export declare class SharedENV {
      * @param buffer 内核内存。
      */
     Reinit(buffer: ArrayBuffer): void;
+    /**
+     * 清除对象。
+     */
+    Dispose(): Promise<void>;
     /** 在栈上分配空间后调用方法（栈空间在共享内存头部，所以地址永远不会大于4G）。*/
     AllocaCall(size: io_uint, func: (ptr: io_ptr) => void): void;
     /** 格式化C字符串（参数sys、format、argv均为地址）。 */
@@ -156,8 +210,6 @@ export declare class SharedENV {
     get reversedZ(): number;
     /** 是否使用WebGL API。 */
     get webGL(): number;
-    /** 阴影贴图大小。 */
-    get shadowMapSize(): number;
     /** 默认材质指针。 */
     get defaultG2(): io_ptr;
     set defaultG2(g2: io_ptr);
@@ -263,8 +315,8 @@ export declare const enum Env_member {
     reversedZ = 6,
     /** 是否使用WebGL API。 */
     webGL = 7,
-    /** 阴影贴图大小。 */
-    shadowMapSize = 8,
+    /** 弃用字段。 */
+    __ = 8,
     /** 默认材质指针。 */
     defaultG2 = 9,
     /** 世界坐标原点经纬度或者地形启用状态更新时间戳。 */

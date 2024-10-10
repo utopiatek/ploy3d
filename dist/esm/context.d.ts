@@ -13,11 +13,20 @@ export declare class Context {
      */
     Init(): Promise<this>;
     /**
+     * 清除对象。
+     */
+    Dispose(): Promise<void>;
+    /**
      * 从着色器资产创建着色器实例。
      * @param asset 着色器资产。
      * @returns 返回着色器实例。
      */
     CreateShader(asset: Miaoverse.ShaderAsset): Miaoverse.Shader;
+    /**
+     * 释放着色器实例。
+     * @param id 着色器实例ID。
+     */
+    FreeShader(id: number): void;
     /**
      * 生成属性值定义代码。
      * @param properties 属性定义。

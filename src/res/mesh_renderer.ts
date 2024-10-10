@@ -54,6 +54,42 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
         this._impl["_UpdateG1"](this._ptr, object3d.internalPtr);
     }
 
+    /**
+     * 释放实例引用。
+     */
+    public Release() {
+        if (this.internalPtr) {
+            this._impl["_Release"](this.internalPtr);
+        }
+    }
+
+    /**
+     * 增加实例引用。
+     */
+    public AddRef() {
+        const refCount = this._impl.Get<number>(this._ptr, "refCount");
+        this._impl.Set(this._ptr, "refCount", refCount + 1);
+    }
+
+    /**
+     * 清除对象。
+     */
+    protected Dispose() {
+        // 由内核实例释放材质引用，材质销毁时会释放贴图引用
+        // 由内核实例释放网格资源
+
+        this._bufferPtr = 0 as Miaoverse.io_ptr;
+        this._bufferSize = 0;
+        this._blockPtr = 0 as Miaoverse.io_ptr;
+
+        this.binding = null;
+        this.atlas2D = null;
+        this.dynamicOffsets = null;
+
+        this._view = null;
+        this._uuid = null;
+    }
+
     /** 网格资源实例。 */
     public get mesh(): Miaoverse.Mesh {
         const ptr = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "meshPTR");
@@ -145,6 +181,8 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
 
     /** 属性访问视图。 */
     private _view: Record<string, Array<number>>;
+    /** 通过资源装载的组件记录UUID。 */
+    private _uuid: string;
 }
 
 /** 网格渲染器组件内核实现。 */
@@ -200,7 +238,11 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
 
         // 创建实例 ===============-----------------------
 
-        return this.Create(mesh, materials);
+        const instance = await this.Create(mesh, materials);
+
+        instance["_uuid"] = uuid;
+
+        return instance;
     }
 
     /**
@@ -235,9 +277,58 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
 
         // 注册垃圾回收 ===============-----------------------
 
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
 
         return instance;
+    }
+
+    /**
+     * 移除网格渲染器组件实例。
+     * @param id 网格渲染器组件实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("MeshRenderer_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["Dispose"]();
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        if (this.defaultG1) {
+            this.defaultG1.Release();
+        }
+
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的网格渲染器组件实例", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
+
+        this.defaultG1 = null;
+        this.instanceVBL = null;
+
+        this._gcList = null;
     }
 
     /**
@@ -246,6 +337,11 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
      * @param skeleton 骨架定义数据内核实例。
      */
     protected _Create: (mesh: Miaoverse.io_ptr, skeleton: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+
+    /**
+     * 释放网格渲染器组件引用。
+     */
+    protected _Release: (mesh_renderer: Miaoverse.io_ptr) => number;
 
     /**
      * 设置材质节点。
@@ -330,7 +426,10 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel<MeshRenderer, typ
                 format: "float32x3"
             }
         ]
-    }
+    };
+
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList: (() => void)[] = [];
 }
 
 /** 网格渲染器组件内核实现的数据结构成员列表。 */

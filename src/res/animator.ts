@@ -45,7 +45,35 @@ export class Animator extends Miaoverse.Resource<Animator> {
 
         this._clips.push(clip);
 
+        // 增加动画数据引用计数
+        data["_animations"].refCount++;
+
         return id;
+    }
+
+    /**
+     * 移除动画片段实例。
+     * @param _clip
+     * @returns
+     */
+    public RemoveClip(_clip: number) {
+        const clip = this._clips[_clip];
+        if (!clip) {
+            return;
+        }
+
+        this._clips[_clip] = null;
+
+        this._impl.ReleaseAnimations(clip.data["_animations"].asset.uuid);
+        clip.data["_animations"] = null;
+
+        // 多有数据都是从_data中读取，而_data属于_animations._data的一部分
+        clip.data["_data"] = null;
+        clip.data["_channels"] = null;
+        clip.data["_samplers"] = null;
+
+        clip.data = null;
+        clip.samplers = null;
     }
 
     /**
@@ -256,6 +284,37 @@ export class Animator extends Miaoverse.Resource<Animator> {
                 // TODO ...
             }
         }
+    }
+
+    /**
+     * 释放实例引用。
+     */
+    protected Release() {
+        if (--this._refCount == 0) {
+            this.Dispose();
+        }
+    }
+
+    /**
+     * 清除对象。
+     */
+    protected Dispose() {
+        if (this._refCount != 0) {
+            console.error("动画组件引用计数不为0，无法清除", this._refCount);
+            return;
+        }
+
+        for (let i = 0; i < this._clips.length; i++) {
+            this.RemoveClip(i);
+        }
+
+        this._enabled = false;
+        this._refCount = 0;
+        this._ctrl = null;
+        this._targets = null;
+        this._clips = null;
+
+        this._global.resources.Remove(Miaoverse.CLASSID.ASSET_COMPONENT_ANIMATOR, this.id);
     }
 
     /** 动画控制器。 */
@@ -812,6 +871,7 @@ export class Animator_kernel extends Miaoverse.Base_kernel<Animator, any> {
     public constructor(_global: Miaoverse.Ploy3D) {
         super(_global, {});
         this._animationsLut = {};
+        this._animationsCount = 0;
     }
 
     /**
@@ -836,6 +896,10 @@ export class Animator_kernel extends Miaoverse.Base_kernel<Animator, any> {
 
         this._instanceCount++;
 
+        this._gcList.push(() => {
+            instance["Release"]();
+        });
+
         // 添加动画数据 ===============-----------------------
 
         instance.targets = targets.slice();
@@ -849,6 +913,27 @@ export class Animator_kernel extends Miaoverse.Base_kernel<Animator, any> {
         }
 
         return instance;
+    }
+
+    /**
+     * 移除动画组件实例。
+     * @param id 动画组件实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Animator_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
     }
 
     /**
@@ -913,8 +998,39 @@ export class Animator_kernel extends Miaoverse.Base_kernel<Animator, any> {
         }
 
         this._animationsLut[uuid] = _animations;
+        this._animationsCount++;
+
+        this._gcList.push(() => {
+            this.ReleaseAnimations(uuid);
+        });
 
         return _animations;
+    }
+
+    /**
+     * 释放动画数据。
+     * @param uuid 动画数据ID。
+     * @returns
+     */
+    public ReleaseAnimations(uuid: string) {
+        let animations = this._animationsLut[uuid];
+        if (!animations) {
+            console.error("释放动画数据UUID无效", uuid);
+            return;
+        }
+
+        if (--animations.refCount > 0) {
+            return;
+        }
+
+        animations.asset = null;
+        animations.clips = null;
+        // 该数据不存在与内核内存中，仅为JS端普通数组
+        animations.data = null;
+        animations.refCount = 0;
+
+        this._animationsLut[uuid] = undefined;
+        this._animationsCount--;
     }
 
     /**
@@ -928,6 +1044,28 @@ export class Animator_kernel extends Miaoverse.Base_kernel<Animator, any> {
         }
     }
 
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的动画组件实例", this._instanceCount);
+        }
+
+        if (this._animationsCount != 0) {
+            console.error("异常！存在未释放的动画数据", this._animationsCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
+
+        this._animationsLut = null;
+        this._gcList = null;
+    }
+
     /** 动画数据查找表。 */
     private _animationsLut: Record<string, {
         /** 动画数据资产信息。 */
@@ -939,6 +1077,11 @@ export class Animator_kernel extends Miaoverse.Base_kernel<Animator, any> {
         /** 动画数据引用计数。 */
         refCount: number;
     }>;
+    /** 已装载动画数据数量。 */
+    private _animationsCount: number;
+
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList: (() => void)[] = [];
 }
 
 /** 动画数据描述符。 */

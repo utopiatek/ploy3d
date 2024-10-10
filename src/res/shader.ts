@@ -11,12 +11,49 @@ export class ShaderRes extends Miaoverse.Resource<ShaderRes> {
     public constructor(impl: Shader_kernel, shader: Miaoverse.Shader, id: number) {
         super(impl["_global"], 0 as never, id);
         this._impl = impl;
+        this._refCount = 1;
         this._shader = shader;
+        this._shader.refCount++;
+    }
+
+    /**
+     * 释放实例引用。
+     */
+    public Release() {
+        if (--this._refCount == 0) {
+            this.Dispose();
+        }
+    }
+
+    /**
+     * 增加实例引用。
+     */
+    public AddRef() {
+        this._refCount++;
+    }
+
+    /**
+     * 清除对象。
+     */
+    protected Dispose() {
+        this._impl["_instanceLut"][this.uuid] = undefined;
+
+        this._global.context.FreeShader(this.internalID);
+
+        this._refCount = 0;
+        this._shader = null;
+
+        this._impl["Remove"](this.id);
     }
 
     /** 着色器资源UUID。 */
     public get uuid() {
         return this._shader.asset.name;
+    }
+
+    /** 着色器内部实例ID。 */
+    public get internalID() {
+        return this._shader.id;
     }
 
     /** 资源实例内部实现。 */
@@ -31,6 +68,8 @@ export class ShaderRes extends Miaoverse.Resource<ShaderRes> {
 
     /** 实例管理器。 */
     private _impl: Shader_kernel;
+    /** 资源引用计数。 */
+    private _refCount: number;
     /** 内部实例。 */
     private _shader: Miaoverse.Shader = null;
 }
@@ -103,10 +142,57 @@ export class Shader_kernel extends Miaoverse.Base_kernel<ShaderRes, any> {
 
         // 注册垃圾回收 ===============-----------------------
 
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
 
         return instance;
     }
+
+    /**
+     * 移除着色器资源实例。
+     * @param id 着色器资源实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Shader_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        for (let func of this._gcList) {
+            func();
+        }
+
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的着色器资源实例", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
+
+        this._gcList = null;
+    }
+
+    /** 所有着色器资源在程序退出时才释放。 */
+    private _gcList: (() => void)[] = [];
 }
 
 /** 着色器资源描述符。 */

@@ -13,6 +13,10 @@ export declare class Renderer {
      */
     Init(): Promise<this>;
     /**
+     * 清除对象。
+     */
+    Dispose(): Promise<void>;
+    /**
      * 获取渲染队列。
      * @param callback 等待后回调返回渲染队列。
      */
@@ -45,7 +49,7 @@ export declare class DrawQueue {
     /**
      * 对资源包进行快照渲染。
      */
-    Snapshot(scene: Miaoverse.Scene, menu: Miaoverse.PackageReg["menu"]): Promise<void>;
+    Snapshot(scene: Miaoverse.Scene, menu: Miaoverse.PackageReg["menu"], surface: HTMLCanvasElement, camera: Miaoverse.Camera, volume: Miaoverse.Volume, framePassList: DrawQueue["framePassList"], end: (e: any) => void): void;
     /**
      * 执行帧绘制。
      * @param camera 相机组件实例。
@@ -122,6 +126,8 @@ export declare class DrawQueue {
     Draw?: (queue: DrawQueue) => void;
     /** 模块实例对象。 */
     private _global;
+    /** 资源包快照工具。 */
+    private _snapshotUtil;
     /** 等待当前所有任务完成后响应。 */
     private _waiting;
     /** 是否已结束当前对渲染队列的使用。 */

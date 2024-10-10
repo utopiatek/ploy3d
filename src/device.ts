@@ -202,7 +202,8 @@ export class Device {
         swapchain.configure({
             device: this._device,
             format: "bgra8unorm",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+            // 资源包快照结果拷贝需要GPUTextureUsage.COPY_SRC标志
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
             colorSpace: config.colorSpace,
             alphaMode: config.alphaMode,
             width: config.initWidth,
@@ -480,6 +481,125 @@ export class Device {
     }
 
     /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        if (this._buffers.usedCount > 0) {
+            console.error("存在未释放GPU缓存数量:", this._buffers.usedCount);
+
+            for (let i = 1; i < this._buffers.list.length; i++) {
+                const entry = this._buffers.list[i];
+                if (entry.id == i) {
+                    this.FreeBuffer(entry.id);
+                }
+            }
+
+            if (this._buffers.usedCount != 0 || this._buffers.usedSize != 0) {
+                console.error("GPU缓存清除不完整，剩余:", this._buffers.usedCount, this._buffers.usedSize);
+            }
+        }
+
+        this._buffers.list = [null];
+        this._buffers = null;
+
+        // ====================--------------------------------
+
+        if (this._textures2D.usedCount > 0) {
+            console.error("存在未释放GPU贴图数量:", this._textures2D.usedCount);
+
+            for (let i = 1; i < this._textures2D.list.length; i++) {
+                const entry = this._textures2D.list[i];
+                if (entry.id == i) {
+                    this.FreeTexture2D(entry.id);
+                }
+            }
+
+            if (this._textures2D.usedCount != 0 || this._textures2D.usedSize != 0) {
+                console.error("GPU贴图清除不完整，剩余:", this._textures2D.usedCount, this._textures2D.usedSize);
+            }
+        }
+
+        this._textures2D.list = [null];
+        this._textures2D = null;
+
+        // ====================--------------------------------
+
+        if (this._texturesRT.usedCount > 0) {
+            console.error("存在未释放GPU渲染贴图数量:", this._texturesRT.usedCount);
+
+            for (let i = 1; i < this._texturesRT.list.length; i++) {
+                const entry = this._texturesRT.list[i];
+                if (entry.id == i) {
+                    this.FreeTextureRT(entry.id);
+                }
+            }
+
+            if (this._texturesRT.usedCount != 0 || this._texturesRT.usedSize != 0) {
+                console.error("GPU渲染贴图清除不完整，剩余:", this._texturesRT.usedCount, this._texturesRT.usedSize);
+            }
+        }
+
+        if (this._texturesRT.readBuffer) {
+            const buffer = this._texturesRT.readBuffer;
+            this._destroyList.push(() => {
+                buffer.destroy();
+            });
+        }
+
+        this._texturesRT.readBuffer = null;
+        this._texturesRT.list = [null];
+        this._texturesRT = null;
+
+        // ====================--------------------------------
+
+        if (this._samplers.usedCount > 0) {
+            console.error("存在未释放GPU贴图采样器数量:", this._samplers.usedCount);
+
+            for (let i = 1; i < this._samplers.list.length; i++) {
+                const entry = this._samplers.list[i];
+                if (entry.id == i) {
+                    this.FreeSampler(entry.id);
+                }
+            }
+
+            if (this._samplers.usedCount != 0) {
+                console.error("GPU贴图采样器清除不完整，剩余:", this._samplers.usedCount);
+            }
+        }
+
+        this._samplers.list = [null];
+        this._samplers.lut = {};
+        this._samplers = null;
+
+        // ====================--------------------------------
+
+        this.GC();
+
+        // ====================--------------------------------
+
+        this._textureFormatDescLut = null;
+        this._swapchain.unconfigure();
+        this._swapchain = null;
+        this._device.destroy();
+        this._device = null;
+        this._adapter = null;
+
+        this._global.device = null;
+        this._global = null;
+    }
+
+    /**
+     * 垃圾回收。
+     */
+    public GC() {
+        for (let func of this._destroyList) {
+            func();
+        }
+
+        this._destroyList = [];
+    }
+
+    /**
      * 重设渲染目标大小。
      * @param width 宽度。
      * @param height 高度。
@@ -494,34 +614,23 @@ export class Device {
         相机宽高设置在DrawQueue.Execute方法中进行
         /*/
 
-        if (width === undefined && height === undefined) {
+        const canvas = this._global.config.surface as HTMLCanvasElement;
+        const canvas2d = this._global.app.ui_canvas;
+
+        if (canvas && canvas2d) {
             if (Deno) {
                 // SDL环境下不能缩放窗口，或者应当在外部处理缩放逻辑
                 return true;
             }
             else {
-                const canvas = this._global.config.surface as HTMLCanvasElement;
-                const canvas2d = this._global.app.ui_canvas;
-
-                // 与渲染目标贴图等大
-                canvas.width = this._global.assembly.config.renderTargets.width;
-                canvas.height = this._global.assembly.config.renderTargets.height;
+                // 通常与渲染目标贴图等大（在资源包快照时设置为128*128）
+                canvas.width = width || this._global.assembly.config.renderTargets.width;
+                canvas.height = height || this._global.assembly.config.renderTargets.height;
 
                 // 保持2D画布基于物理像素
                 canvas2d.width = canvas.clientWidth;
                 canvas2d.height = canvas.clientHeight;
 
-                // 以下对尺寸进行画布元素宽高比约束，他将影响相机投影矩阵
-                /*
-                if (canvas.clientWidth > canvas.clientHeight) {
-                    width = canvas.width;
-                    height = canvas.clientHeight / canvas.clientWidth * width;
-                }
-                else {
-                    height = canvas.height;
-                    width = canvas.clientWidth / canvas.clientHeight * height;
-                }
-                */
                 // 相关事件处理需要使用真实画布大小 
                 width = canvas.clientWidth * this._global.config.devicePixelRatio;
                 height = canvas.clientHeight * this._global.config.devicePixelRatio;
@@ -1497,46 +1606,6 @@ export class Device {
             /** 比较方式映射表。 */
             compareFunction: ["never", "less", "equal", "less-equal", "greater", "not-equal", "greater-equal", "always", undefined] as GPUCompareFunction[],
         }
-    };
-
-    /** 统一资源组绑定对象实例容器（统一资源组绑定对象关联若干着色器资源并指定资源读写偏移，用于在绘制前将这些资源一次性绑定到着色器）。 */
-    private _bindings = {
-        /** 当前可分配ID。 */
-        freeId: 1,
-        /** 当前实例数量。 */
-        usedCount: 0,
-        /** 绑定对象实例容器。 */
-        list: [null] as {
-            /** 绑定对象ID。 */
-            id: number;
-            /** 资源组索引。 */
-            group: number;
-            /** 动态偏移参数（绑定操作时使用，资源读写偏移相对于该偏移参数、该参数又相对于资源首地址）。 */
-            dynamicOffsets: number[];
-            /** 资源组描述（布局、资源引用）。 */
-            descriptor: GPUBindGroupDescriptor;
-            /** 绑定对象。 */
-            binding: GPUBindGroup;
-            /** 绑定对象引用计数。 */
-            refCount: number;
-        }[]
-    };
-
-    /** 顶点布局实例容器。 */
-    private _vertexLayouts = {
-        /** 当前可分配ID。 */
-        freeId: 1,
-        /** 当前实例数量。 */
-        usedCount: 0,
-        /** 顶点布局实例容器。 */
-        list: [null] as {
-            /** 顶点布局ID。 */
-            id: number;
-            /** 顶点布局标签。 */
-            label: string;
-            /** 各顶点缓存布局（即顶点缓存布局组合，若干个顶点属性组成一个顶点缓存，最多3个顶点缓存，分别对应1、2、4位标识，顶点布局为各顶点缓存布局的组合）。 */
-            buffers: GPUVertexBufferLayout[];
-        }[]
     };
 
     /** 资源销毁任务列表。 */

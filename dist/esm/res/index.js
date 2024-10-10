@@ -96,8 +96,10 @@ export class Resources {
                 height: 128
             }
         });
+        this.Texture.default2D.AddRef();
         this.Texture.defaultAtlas = this._global.device.CreateTexture2D(4096, 4096, 2, 1, "rgba8unorm", GPUTextureUsage.COPY_SRC | GPUTextureUsage.RENDER_ATTACHMENT);
         this.MeshRenderer.defaultG1 = await this.MeshRenderer.Create(null, null);
+        this.MeshRenderer.defaultG1.AddRef();
         if (!this._global.localFS) {
             const pkg = {
                 index: 0,
@@ -110,6 +112,121 @@ export class Resources {
             this.Register(pkg);
         }
         return this;
+    }
+    async Dispose() {
+        this.GC();
+        this.Dioramas = null;
+        this.Scene["DisposeAll"]();
+        this.Scene = null;
+        this.Object["DisposeAll"]();
+        this.Object = null;
+        this.Camera["DisposeAll"]();
+        this.Camera = null;
+        this.Light["DisposeAll"]();
+        this.Light = null;
+        this.Volume["DisposeAll"]();
+        this.Volume = null;
+        this.Animator["DisposeAll"]();
+        this.Animator = null;
+        this.MeshRenderer["DisposeAll"]();
+        this.MeshRenderer = null;
+        this.Material["DisposeAll"]();
+        this.Material = null;
+        this.Mesh["DisposeAll"]();
+        this.Mesh = null;
+        this.Texture["DisposeAll"]();
+        this.Texture = null;
+        this.Shader["DisposeAll"]();
+        this.Shader = null;
+        this.VMath = null;
+        this._pkg_keyLut = null;
+        this._pkg_uuidLut = null;
+        this._pkg_list = null;
+        this._pkg_caches = null;
+        this._global.resources = null;
+        this._global = null;
+    }
+    GC() {
+        let gcList = this.Animator["_gcList"];
+        for (let func of gcList) {
+            func();
+        }
+        this.Animator["_gcList"] = [];
+        gcList = this.MeshRenderer["_gcList"];
+        for (let func of gcList) {
+            func();
+        }
+        this.MeshRenderer["_gcList"] = [];
+        gcList = this.Mesh["_gcList"];
+        for (let func of gcList) {
+            func();
+        }
+        this.Mesh["_gcList"] = [];
+        gcList = this.Material["_gcList"];
+        for (let func of gcList) {
+            func();
+        }
+        this.Material["_gcList"] = [];
+        gcList = this.Texture["_gcList"];
+        for (let func of gcList) {
+            func();
+        }
+        this.Texture["_gcList"] = [];
+        for (let cache of this._pkg_caches) {
+            if (cache) {
+                if (cache.zip) {
+                    cache.zip = null;
+                }
+                const location = this._pkg_list[cache.index].location || "memory";
+                if (location != "memory") {
+                    cache.files = {};
+                }
+            }
+        }
+    }
+    Remove(classid, id) {
+        if (classid == 49) {
+            this.Camera["Remove"](id);
+        }
+        else if (classid == 50) {
+            this.Light["Remove"](id);
+        }
+        else if (classid == 52) {
+            this.Volume["Remove"](id);
+        }
+        else if (classid == 51) {
+            this.Animator["Remove"](id);
+        }
+        else if (classid == 48) {
+            this.MeshRenderer["Remove"](id);
+        }
+        else if (classid == 32) {
+            this.Material["Remove"](id);
+        }
+        else if (classid == 21) {
+            this.Material["Remove"](id);
+        }
+        else if (classid == 39) {
+            this.Mesh["Remove"](id);
+        }
+        else if (classid == 67) {
+            this.Object["Remove"](id);
+        }
+        else if (classid == 66) {
+            this.Scene["Remove"](id);
+        }
+        else if (classid == 1) {
+            this._global.device.FreeBuffer(id);
+        }
+        else if (classid == 2) {
+            this._global.device.FreeBuffer(id);
+        }
+        else if (classid == 3) {
+            this._global.device.FreeBuffer(id);
+        }
+        else {
+            console.error("Resources.Remove 非法类型ID:", classid);
+        }
     }
     async Load_file(type, uri, not_cache, cur_pkg) {
         const keys = this.ParseUri(uri, cur_pkg);
@@ -292,6 +409,10 @@ export class Resources {
         });
     }
     Register(entry, files) {
+        if (this._pkg_keyLut[entry.key]) {
+            console.warn("资源包已注册！", entry.key);
+            return;
+        }
         entry.index = this._pkg_list.length;
         this._pkg_list.push(entry);
         this._pkg_keyLut[entry.key] = entry.index;
@@ -367,7 +488,7 @@ export class Resources {
             thumbnail_per_row: 1,
             list: []
         };
-        const export_keys = [29, 32, 39, 48, 65];
+        const export_keys = [29, 32, 48, 65];
         for (let asset_id in pkg.resid_path) {
             const entry = pkg.resid_path[asset_id];
             const classid_index = asset_id.split("-");
@@ -434,4 +555,3 @@ export class Resource {
     _id;
 }
 export const MAGIC_INVALID = 0x4D515120;
-//# sourceMappingURL=index.js.map

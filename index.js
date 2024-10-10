@@ -10,6 +10,7 @@ import { PloyApp_gis_dior } from "./examples/gis_dior.js"
 import { PloyApp_gltf_skin_anim } from "./examples/gltf_skin_anim.js"
 import { PloyApp_daz_base } from "./examples/daz_base.js"
 import { PloyApp_postprocess_base } from "./examples/postprocess_base.js"
+import { PloyApp_nature_base } from "./examples/nature_base.js"
 
 /** 需要存在Deno定义。 */
 globalThis.Deno = undefined;
@@ -70,6 +71,7 @@ async function Main(fs_root) {
             "gltf_skin_anim": PloyApp_gltf_skin_anim,
             "daz_base": PloyApp_daz_base,
             "postprocess_base": PloyApp_postprocess_base,
+            "nature_base": PloyApp_nature_base,
         }
     });
 

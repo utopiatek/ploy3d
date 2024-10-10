@@ -26,7 +26,22 @@ export class Animator extends Miaoverse.Resource {
             };
         }
         this._clips.push(clip);
+        data["_animations"].refCount++;
         return id;
+    }
+    RemoveClip(_clip) {
+        const clip = this._clips[_clip];
+        if (!clip) {
+            return;
+        }
+        this._clips[_clip] = null;
+        this._impl.ReleaseAnimations(clip.data["_animations"].asset.uuid);
+        clip.data["_animations"] = null;
+        clip.data["_data"] = null;
+        clip.data["_channels"] = null;
+        clip.data["_samplers"] = null;
+        clip.data = null;
+        clip.samplers = null;
     }
     Update() {
         if (!this._enabled) {
@@ -167,6 +182,26 @@ export class Animator extends Miaoverse.Resource {
             else if (attr == 4) {
             }
         }
+    }
+    Release() {
+        if (--this._refCount == 0) {
+            this.Dispose();
+        }
+    }
+    Dispose() {
+        if (this._refCount != 0) {
+            console.error("动画组件引用计数不为0，无法清除", this._refCount);
+            return;
+        }
+        for (let i = 0; i < this._clips.length; i++) {
+            this.RemoveClip(i);
+        }
+        this._enabled = false;
+        this._refCount = 0;
+        this._ctrl = null;
+        this._targets = null;
+        this._clips = null;
+        this._global.resources.Remove(51, this.id);
     }
     get ctrl() {
         return this._ctrl;
@@ -457,12 +492,16 @@ export class Animator_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
         super(_global, {});
         this._animationsLut = {};
+        this._animationsCount = 0;
     }
     async Create(targets, animationsList, pkg) {
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new Animator(this, 0, id);
         this._instanceCount++;
+        this._gcList.push(() => {
+            instance["Release"]();
+        });
         instance.targets = targets.slice();
         for (let i = 0; i < animationsList.length; i++) {
             const animations = await this.LoadAnimations(animationsList[i], pkg);
@@ -471,6 +510,19 @@ export class Animator_kernel extends Miaoverse.Base_kernel {
             }
         }
         return instance;
+    }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Animator_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
     }
     async LoadAnimations(uri, pkg) {
         const resources = this._global.resources;
@@ -512,7 +564,27 @@ export class Animator_kernel extends Miaoverse.Base_kernel {
             _animations.clips.push(clip);
         }
         this._animationsLut[uuid] = _animations;
+        this._animationsCount++;
+        this._gcList.push(() => {
+            this.ReleaseAnimations(uuid);
+        });
         return _animations;
+    }
+    ReleaseAnimations(uuid) {
+        let animations = this._animationsLut[uuid];
+        if (!animations) {
+            console.error("释放动画数据UUID无效", uuid);
+            return;
+        }
+        if (--animations.refCount > 0) {
+            return;
+        }
+        animations.asset = null;
+        animations.clips = null;
+        animations.data = null;
+        animations.refCount = 0;
+        this._animationsLut[uuid] = undefined;
+        this._animationsCount--;
     }
     Update(animator_id) {
         const animator = this.GetInstanceByID(animator_id);
@@ -520,7 +592,23 @@ export class Animator_kernel extends Miaoverse.Base_kernel {
             animator.Update();
         }
     }
+    DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的动画组件实例", this._instanceCount);
+        }
+        if (this._animationsCount != 0) {
+            console.error("异常！存在未释放的动画数据", this._animationsCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+        this._animationsLut = null;
+        this._gcList = null;
+    }
     _animationsLut;
+    _animationsCount;
+    _gcList = [];
 }
 export const AnimationData_member_index = {
     ...Miaoverse.Binary_member_index,
@@ -529,4 +617,3 @@ export const AnimationData_member_index = {
     targetsName: ["ptrGet", "ptrSet", 1, 14],
     clips: ["ptrGet", "ptrSet", 1, 15]
 };
-//# sourceMappingURL=animator.js.map

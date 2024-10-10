@@ -79,4 +79,3 @@ export class Vector3 {
     _impl;
     _values;
 }
-//# sourceMappingURL=vector3.js.map

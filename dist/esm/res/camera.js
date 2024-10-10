@@ -44,10 +44,11 @@ export class Camera extends Miaoverse.Resource {
         }
     }
     Fit(bounding, pitch, yaw) {
+        const radius = Math.sqrt(bounding.extents[0] * bounding.extents[0] + bounding.extents[1] * bounding.extents[1] + bounding.extents[2] * bounding.extents[2]);
         const aspect = this.width / this.height;
-        const size = 1 < aspect ? bounding.radius : bounding.radius / aspect;
+        const size = 1 < aspect ? radius : radius / aspect;
         const distance = size / Math.tan(0.5 * this.fov);
-        this.Set3D(bounding.center.values, distance, pitch || 0, yaw || 0);
+        this.Set3D(bounding.center, distance, pitch || 0, yaw || 0);
     }
     Move(offsetX, offsetY, width, height) {
         if (isNaN(offsetX) || isNaN(offsetY)) {
@@ -268,6 +269,28 @@ export class Camera_kernel extends Miaoverse.Base_kernel {
         this._instanceCount++;
         return instance;
     }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Camera_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的相机组件实例", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+    }
     _Create;
     _Frustum_Check;
     _WorldToScreen;
@@ -308,4 +331,3 @@ export const Camera_member_index = {
     wPos: ["farrayGet", "farraySet", 3, 244],
     wDir: ["farrayGet", "farraySet", 3, 248],
 };
-//# sourceMappingURL=camera.js.map

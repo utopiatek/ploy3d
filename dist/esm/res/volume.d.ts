@@ -167,6 +167,15 @@ export declare class Volume_kernel extends Miaoverse.Base_kernel<Volume, typeof 
      */
     Create(object3d: Miaoverse.Object3D): Promise<Miaoverse.Volume>;
     /**
+     * 移除体积组件实例。
+     * @param id 体积组件实例ID。
+     */
+    protected Remove(id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
+    /**
      * 创建体积组件内核实例。
      * @param object3d 3D对象内核实例指针（体积组件唯一属于某个3D对象并跟随3D对象被销毁）。
      * @returns 返回体积组件内核实例指针。

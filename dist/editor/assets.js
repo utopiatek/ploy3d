@@ -20,6 +20,21 @@ export class Assets {
         molecule.panel.remove(this.panel.id);
     }
     renderPane(item, tab, group) {
+        const thumbnailUrl = this.menu.thumbnail;
+        const thumbnailWidth = this.menu.thumbnail_per_row * 96;
+        const thumbnailHeight = this.menu.thumbnail_row_count * 96;
+        const rowSize = this.menu.thumbnail_per_row;
+        const thumbnailSize = `/ ${thumbnailWidth}px ${thumbnailHeight}px`;
+        for (let entry of this.menu.list) {
+            let iconUrl = "gray";
+            if (thumbnailUrl) {
+                const index = entry.thumbnail_index;
+                const col = index % rowSize;
+                const row = Math.floor(index / rowSize);
+                iconUrl = `url(${thumbnailUrl}) -${96 * col}px -${96 * row}px ${thumbnailSize} no-repeat`;
+            }
+            entry.thumbnail_href = iconUrl;
+        }
         return (React.createElement("div", { style: { width: "100%", height: "100%" } },
             React.createElement(molecule.component.Scrollbar, null,
                 React.createElement("div", { style: { display: "flex", flexWrap: "wrap" } }, this.menu.list.map((item) => React.createElement(this.renderItem, { item: item }))))));
@@ -47,7 +62,7 @@ export class Assets {
                     fontWeight: "bold",
                     textAlign: "left",
                     lineHeight: "14px",
-                    background: "gray"
+                    background: props.item.thumbnail_href,
                 } }, props.item.classid),
             React.createElement("div", { style: {
                     width: "96px",
@@ -84,4 +99,3 @@ export class Assets {
         renderPane: (item, tab, group) => this.renderPane(item, tab, group)
     };
 }
-//# sourceMappingURL=assets.js.map

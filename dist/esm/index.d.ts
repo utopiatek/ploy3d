@@ -115,7 +115,31 @@ export declare class Ploy3D {
     /**
      * 关闭引擎实例。
      */
-    Shutdown(): Promise<{}>;
+    Shutdown(): Promise<{
+        kernel: {
+            Memory_growSize: number;
+            Memory_blockCount: number;
+            Memory_useCount: number;
+            Memory_freeCount: number;
+            Memory_blockSize: number;
+            Memory_useSize: number;
+            Memory_freeSize: number;
+            System_frameTS: number;
+            System_moduleCount: number;
+            Engine_sceneCount: number;
+            Engine_objectCount: number;
+            Engine_cameraCount: number;
+            Engine_lightCount: number;
+            Engine_volumeCount: number;
+            Engine_meshRendererCount: number;
+            Engine_meshCount: number;
+            Engine_materialCount: number;
+            Engine_spriteCount: number;
+            Engine_frameUniformsCount: number;
+            Engine_uniformCount: number;
+            Engine_uniformBufferCount: number;
+        };
+    }>;
     /**
      * 构造三维向量。
      * @param values 三维向量值。
@@ -367,6 +391,8 @@ export declare class PloyApp {
     ui_ctx: CanvasRenderingContext2D;
     /** 事件监听器。 */
     event_listener: Record<string, ((event: any) => Promise<void>)[]>;
+    /** 事件绑定列表。 */
+    events: Record<string, any>;
     /** 地球大气层对象。 */
     protected _atmosphere?: {
         /** 网格资源实例。 */
@@ -388,6 +414,8 @@ export declare class PloyApp {
     protected _steps: number;
     /** 最新请求得到的渲染队列，每次渲染前都需要请求渲染队列。 */
     protected _drawQueue: Miaoverse.DrawQueue;
+    /** GPU渲染中。 */
+    protected _gpuRendering: boolean;
     /** 当前循环陷入睡眠。 */
     protected _sleep: boolean;
     /** 当前循环句柄。 */

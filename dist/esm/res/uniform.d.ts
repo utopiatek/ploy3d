@@ -96,7 +96,7 @@ export declare const Uniform_member_index: {
     readonly buffer_addr: Miaoverse.Kernel_member;
     /** 下一个缓存实例指针。 */
     readonly buffer_next: Miaoverse.Kernel_member;
-    /** GPU常量缓存占用节点（16字节，我们也可以脱离UNIFORM资源仅请求占用缓存空间，使用BUFFER_NODE指针读取）。 */
+    /** GPU常量缓存占用节点（16字节，我们可以脱离UNIFORM资源仅请求占用缓存空间，使用BUFFER_NODE指针读取）。 */
     /** GPU常量缓存实例指针。 */
     readonly bn_buffer: Miaoverse.Kernel_member;
     /** GPU常量缓存实例ID。 */

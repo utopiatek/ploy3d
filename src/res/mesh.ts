@@ -44,6 +44,41 @@ export class Mesh extends Miaoverse.Resource<Mesh> {
         }
     }
 
+    /**
+     * 释放实例引用。
+     */
+    public Release() {
+        if (this.internalPtr) {
+            this._impl["_Release"](this.internalPtr);
+        }
+    }
+
+    /**
+     * 增加实例引用。
+     */
+    public AddRef() {
+        const refCount = this._impl.Get<number>(this._ptr, "refCount");
+        this._impl.Set(this._ptr, "refCount", refCount + 1);
+    }
+
+    /**
+     * 清除对象。
+     */
+    protected Dispose() {
+        // 骨骼蒙皮数据对应的骨架信息与网格资源一一对应
+        // 创建网格渲染器组件时也一同传入骨架信息
+        // 骨架信息第一次用于创建网格渲染器组件时进行初始化
+        // TODO：骨架信息无需在网格渲染器组件中释放引用
+
+        if (this._skeleton?.skeleton) {
+            this._global.internal.System_Delete(this._skeleton?.skeleton);
+        }
+
+        this._vertices = null;
+        this._triangles = null;
+        this._skeleton = null;
+    }
+
     /** 顶点缓存数组布局（组合标记）。 */
     public get vbLayout(): number {
         return this._impl.Get(this._ptr, "vertexBufferLayout");
@@ -153,7 +188,7 @@ export class Mesh extends Miaoverse.Resource<Mesh> {
         joints: string[];
         /** 根关节（建模空间）索引。 */
         root: number;
-        /** 骨架数据指针。 */
+        /** 骨架数据指针（提供建模空间到初始骨骼空间变换矩阵数据）。 */
         skeleton: Miaoverse.io_ptr;
     };
 }
@@ -356,7 +391,9 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
 
         // 注册垃圾回收 ===============-----------------------
 
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
 
         if (uuid) {
             this.Set(ptr, "uuid", uuid);
@@ -1280,11 +1317,56 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
     }
 
     /**
+     * 移除网资源实例。
+     * @param id 网资源ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Mesh_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["Dispose"]();
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的网格资源", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
+
+        this._gcList = null;
+    }
+
+    /**
      * 实例化网格资源内核实例。
      * @param data 网格资源文件数据指针。
      * @returns 返回网格资源内核实例指针。
      */
     protected _Create: (data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
+
+    /**
+     * 释放网格资源引用。
+     */
+    protected _Release: (mesh: Miaoverse.io_ptr) => number;
 
     /**
      * 创建网格资源文件数据。
@@ -1312,39 +1394,9 @@ export class Mesh_kernel extends Miaoverse.Base_kernel<Mesh, typeof Mesh_member_
         clothMesh: Miaoverse.io_ptr,
         skinMesh: Miaoverse.io_ptr
     ) => void;
-}
 
-/** 几何UV数据内核实现。 */
-export class UVSet_kernel extends Miaoverse.Base_kernel<any, typeof UVSet_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    public constructor(_global: Miaoverse.Ploy3D) {
-        super(_global, UVSet_member_index);
-    }
-}
-
-/** 几何数据内核实现。 */
-export class Geometry_kernel extends Miaoverse.Base_kernel<any, typeof Geometry_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    public constructor(_global: Miaoverse.Ploy3D) {
-        super(_global, Geometry_member_index);
-    }
-}
-
-/** 网格变形数据内核实现。 */
-export class Morph_kernel extends Miaoverse.Base_kernel<any, typeof Morph_member_index> {
-    /**
-     * 构造函数。
-     * @param _global 引擎实例。
-     */
-    public constructor(_global: Miaoverse.Ploy3D) {
-        super(_global, Morph_member_index);
-    }
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList: (() => void)[] = [];
 }
 
 /** 网格资源内核实现的数据结构成员列表。 */

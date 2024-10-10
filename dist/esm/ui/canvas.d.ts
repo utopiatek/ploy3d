@@ -15,6 +15,10 @@ export declare class Renderer2D {
      */
     Init(): Promise<this>;
     /**
+     * 清除对象。
+     */
+    Dispose(): Promise<void>;
+    /**
      * 创建2D画布。
      * @param width 画布宽度。
      * @param height 画布高度。

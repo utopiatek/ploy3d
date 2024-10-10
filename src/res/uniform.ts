@@ -210,7 +210,7 @@ export const Uniform_member_index = {
     /** 下一个缓存实例指针。 */
     buffer_next: ["ptrGet", "ptrSet", 1, 3] as Miaoverse.Kernel_member,
 
-    /** GPU常量缓存占用节点（16字节，我们也可以脱离UNIFORM资源仅请求占用缓存空间，使用BUFFER_NODE指针读取）。 */
+    /** GPU常量缓存占用节点（16字节，我们可以脱离UNIFORM资源仅请求占用缓存空间，使用BUFFER_NODE指针读取）。 */
 
     /** GPU常量缓存实例指针。 */
     bn_buffer: ["ptrGet", "ptrSet", 1, 0] as Miaoverse.Kernel_member,

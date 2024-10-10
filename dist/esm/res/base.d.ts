@@ -71,6 +71,4 @@ export declare class Base_kernel<T, K extends typeof Binary_member_index> {
     protected _instanceCount: number;
     /** 待分配空闲资源实例索引。 */
     protected _instanceIdle: number;
-    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
-    protected _gcList: T[];
 }

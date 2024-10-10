@@ -21,6 +21,25 @@ export class MeshRenderer extends Miaoverse.Uniform {
     UpdateG1(object3d) {
         this._impl["_UpdateG1"](this._ptr, object3d.internalPtr);
     }
+    Release() {
+        if (this.internalPtr) {
+            this._impl["_Release"](this.internalPtr);
+        }
+    }
+    AddRef() {
+        const refCount = this._impl.Get(this._ptr, "refCount");
+        this._impl.Set(this._ptr, "refCount", refCount + 1);
+    }
+    Dispose() {
+        this._bufferPtr = 0;
+        this._bufferSize = 0;
+        this._blockPtr = 0;
+        this.binding = null;
+        this.atlas2D = null;
+        this.dynamicOffsets = null;
+        this._view = null;
+        this._uuid = null;
+    }
     get mesh() {
         const ptr = this._impl.Get(this._ptr, "meshPTR");
         return this._global.resources.Mesh.GetInstanceByPtr(ptr);
@@ -81,6 +100,7 @@ export class MeshRenderer extends Miaoverse.Uniform {
     }
     drawCustom;
     _view;
+    _uuid;
 }
 export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
@@ -109,7 +129,9 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
                 material
             });
         }
-        return this.Create(mesh, materials);
+        const instance = await this.Create(mesh, materials);
+        instance["_uuid"] = uuid;
+        return instance;
     }
     async Create(mesh, materials) {
         const ptr = this._Create(mesh?.internalPtr || 0, mesh?.skeleton?.skeleton || 0);
@@ -122,10 +144,42 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
                 instance.SetMaterial(mat.slot == undefined ? mat.submesh : mat.slot, mat.submesh, mat.material);
             }
         }
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
         return instance;
     }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("MeshRenderer_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["Dispose"]();
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    DisposeAll() {
+        if (this.defaultG1) {
+            this.defaultG1.Release();
+        }
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的网格渲染器组件实例", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+        this.defaultG1 = null;
+        this.instanceVBL = null;
+        this._gcList = null;
+    }
     _Create;
+    _Release;
     _SetMaterial;
     _GetMaterial;
     _GetInstanceSlot;
@@ -173,6 +227,7 @@ export class MeshRenderer_kernel extends Miaoverse.Base_kernel {
             }
         ]
     };
+    _gcList = [];
 }
 export const MeshRendere_member_index = {
     ...Miaoverse.Uniform_member_index,
@@ -229,4 +284,3 @@ export const DrawInstance_member_index = {
     bbCenter: ["farrayGet", "farraySet", 3, 20],
     bbExtents: ["farrayGet", "farraySet", 3, 23],
 };
-//# sourceMappingURL=mesh_renderer.js.map

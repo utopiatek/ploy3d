@@ -97,10 +97,44 @@ export class Material extends Miaoverse.Uniform {
             sampler[3] = 0;
         }
         this.view[name + "_sampler"] = sampler;
+        this.bindingID = 0;
     }
     HasProperty(name) {
         return true;
         return this.view.hasOwnProperty(name);
+    }
+    Release() {
+        if (this.internalPtr) {
+            this._impl["_Release"](this.internalPtr);
+        }
+    }
+    AddRef() {
+        const refCount = this._impl.Get(this._ptr, "refCount");
+        this._impl.Set(this._ptr, "refCount", refCount + 1);
+    }
+    Dispose() {
+        if (this.shader) {
+            this.shader.Release();
+        }
+        const vars = this.tuple.vars;
+        if (vars) {
+            for (let var_ of vars) {
+                if (undefined !== var_.decl.texture) {
+                    const id_uuid = this._global.env.arrayGet(var_.decl.format, this.blockPtr, var_.offset >> 2, 4);
+                    const texture = this._global.resources.Texture.GetInstanceByID(id_uuid[0]);
+                    if (texture) {
+                        texture.Release();
+                    }
+                }
+            }
+        }
+        this._bufferPtr = 0;
+        this._bufferSize = 0;
+        this._blockPtr = 0;
+        this.binding = null;
+        this.atlas2D = null;
+        this.dynamicOffsets = null;
+        this._view = null;
     }
     get layoutID() {
         return this.shader.shader.id || 0;
@@ -133,6 +167,36 @@ export class FrameUniforms extends Miaoverse.Uniform {
     }
     ComputeLightSpaceMatrixes(camera, cascadeIndex) {
         this._impl["_ComputeLightSpaceMatrixes"](this.internalPtr, camera.internalPtr, cascadeIndex);
+    }
+    Release() {
+        if (this.internalPtr) {
+            this._impl["_ReleaseFrameUniforms"](this.internalPtr);
+        }
+    }
+    AddRef() {
+        const refCount = this._impl.Get(this._ptr, "refCount");
+        this._impl.Set(this._ptr, "refCount", refCount + 1);
+    }
+    Dispose() {
+        const vars = this.tuple.vars;
+        if (vars) {
+            for (let var_ of vars) {
+                if (undefined !== var_.decl.texture) {
+                    const id_uuid = this._global.env.arrayGet(var_.decl.format, this.blockPtr, var_.offset >> 2, 4);
+                    const texture = this._global.resources.Texture.GetInstanceByID(id_uuid[0]);
+                    if (texture) {
+                        texture.Release();
+                    }
+                }
+            }
+        }
+        this._bufferPtr = 0;
+        this._bufferSize = 0;
+        this._blockPtr = 0;
+        this.binding = null;
+        this.atlas2D = null;
+        this.dynamicOffsets = null;
+        this._view = null;
     }
     get enableFlags() {
         return this._impl.Get(this._ptr, "enableFlags");
@@ -210,6 +274,7 @@ export class Material_kernel extends Miaoverse.Base_kernel {
             this._global.Track("Material_kernel.Create: 获取着色器资源失败！" + asset.shader, 3);
             return null;
         }
+        shader.AddRef();
         const ptr = this._Create(shader.uniformSize, this._global.env.ptrZero());
         const id = this._instanceIdle;
         this.Set(ptr, "id", id);
@@ -240,7 +305,9 @@ export class Material_kernel extends Miaoverse.Base_kernel {
             }
             instance.SetTexture(key, prop);
         }
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
         if (asset.uuid) {
             this._instanceLut[asset.uuid] = instance;
         }
@@ -267,25 +334,42 @@ export class Material_kernel extends Miaoverse.Base_kernel {
         this.Set(ptr, "g0_depthRT", depthRT);
         this.Set(ptr, "g0_gbufferRT", gbufferRT);
         this.Set(ptr, "g0_spriteAtlas", spriteAtlas);
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
         return instance;
     }
-    Dispose(id) {
-        const instance = this.GetInstanceByID(id);
-        const vars = instance.tuple.vars;
-        if (vars) {
-            for (let var_ of vars) {
-                if (undefined !== var_.decl.texture) {
-                    const id_uuid = this._global.env.arrayGet(var_.decl.format, instance.blockPtr, var_.offset >> 2, 4);
-                    this._global.resources.Texture.Release(id_uuid[0]);
-                }
-            }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Material_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
         }
+        instance["Dispose"]();
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的统一资源实例", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+        this._gcList = null;
     }
     _Create;
+    _Release;
     _CreateFrameUniforms;
+    _ReleaseFrameUniforms;
     _UpdateFrameUniforms;
     _ComputeLightSpaceMatrixes;
+    _gcList = [];
 }
 export const Material_member_index = {
     ...Miaoverse.Uniform_member_index,
@@ -300,4 +384,3 @@ export const Material_member_index = {
     shaderUUID: ["uuidGet", "uuidSet", 3, 21],
     enableFlags: ["uscalarGet", "uscalarSet", 1, 24],
 };
-//# sourceMappingURL=material.js.map

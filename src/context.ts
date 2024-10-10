@@ -281,6 +281,52 @@ export class Context {
     }
 
     /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        if (this._shaders.usedCount > 0) {
+            console.error("存在未释放着色器实例数量:", this._shaders.usedCount);
+
+            for (let i = 5; i < this._shaders.list.length; i++) {
+                const entry = this._shaders.list[i];
+                if (entry.id == i) {
+                    this.FreeShader(entry.id);
+                }
+            }
+
+            if (this._shaders.usedCount != 0) {
+                console.error("着色器实例清除不完整，剩余:", this._shaders.usedCount);
+            }
+        }
+
+        this._shaders.list = [null];
+        this._shaders = null;
+
+        // ====================--------------------------------
+
+        // 着色器管线实例在程序退出时才进行统一释放
+        this._pipelines.list = null;
+        this._pipelines.lut = null;
+        this._pipelines = null;
+
+        // ====================--------------------------------
+
+        for (let id of this._builtinSampler) {
+            this._global.device.FreeSampler(id);
+        }
+
+        // 我们不维护BindGroup实例
+
+        this._builtinSampler = null;
+        this._materialPropTypeDescLut = null;
+        this._texturePropTypeDescLut = null;
+        this._topologyLut = null;
+
+        this._global.context = null;
+        this._global = null;
+    }
+
+    /**
      * 从着色器资产创建着色器实例。
      * @param asset 着色器资产。
      * @returns 返回着色器实例。
@@ -335,6 +381,35 @@ export class Context {
         }
 
         return entry;
+    }
+
+    /**
+     * 释放着色器实例。
+     * @param id 着色器实例ID。
+     */
+    public FreeShader(id: number) {
+        const shader = this._shaders.list[id];
+        if (!shader || shader.id != id) {
+            this._global.Track("Device.Context: 着色器实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        if (shader.asset) {
+            shader.asset.custom_g3 = null;
+            shader.asset = null;
+        }
+
+        shader.branchKeys = null;
+        shader.module = null;
+
+        shader.layout = null;
+        shader.custom_g3 = null;
+
+        shader.id = this._shaders.freeId;
+        shader.refCount = 0;
+
+        this._shaders.freeId = id;
+        this._shaders.usedCount -= 1;
     }
 
     /**
@@ -1833,7 +1908,7 @@ struct ObjectUniforms {
 
         // ==========================---------------------------------------------
 
-        console.info("create new pipeline", fsmain, pipeline.label);
+        // console.info("create new pipeline", fsmain, pipeline.label);
 
         return pipeline;
     }
@@ -2296,8 +2371,6 @@ struct OutputFS_DU {
         freeId: 1,
         /** 当前实例数量。 */
         usedCount: 0,
-        /** 当前实例总大小。 */
-        usedSize: 0,
         /** 着色器管线实例容器。 */
         list: [null] as {
             /** 着色器管线键。 */

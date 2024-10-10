@@ -185,9 +185,20 @@ export class Ploy3D {
                     this.resources.Animator.Update(id);
                 }
             },
-            Release: (classid, id) => {
-                return 0;
-            }
+            Remove: (classid, id) => {
+                if (classid == 51) {
+                    const component = this.resources.Animator.GetInstanceByID(id);
+                    if (component) {
+                        component["Release"]();
+                    }
+                }
+                else {
+                    this.resources.Remove(classid, id);
+                }
+            },
+            DrawPart: (g1, g2, pipeline, mesh, submesh, instanceCount, firstInstance, materialSlot) => {
+                this.renderer["_queue"].DrawPart(g1, g2, pipeline, mesh, submesh, instanceCount, firstInstance, materialSlot);
+            },
         });
         if (!this.kernel) {
             throw "内核接口初始化失败！";
@@ -234,7 +245,19 @@ export class Ploy3D {
     async Shutdown() {
         this.Track("即将关闭引擎，以下打印未完成释放的资源和引擎终末状态：");
         this.started = false;
-        return {};
+        const renderer2d = await this.renderer2d.Dispose();
+        const gis = await this.gis.Dispose();
+        const dior = await this.resources.Dioramas.Dispose();
+        const worker = await this.worker.Shutdown();
+        const assembly = await this.assembly.Dispose();
+        const resources = await this.resources.Dispose();
+        const renderer = await this.renderer.Dispose();
+        const context = await this.context.Dispose();
+        const device = await this.device.Dispose();
+        const kernel = await this.kernel.Dispose();
+        return {
+            kernel,
+        };
     }
     Vector3(values) {
         return new Miaoverse.Vector3(this.resources.VMath, values);
@@ -338,9 +361,46 @@ export class PloyApp {
         if (!this.started) {
             return;
         }
-        this.started = false;
         this.engine.Track("即将退出程序");
+        for (let type in this.events) {
+            if (type == "keydown" || type == "keyup") {
+                document.removeEventListener(type, this.events[type]);
+            }
+            else {
+                this.ui_canvas.removeEventListener(type, this.events[type]);
+            }
+        }
+        this.DrawFrame(2);
+        await (new Promise((resolve, reject) => {
+            this._waitClose = resolve;
+        }));
+        if (this._atmosphere) {
+            this._atmosphere.mesh.Release();
+            this._atmosphere.material.Release();
+        }
+        if (this._transformCtrl) {
+        }
         const state = await this.engine.Shutdown();
+        this.engine = null;
+        this.started = false;
+        this.sdl_window = null;
+        this.sdl_canvas = null;
+        this.ui_canvas = null;
+        this.ui_ctx = null;
+        this.event_listener = null;
+        this._atmosphere = null;
+        this._transformCtrl = null;
+        this._loop2d = 0;
+        this._loop3d = 0;
+        this._draw3d = false;
+        this._steps = 0;
+        this._drawQueue = null;
+        this._sleep = false;
+        this._loopFunc = null;
+        this._waitClose = null;
+        this._fps = 0;
+        this._fpsTime = 0;
+        this._status = null;
         console.log(state);
         console.log("已退出程序");
     }
@@ -429,6 +489,8 @@ export class PloyApp {
                 ]
             }
         };
+        mesh.AddRef();
+        material.AddRef();
         return this._atmosphere;
     }
     async CreateTransformCtrl(scene) {
@@ -440,14 +502,25 @@ export class PloyApp {
             return PloyApp.SDL2_InitEvent(this);
         }
         return new Promise(async (resolve, reject) => {
-            const events = ["click", "dblclick", "mousewheel", "wheel", "pointerout", "pointerup", "pointerdown", "pointermove", "contextmenu"];
+            const events = ["keydown", "keyup", "click", "dblclick", "mousewheel", "wheel", "pointerout", "pointerup", "pointerdown", "pointermove", "contextmenu"];
             for (let type of events) {
                 const listeners = this.event_listener[type] || (this.event_listener[type] = []);
-                this.ui_canvas.addEventListener(type, async (event) => {
-                    for (let listener of listeners) {
-                        await listener(event);
-                    }
-                });
+                if (type == "keydown" || type == "keyup") {
+                    this.events[type] = async (event) => {
+                        for (let listener of listeners) {
+                            await listener(event);
+                        }
+                    };
+                    document.addEventListener(type, this.events[type]);
+                }
+                else {
+                    this.events[type] = async (event) => {
+                        for (let listener of listeners) {
+                            await listener(event);
+                        }
+                    };
+                    this.ui_canvas.addEventListener(type, this.events[type]);
+                }
             }
             resolve();
         });
@@ -520,11 +593,15 @@ export class PloyApp {
         requestAnimationFrame(this._loopFunc);
     }
     Step() {
+        if (!this.started) {
+            return false;
+        }
+        if (this._waitClose && !this._gpuRendering) {
+            this._waitClose();
+            this.started = false;
+            return false;
+        }
         if (!this._draw3d) {
-            if (this._waitClose) {
-                this._waitClose();
-                return false;
-            }
             const flags = (this._loop2d ? 1 : 0) + (this._loop3d ? 2 : 0);
             if (flags) {
                 if (!this.engine.device.Resize()) {
@@ -536,6 +613,9 @@ export class PloyApp {
                     gis["_originMC"][0], gis["_originMC"][1]
                 ]);
                 this.Update(flags);
+                if ((this._steps % 1800) == 0) {
+                    this.engine.resources.GC();
+                }
                 if ((++this._steps % 60) == 0) {
                     this.Status();
                 }
@@ -560,6 +640,7 @@ export class PloyApp {
                     this.engine.renderer2d.EndFrame();
                 }
                 this._loop3d--;
+                this._gpuRendering = true;
                 this.Draw3D();
                 this._draw3d = false;
                 this._drawQueue.End();
@@ -583,6 +664,8 @@ export class PloyApp {
         this._fps = 60000 / (curtime - this._fpsTime);
         this._fpsTime = curtime;
         this.engine.Track("fps: " + this._fps);
+        const kernel = this.engine.kernel.Status();
+        console.info(kernel);
     }
     engine;
     started;
@@ -591,6 +674,7 @@ export class PloyApp {
     ui_canvas;
     ui_ctx;
     event_listener = {};
+    events = {};
     _atmosphere;
     _transformCtrl;
     _loop2d = 0;
@@ -598,6 +682,7 @@ export class PloyApp {
     _draw3d = false;
     _steps = 0;
     _drawQueue = null;
+    _gpuRendering = false;
     _sleep = false;
     _loopFunc = null;
     _waitClose = null;
@@ -811,4 +896,3 @@ export function Start(instance, appid = "default", title = "PLOY3D引擎", width
     instance.app = new app_class(instance);
     return instance.app.Startup(title, width, height);
 }
-//# sourceMappingURL=index.js.map

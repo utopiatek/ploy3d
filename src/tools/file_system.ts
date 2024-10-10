@@ -14,6 +14,15 @@ export class FileStorage {
     }
 
     /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        this._global = null;
+        this._dirRoot = null;
+        this._dirLut = null;
+    }
+
+    /**
      * 读取文件存储器中指定相对路径文件数据。
      * @param path 指定相对路径（以'/'分隔）。
      * @param filename 文件名称。

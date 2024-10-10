@@ -24,7 +24,9 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         this._impl["_SetParent"](this._ptr, parentPtr, worldPositionStays ? 1 : 0);
     }
 
-    /** 遍历处理每个子对象。 */
+    /**
+     * 遍历处理每个子对象。
+     */
     public ForEachChild(proc: (index: number, obj: Object3D) => void) {
         let child = this.firstChild;
         let count = this.childCount;
@@ -343,6 +345,42 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
     }
 
     /**
+     * 移除3D对象实例。
+     * @param id 3D对象实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Object_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的3D对象实例", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
+    }
+
+    /**
      * 实例化3D对象内核实例。
      * @param scene 场景内核实例指针。
      * @param node 3D对象节点数据指针。
@@ -363,6 +401,13 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
      * @returns 返回变换组件最新状态时间戳。
      */
     protected _Flush: (object3d: Miaoverse.io_ptr, ctrl: number) => number;
+
+    /**
+     * 获取对象在世界空间包围盒。
+     * @param object3d 3D对象实例指针。
+     * @param withChildren 是否将子级纳入范围计算。
+     */
+    protected _GetAABB: (object3d: Miaoverse.io_ptr, withChildren: number) => number[];
 
     /**
      * 计算模型空间到指定相机空间变换矩阵。
@@ -419,6 +464,12 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
      * @param animator 动画组件实例ID。
      */
     protected _SetAnimator: (object3d: Miaoverse.io_ptr, animator: number) => void;
+
+    /**
+     * 在绘制过程中调用绘制对象。
+     * @param object3d 3D对象内核实例指针。
+     */
+    protected _Draw: (object3d: Miaoverse.io_ptr) => void;
 }
 
 /** 场景节点内核实现的数据结构成员列表。 */

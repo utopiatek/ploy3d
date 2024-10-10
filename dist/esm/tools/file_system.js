@@ -4,6 +4,11 @@ export class FileStorage {
         this._dirRoot = root;
         this._dirLut = {};
     }
+    async Dispose() {
+        this._global = null;
+        this._dirRoot = null;
+        this._dirLut = null;
+    }
     async ReadFile(path, filename, type) {
         try {
             if (Deno) {

@@ -17,6 +17,36 @@ export class Texture extends Miaoverse.Resource<Texture> {
         this._texture = texture;
     }
 
+    /**
+     * 释放实例引用。
+     */
+    public Release() {
+        if (--this._refCount == 0) {
+            this.Dispose();
+        }
+    }
+
+    /**
+     * 增加实例引用。
+     */
+    public AddRef() {
+        this._refCount++;
+    }
+
+    /**
+     * 清除对象。
+     */
+    protected Dispose() {
+        this._global.device.FreeTexture2D(this.internalID);
+
+        this._impl["_instanceLut"][this.uuid] = undefined;
+        this._impl["Remove"](this.id);
+
+        this._uuid = null;
+        this._refCount = 0;
+        this._texture = null;
+    }
+
     /** 贴图资源UUID。 */
     public get uuid() {
         return this._uuid;
@@ -101,7 +131,9 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
 
         // 注册垃圾回收 ===============-----------------------
 
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
 
         if (uuid) {
             this._instanceLut[uuid] = instance;
@@ -142,13 +174,60 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
 
         // 注册垃圾回收 ===============-----------------------
 
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
 
         if (asset.uuid) {
             this._instanceLut[asset.uuid] = instance;
         }
 
         return instance;
+    }
+
+    /**
+     * 移除贴图资源实例。
+     * @param id 贴图资源实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Texture_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 增加实例引用计数。
+     * @param id 实例ID。
+     */
+    public AddRef(id: number) {
+        const instance = this._instanceList[id];
+
+        if (instance) {
+            instance.AddRef();
+        }
+    }
+
+    /**
+     * 释放实例引用。
+     * @param id 实例ID。
+     */
+    public Release(id: number) {
+        const instance = this._instanceList[id];
+
+        if (instance) {
+            instance.Release();
+        }
     }
 
     /**
@@ -320,32 +399,31 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
     }
 
     /**
-     * 增加实例引用计数。
-     * @param id 实例ID。
+     * 清除所有。
      */
-    public AddRef(id: number) {
-        const instance = this._instanceList[id];
-
-        if (instance) {
-            instance["_refCount"]++;
+    protected DisposeAll() {
+        if (this.default2D) {
+            this.default2D.Release();
         }
-    }
 
-    /**
-     * 释放实例引用。
-     * @param id 实例ID。
-     */
-    public Release(id: number) {
-        const instance = this._instanceList[id];
-
-        if (instance && 0 == --instance["_refCount"]) {
-            this._global.device.FreeTexture2D(instance.internalID);
-
-            this._instanceList[id] = { id: this._instanceIdle } as any;
-            this._instanceLut[instance.uuid] = undefined;
-            this._instanceCount--;
-            this._instanceIdle = id;
+        if (this.defaultAtlas) {
+            this._global.device.FreeTexture2D(this.defaultAtlas);
         }
+
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的贴图实例", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
+
+        this._gcList = null;
+
+        this.default2D = null;
+        this.defaultAtlas = 0;
     }
 
     /**
@@ -382,6 +460,9 @@ export class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> {
      * @returns 返回当前图块实例引用计数。
      */
     public _ReleaseTile: (tile: Miaoverse.io_ptr) => Miaoverse.io_uint;
+
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList: (() => void)[] = [];
 
     /** 内置默认2D贴图资源实例。 */
     public default2D: Texture;

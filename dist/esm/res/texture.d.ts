@@ -10,6 +10,18 @@ export declare class Texture extends Miaoverse.Resource<Texture> {
      * @param uuid 资源UUID。
      */
     constructor(impl: Texture_kernel, texture: Texture["_texture"], id: number, uuid: string);
+    /**
+     * 释放实例引用。
+     */
+    Release(): void;
+    /**
+     * 增加实例引用。
+     */
+    AddRef(): void;
+    /**
+     * 清除对象。
+     */
+    protected Dispose(): void;
     /** 贴图资源UUID。 */
     get uuid(): string;
     /** 贴图内部实例ID。 */
@@ -43,6 +55,21 @@ export declare class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> 
      * @returns 异步返回贴图资源实例。
      */
     CreateTexture(asset: Asset_texture): Promise<Miaoverse.Texture>;
+    /**
+     * 移除贴图资源实例。
+     * @param id 贴图资源实例ID。
+     */
+    protected Remove(id: number): void;
+    /**
+     * 增加实例引用计数。
+     * @param id 实例ID。
+     */
+    AddRef(id: number): void;
+    /**
+     * 释放实例引用。
+     * @param id 实例ID。
+     */
+    Release(id: number): void;
     /**
      * 从指定贴图文件路径装载贴图。
      * @param uri 贴图文件路径。
@@ -103,15 +130,9 @@ export declare class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> 
      */
     protected ParseImage_KTX2(ptr: Miaoverse.io_ptr, maxLevelCount?: number): Miaoverse.GLTextureSource_KTX2;
     /**
-     * 增加实例引用计数。
-     * @param id 实例ID。
+     * 清除所有。
      */
-    AddRef(id: number): void;
-    /**
-     * 释放实例引用。
-     * @param id 实例ID。
-     */
-    Release(id: number): void;
+    protected DisposeAll(): void;
     /**
      * 写图块数据。
      * @param tile 图集图块实例指针。
@@ -134,6 +155,8 @@ export declare class Texture_kernel extends Miaoverse.Base_kernel<Texture, any> 
      * @returns 返回当前图块实例引用计数。
      */
     _ReleaseTile: (tile: Miaoverse.io_ptr) => Miaoverse.io_uint;
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList;
     /** 内置默认2D贴图资源实例。 */
     default2D: Texture;
     /** 默认贴图图集内部实例ID（"rgba8unorm"格式）。 */

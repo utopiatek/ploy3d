@@ -51,4 +51,3 @@ export class Matrix4x4 {
     _impl;
     _values;
 }
-//# sourceMappingURL=matrix4x4.js.map

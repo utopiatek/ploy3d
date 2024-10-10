@@ -50,6 +50,10 @@ export declare class Assembly {
         object3d?: undefined;
         material?: undefined;
     }>;
+    /**
+     * 清除对象。
+     */
+    Dispose(): Promise<void>;
     /** 默认IBL高光反射贴图资源视图。 */
     get default_iblSpecular(): GPUTextureView;
     /** 渲染管线装配器配置。 */

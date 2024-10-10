@@ -1,4 +1,4 @@
-import { Ploy3D, PloyApp, SimpleSignal, PackageReg, Scene, Object3D, Camera, Volume, Dioramas_3mx, Material, DrawQueue, Package } from "../../dist/esm/mod.js"
+import { Ploy3D, PloyApp, SimpleSignal, PackageReg, Scene, Object3D, Camera, Volume, Assembly, Material, DrawQueue, Package, Prefab } from "../../dist/esm/mod.js"
 import { React, ReactDOM, molecule, create, Workbench, HTML5Backend, DndProvider, useDrop } from "../../lib/molecule.js"
 import { Packages } from "./packages.js";
 import { Assets } from "./assets.js";
@@ -27,16 +27,57 @@ export class PloyApp_editor extends PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
-        const chara_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shibahu.zip", () => { });
-        this.engine.resources.Register(chara_pkg.pkg, chara_pkg.files);
+        this.volume.shadowBias = 0.1;
+        this.volume.iblLuminance = 1.0;
+        this.volume.sunlitColorIntensity = [1.0, 1.0, 1.0, 1.0];
+        this.volume.sunlitDirection = engine.Vector3([1.0, 1.0, 1.0]).normalized.values;
+
+        this.volume.shadowDisable = 1;
+        this.volume.ssrDisable = 1;
+        this.volume.ssaoDisable = 1;
+
+        // 自定义渲染管线帧通道列表（我们排出了默认设置中的"shadow_cast","early_z","ssao_extract","ssr_extract","sss_extract","sss_blur","proc_bloom"）
+        {
+            this.framePassList = {} as any;
+
+            this.framePassList.framePassName = [
+                "opaque",       // 0
+                "blit",         // 1
+            ];
+
+            this.framePassList.framePass = this.framePassList.framePassName.map((label) => {
+                return engine.assembly.GetFramePass(label);
+            });
+
+            // 我们排除了"early_z"通道，以此需要修改"opaque"通道的深度测试配置
+            this.framePassList.framePass[0].depthStencilAttachment.depthCompare = "greater";
+            this.framePassList.framePass[0].depthStencilAttachment.depthLoadOp = "clear";
+            this.framePassList.framePass[0].depthStencilAttachment.depthWriteEnabled = true;
+
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_BLOOM = 0;
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_TONE_MAPPING = 0;
+        }
+
+        // 测试资源包导入与快照
+        {
+            const pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shibahu.zip", () => { });
+            this.engine.resources.Register(pkg.pkg, pkg.files);
+            const menu = await engine.resources.Browse(pkg.pkg);
+            this._snapshotTasks.push(menu);
+        }
 
         // 创建地球大气层对象
         await this.CreateAtmosphere(this.scene);
 
-        // 跳转查看指定地理位置方法（北京天安门经纬度: [116.397459, 39.908796]）
-        const targetLL = this.engine.gis.GCJ02_WGS84([116.397459, 39.908796]);
-        const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
-        this.camera.Set3D(targetWPOS, 17000, 28, 0);
+        // 创建变换组件控制器工具
+        await this.CreateTransformCtrl(this.scene);
+
+        // 默认相机姿态
+        this.camera.Set3D([0, 0.5, 0], 2.7, 45, 0);
+        this.camera.nearZ = 0.1;
+        this.camera.farZ = 100.0;
+        this.camera.fov = 45 / 180 * Math.PI;
 
         // 注册鼠标滚轮事件监听器
         this.AddEventListener("wheel", async (e) => {
@@ -135,12 +176,17 @@ export class PloyApp_editor extends PloyApp {
             }
         });
 
+        // 注册键盘按键按下事件监听器
+        this.AddEventListener("keydown", async (e) => {
+            // 安全关闭应用
+            if (e.code == "Escape") {
+                this.Shutdown();
+            }
+        });
+
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(10);
 
-        const menu = await engine.resources.Browse(chara_pkg.pkg);
-        await engine.renderer["_queue"].Snapshot(this.scene, menu);
-        console.error("===================================");
         return true;
     }
 
@@ -160,6 +206,11 @@ export class PloyApp_editor extends PloyApp {
      * 绘制场景3D画面。
      */
     public Draw3D() {
+        // 执行资源包缩略图快照任务
+        if (this._snapshotTasks.length > 0) {
+            return this.Snapshot();
+        }
+
         // 将GIS网格添加到绘制列表
         if (this.engine.gis) {
             const target = this.engine.gis.Update(this.camera);
@@ -188,22 +239,7 @@ export class PloyApp_editor extends PloyApp {
 
         // ========================----------------------------------------
 
-        const framePassList = this.engine.assembly.GetFramePassList("low");
-
-        // 当前样例仅使用无光照材质，且无阴影，我们精简渲染管线配置，提高性能
-        {
-            framePassList.framePassName = ["opaque", "blit"];
-            framePassList.framePass = [
-                this.engine.assembly.GetFramePass(framePassList.framePassName[0]),
-                this.engine.assembly.GetFramePass(framePassList.framePassName[1]),
-            ];
-            framePassList.framePass[0].depthStencilAttachment.depthCompare = "greater";
-            framePassList.framePass[0].depthStencilAttachment.depthLoadOp = "clear";
-            framePassList.framePass[0].depthStencilAttachment.depthWriteEnabled = true;
-            framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
-            framePassList.framePass[1].shaderMacro.BLIT_CANVAS_TONE_MAPPING = 0;
-        }
-
+        const framePassList = this.framePassList || this.engine.assembly.GetFramePassList("low");
         const texture = this.engine.device["_swapchain"].getCurrentTexture();
         const target = {
             texture: texture,
@@ -220,6 +256,56 @@ export class PloyApp_editor extends PloyApp {
                     (this.engine.config.surface as any).present();
                 }
             }
+
+            this._gpuRendering = false;
+        });
+    }
+
+    /**
+     * 对资源包进行快照渲染。
+     */
+    public Snapshot() {
+        const framePassList = this.framePassList || this.engine.assembly.GetFramePassList("low");
+        const list = this._snapshotTasks;
+        const count = list.length;
+        const queue = this._drawQueue;
+        const surface = this.engine.config.surface as HTMLCanvasElement;
+
+        this._snapshotTasks = [];
+
+        this.engine.assembly.config.renderTargets.scale = 0.125;
+        this.engine.device.Resize(128, 128);
+        this.engine.config.surface = null;
+
+        const Run = async () => {
+            for (let i = 0; i < count; i++) {
+                const menu = list[i];
+
+                await (new Promise<void>((resolve, reject) => {
+                    queue.Snapshot(this.scene, menu, surface, this.camera, this.volume, framePassList, (e) => {
+                        if (e) {
+                            reject(e);
+                        }
+                        else {
+                            resolve();
+                        }
+                    });
+                }));
+            }
+        };
+
+        Run().then(() => {
+            this.engine.assembly.config.renderTargets.scale = 1.0;
+            this.engine.config.surface = surface;
+            console.error("快照完成");
+            queue["Flush"]();
+            this.DrawFrame(1);
+        }).catch((e) => {
+            this.engine.assembly.config.renderTargets.scale = 1.0;
+            this.engine.config.surface = surface;
+            console.error(e);
+            queue["Flush"]();
+            this.DrawFrame(1);
         });
     }
 
@@ -231,6 +317,8 @@ export class PloyApp_editor extends PloyApp {
     private camera: Camera;
     /** 体积组件实例。 */
     private volume: Volume;
+    /** 自定义渲染管线帧通道列表。 */
+    private framePassList: ReturnType<Assembly["GetFramePassList"]>;
 
     // ========================--------------------------------
 
@@ -334,6 +422,8 @@ export class PloyApp_editor extends PloyApp {
         /** 资源包选择事件。 */
         select_package: new SimpleSignal<PackageReg, unknown>(),
     };
+    /** 资源包缩略图快照任务列表。 */
+    private _snapshotTasks: PackageReg["menu"][] = [];
 }
 
 export class Editor {

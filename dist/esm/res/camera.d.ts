@@ -25,8 +25,8 @@ export declare class Camera extends Miaoverse.Resource<Camera> {
      * @param bounding 观察内容范围。
      */
     Fit(bounding: {
-        center: Miaoverse.Vector3;
-        radius: number;
+        center: number[];
+        extents: number[];
     }, pitch?: number, yaw?: number): void;
     /**
      * 相机平移控制方法。
@@ -145,6 +145,15 @@ export declare class Camera_kernel extends Miaoverse.Base_kernel<Camera, typeof 
      * @returns 返回相机组件实例。
      */
     Create(object3d: Miaoverse.Object3D): Promise<Miaoverse.Camera>;
+    /**
+     * 移除相机组件实例。
+     * @param id 相机组件实例ID。
+     */
+    protected Remove(id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
     /**
      * 创建相机组件内核实例。
      * @param object3d 3D对象内核实例指针（相机组件唯一属于某个3D对象并跟随3D对象被销毁）。

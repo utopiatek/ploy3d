@@ -114,6 +114,36 @@ export class Renderer2D {
     }
 
     /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        this._global.resources.Texture._ReleaseTile(this._font_atlas.tile_ptr);
+
+        if (this._drawData) {
+            this._global.device.FreeBuffer(this._drawData.bufferID);
+
+            this._drawData.buffer = null;
+            this._drawData.bufferID = 0;
+            this._drawData.capacity = 0;
+
+            this._drawData.instances = null;
+            this._drawData.transforms = null;
+            this._drawData.geometries = null;
+            this._drawData.styles = null;
+        }
+
+        this._global.renderer2d = null;
+        this._global = null;
+        this._frameTS = 0;
+        this._drawList = null;
+        this._drawData = null;
+        this._styleLut = null;
+        this._rem_font_size = 0;
+        this._font_glyphs_lut = null;
+        this._font_atlas = null;
+    }
+
+    /**
      * 创建2D画布。
      * @param width 画布宽度。
      * @param height 画布高度。
@@ -668,7 +698,7 @@ export class Path2D {
             // 第2个UINT第1BIT记录开始新子路径
             this.geometries[this.geometries[0] + 4] = 1;
             this.geometries[0]++;
-            this.geometries[1]++; 
+            this.geometries[1]++;
         }
     }
 
@@ -1616,7 +1646,7 @@ export class Canvas2D {
      * [MDN Reference](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/moveTo)
      */
     public moveTo(x: number, y: number): void {
-       this.data.path.MoveTo(x, y);
+        this.data.path.MoveTo(x, y);
     }
 
     /**

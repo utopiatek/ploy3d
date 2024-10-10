@@ -53,4 +53,3 @@ export class Quaternion {
     _impl;
     _values;
 }
-//# sourceMappingURL=quaternion.js.map

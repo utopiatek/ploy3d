@@ -185,7 +185,7 @@ export interface PropDecl {
     format: PropFormat;
     /** 如果是贴图UUID字段，则记录贴图索引。 */
     texture?: number;
-    /** 如果是采样设置字段，则记录贴图索引。 */
+    /** 如果是采样设置字段，则记录采样器索引。 */
     sampler?: number;
 }
 

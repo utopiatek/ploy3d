@@ -149,8 +149,68 @@ export class Kernel {
 
         this._global.internal = instance.exports;
         this._global.env = await (new SharedENV(this._global)).Init(memory.buffer, ptrEnv);
-
+        
         return this;
+    }
+
+    /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        this._global.internal.System_Shutdown();
+
+        const status = this.Status();
+
+        await this._global.env.Dispose();
+
+        this._global.internal = null;
+
+        this._wasm = null;
+        this._memory = null;
+
+        this._global.kernel = null;
+        this._global = null;
+
+        return status;
+    }
+
+    /** 状态统计。 */
+    public Status() {
+        const env = this._global.env;
+        const ptr = this._global.internal.System_Analyse();
+
+        let count = 0;
+
+        return {
+            Memory_growSize: env.buffer.byteLength / (1024 * 1024),
+
+            Memory_blockCount: env.uscalarGet(ptr, count++),
+            Memory_useCount: env.uscalarGet(ptr, count++),
+            Memory_freeCount: env.uscalarGet(ptr, count++),
+            Memory_blockSize: env.uscalarGet(ptr, count++),
+            Memory_useSize: env.uscalarGet(ptr, count++),
+            Memory_freeSize: env.uscalarGet(ptr, count++),
+
+            System_frameTS: env.uscalarGet(ptr, count++),
+            System_moduleCount: env.uscalarGet(ptr, count++),
+
+            Engine_sceneCount: env.uscalarGet(ptr, count++),
+
+            Engine_objectCount: env.uscalarGet(ptr, count++),
+            Engine_cameraCount: env.uscalarGet(ptr, count++),
+            Engine_lightCount: env.uscalarGet(ptr, count++),
+            Engine_volumeCount: env.uscalarGet(ptr, count++),
+
+            Engine_meshRendererCount: env.uscalarGet(ptr, count++),
+            Engine_meshCount: env.uscalarGet(ptr, count++),
+            Engine_materialCount: env.uscalarGet(ptr, count++),
+
+            Engine_spriteCount: env.uscalarGet(ptr, count++),
+
+            Engine_frameUniformsCount: env.uscalarGet(ptr, count++),
+            Engine_uniformCount: env.uscalarGet(ptr, count++),
+            Engine_uniformBufferCount: env.uscalarGet(ptr, count++),
+        };
     }
 
     /** 模块实例对象。 */
@@ -193,7 +253,7 @@ export class SharedENV {
         this.uscalarSet(this._ptr, Env_member.sizeG1, 256);
         this.uscalarSet(this._ptr, Env_member.reversedZ, 1);
         this.uscalarSet(this._ptr, Env_member.webGL, this._global.webgl ? 1 : 0);
-        this.uscalarSet(this._ptr, Env_member.shadowMapSize, 1024);
+        this.uscalarSet(this._ptr, Env_member.__, 1024);
         this.uscalarSet(this._ptr, Env_member.gisTS, 0);
         this.uscalarSet(this._ptr, Env_member.gisState, 0);
         this.farraySet(this._ptr, Env_member.worldLngLat, [0.0, 0.0, 0.0, 0.0]);
@@ -212,6 +272,26 @@ export class SharedENV {
         this._fview = new Float32Array(buffer);
         this._dview = new Float64Array(buffer);
         this._view = [this._ubview, this._iview, this._uview, this._fview];
+    }
+
+    /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        this._ptr = 0 as never;
+
+        this._textDecoder = null;
+        this._textEncoder = null;
+
+        this._ubview = null;
+        this._iview = null;
+        this._uview = null;
+        this._fview = null;
+        this._dview = null;
+        this._view = null;
+
+        this._global.env = null;
+        this._global = null;
     }
 
     /** 在栈上分配空间后调用方法（栈空间在共享内存头部，所以地址永远不会大于4G）。*/
@@ -571,10 +651,6 @@ export class SharedENV {
     public get webGL(): number {
         return this.uscalarGet(this._ptr, Env_member.webGL);
     }
-    /** 阴影贴图大小。 */
-    public get shadowMapSize(): number {
-        return this.uscalarGet(this._ptr, Env_member.shadowMapSize);
-    }
     /** 默认材质指针。 */
     public get defaultG2(): io_ptr {
         return this.ptrGet(this._ptr, Env_member.defaultG2);
@@ -705,8 +781,8 @@ export const enum Env_member {
     reversedZ,
     /** 是否使用WebGL API。 */
     webGL,
-    /** 阴影贴图大小。 */
-    shadowMapSize,
+    /** 弃用字段。 */
+    __,
     /** 默认材质指针。 */
     defaultG2,
     /** 世界坐标原点经纬度或者地形启用状态更新时间戳。 */

@@ -13,12 +13,41 @@ export class PloyApp_editor extends PloyApp {
         this.object3d = await resources.Object.Create(this.scene);
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
-        const chara_pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shibahu.zip", () => { });
-        this.engine.resources.Register(chara_pkg.pkg, chara_pkg.files);
+        this.volume.shadowBias = 0.1;
+        this.volume.iblLuminance = 1.0;
+        this.volume.sunlitColorIntensity = [1.0, 1.0, 1.0, 1.0];
+        this.volume.sunlitDirection = engine.Vector3([1.0, 1.0, 1.0]).normalized.values;
+        this.volume.shadowDisable = 1;
+        this.volume.ssrDisable = 1;
+        this.volume.ssaoDisable = 1;
+        {
+            this.framePassList = {};
+            this.framePassList.framePassName = [
+                "opaque",
+                "blit",
+            ];
+            this.framePassList.framePass = this.framePassList.framePassName.map((label) => {
+                return engine.assembly.GetFramePass(label);
+            });
+            this.framePassList.framePass[0].depthStencilAttachment.depthCompare = "greater";
+            this.framePassList.framePass[0].depthStencilAttachment.depthLoadOp = "clear";
+            this.framePassList.framePass[0].depthStencilAttachment.depthWriteEnabled = true;
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_BLOOM = 0;
+            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_TONE_MAPPING = 0;
+        }
+        {
+            const pkg = await this.engine.worker.Import_gltf(1, "./assets/gltf/shibahu.zip", () => { });
+            this.engine.resources.Register(pkg.pkg, pkg.files);
+            const menu = await engine.resources.Browse(pkg.pkg);
+            this._snapshotTasks.push(menu);
+        }
         await this.CreateAtmosphere(this.scene);
-        const targetLL = this.engine.gis.GCJ02_WGS84([116.397459, 39.908796]);
-        const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
-        this.camera.Set3D(targetWPOS, 17000, 28, 0);
+        await this.CreateTransformCtrl(this.scene);
+        this.camera.Set3D([0, 0.5, 0], 2.7, 45, 0);
+        this.camera.nearZ = 0.1;
+        this.camera.farZ = 100.0;
+        this.camera.fov = 45 / 180 * Math.PI;
         this.AddEventListener("wheel", async (e) => {
             this.camera.Scale(e.wheelDelta, engine.width, engine.height);
             this.DrawFrame(1);
@@ -94,10 +123,12 @@ export class PloyApp_editor extends PloyApp {
                 this.DrawFrame(1);
             }
         });
+        this.AddEventListener("keydown", async (e) => {
+            if (e.code == "Escape") {
+                this.Shutdown();
+            }
+        });
         this.DrawFrame(10);
-        const menu = await engine.resources.Browse(chara_pkg.pkg);
-        await engine.renderer["_queue"].Snapshot(this.scene, menu);
-        console.error("===================================");
         return true;
     }
     Update(flags) {
@@ -108,6 +139,9 @@ export class PloyApp_editor extends PloyApp {
         }
     }
     Draw3D() {
+        if (this._snapshotTasks.length > 0) {
+            return this.Snapshot();
+        }
         if (this.engine.gis) {
             const target = this.engine.gis.Update(this.camera);
             if (target) {
@@ -123,19 +157,7 @@ export class PloyApp_editor extends PloyApp {
             if (this.engine.gis) {
             }
         };
-        const framePassList = this.engine.assembly.GetFramePassList("low");
-        {
-            framePassList.framePassName = ["opaque", "blit"];
-            framePassList.framePass = [
-                this.engine.assembly.GetFramePass(framePassList.framePassName[0]),
-                this.engine.assembly.GetFramePass(framePassList.framePassName[1]),
-            ];
-            framePassList.framePass[0].depthStencilAttachment.depthCompare = "greater";
-            framePassList.framePass[0].depthStencilAttachment.depthLoadOp = "clear";
-            framePassList.framePass[0].depthStencilAttachment.depthWriteEnabled = true;
-            framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
-            framePassList.framePass[1].shaderMacro.BLIT_CANVAS_TONE_MAPPING = 0;
-        }
+        const framePassList = this.framePassList || this.engine.assembly.GetFramePassList("low");
         const texture = this.engine.device["_swapchain"].getCurrentTexture();
         const target = {
             texture: texture,
@@ -151,12 +173,53 @@ export class PloyApp_editor extends PloyApp {
                     this.engine.config.surface.present();
                 }
             }
+            this._gpuRendering = false;
+        });
+    }
+    Snapshot() {
+        const framePassList = this.framePassList || this.engine.assembly.GetFramePassList("low");
+        const list = this._snapshotTasks;
+        const count = list.length;
+        const queue = this._drawQueue;
+        const surface = this.engine.config.surface;
+        this._snapshotTasks = [];
+        this.engine.assembly.config.renderTargets.scale = 0.125;
+        this.engine.device.Resize(128, 128);
+        this.engine.config.surface = null;
+        const Run = async () => {
+            for (let i = 0; i < count; i++) {
+                const menu = list[i];
+                await (new Promise((resolve, reject) => {
+                    queue.Snapshot(this.scene, menu, surface, this.camera, this.volume, framePassList, (e) => {
+                        if (e) {
+                            reject(e);
+                        }
+                        else {
+                            resolve();
+                        }
+                    });
+                }));
+            }
+        };
+        Run().then(() => {
+            this.engine.assembly.config.renderTargets.scale = 1.0;
+            this.engine.config.surface = surface;
+            console.error("快照完成");
+            queue["Flush"]();
+            this.DrawFrame(1);
+        }).catch((e) => {
+            this.engine.assembly.config.renderTargets.scale = 1.0;
+            this.engine.config.surface = surface;
+            console.error(e);
+            queue["Flush"]();
+            this.DrawFrame(1);
         });
     }
     scene;
     object3d;
     camera;
     volume;
+    framePassList;
     async InitWindow(title, width, height, progress) {
         if (this._moleculeInst) {
             return true;
@@ -210,6 +273,7 @@ export class PloyApp_editor extends PloyApp {
     _signalLut = {
         select_package: new SimpleSignal(),
     };
+    _snapshotTasks = [];
 }
 export class Editor {
     constructor(app) {
@@ -288,4 +352,3 @@ export class Editor {
         }
     };
 }
-//# sourceMappingURL=index.js.map

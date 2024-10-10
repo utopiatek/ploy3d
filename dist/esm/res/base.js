@@ -39,6 +39,4 @@ export class Base_kernel {
     _instanceLut = {};
     _instanceCount = 0;
     _instanceIdle = 1;
-    _gcList = [];
 }
-//# sourceMappingURL=base.js.map

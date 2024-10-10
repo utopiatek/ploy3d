@@ -5,6 +5,9 @@ export class Scene extends Miaoverse.Resource {
         this._impl = impl;
         this._impl.Set(this._ptr, "id", id);
     }
+    Destroy() {
+        this._impl["_Destroy"](this.internalPtr);
+    }
     _impl;
 }
 export class Scene_kernel extends Miaoverse.Base_kernel {
@@ -18,6 +21,37 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
         const instance = this._instanceList[id] = new Scene(this, ptr, id);
         this._instanceCount++;
         return instance;
+    }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Scene_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.info("销毁未释放的场景实例", this._instanceCount);
+        }
+        for (let i = 1; i < this._instanceList.length; i++) {
+            const instance = this._instanceList[i];
+            if (instance && instance.id == i) {
+                instance.Destroy();
+            }
+        }
+        if (this._instanceCount != 0) {
+            console.error("销毁异常！存在释放失败的场景实例", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
     }
     Culling(camera, layerMask) {
         const info = this._Culling(camera.internalPtr, layerMask);
@@ -222,4 +256,3 @@ export const Scene_member_index = {
     unused2: ["uscalarGet", "uscalarSet", 1, 18],
     unused3: ["uscalarGet", "uscalarSet", 1, 19],
 };
-//# sourceMappingURL=scene.js.map

@@ -39,7 +39,9 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         this._intervalGC = 1000;
 
         this._material = await this._global.resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json") as Miaoverse.Material;
+        this._material.AddRef();
         this._meshRenderer = await this._global.resources.MeshRenderer.Create(null, null);
+        this._meshRenderer.AddRef();
         this._object3d = await this._global.resources.Object.Create(scene);
 
         this._pipeline = this._global.context.CreateRenderPipeline({
@@ -60,10 +62,71 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     }
 
     /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        if (this._backendCount > 0) {
+            await (new Promise<void>((resolve, reject) => {
+                this._waitClose = resolve;
+            }));
+        }
+
+        // 以此保证低级瓦片也被释放
+        this._waitClose = () => { };
+
+        this.For_children(this._root, (node) => {
+            this.GC_free(node);
+        });
+
+        // this._root
+        // this._drawList
+        // this._subdivList
+        // this._drawBuffer
+
+        if (this._drawBuffer) {
+            this._global.internal.System_Delete(this._drawBuffer.ptr);
+            this._impl.FreeBuffer(this._drawBuffer.buffer);
+        }
+
+        this._material.Release();
+        this._meshRenderer.Release();
+        this._object3d.Destroy();
+
+        this._3mx = null;
+
+        this._root = null;
+        this._drawList = null;
+        this._subdivList = null;
+        this._drawCount = 0;
+        this._subdivCount = 0;
+        this._updateTS = 0;
+        this._intervalGC = 0;
+        this._drawBuffer = null;
+
+        this._material = null;
+        this._meshRenderer = null;
+        this._object3d = null;
+        this._pipeline = 0;
+
+        this._backendCount = 0;
+        this._waitClose = null;
+
+        this._impl["Remove"](this.id);
+    }
+
+    /**
      * 更新绘制场景。
      * @param camera 相机组件实例（用于获取全局空间到相机空间变换矩阵）。
      */
     public Update(camera: Miaoverse.Camera) {
+        if (this._waitClose) {
+            if (this._backendCount == 0) {
+                this._waitClose();
+            }
+
+            return;
+        }
+
         const env = this._global.env;
         const updateTS = env.frameTS;
         const elapsed = updateTS - this._updateTS;
@@ -99,7 +162,22 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         this.GC();
 
         if (this._subdivCount > 0) {
+            this._backendCount++;
+
+            const End = () => {
+                if (--this._backendCount == 0) {
+                    if (this._waitClose) {
+                        this._waitClose();
+                    }
+                }
+            };
+
             (async () => {
+                // 待关闭则放弃处理
+                if (this._waitClose) {
+                    return;
+                }
+
                 // 应优先细分低精度节点，提升显示速度
                 const list = this._subdivList.slice(0, this._subdivCount).sort((a, b) => {
                     let w = b._level - a._level;
@@ -114,6 +192,7 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                 // 更新时间戳不一致时跳出处理
                 const ts = this._updateTS;
 
+                // 处理节点细分
                 const proc = async (node: Node) => {
                     try {
                         if (node._process != Process_state.unexecuted) {
@@ -148,6 +227,15 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                 };
 
                 for (let i = 0; i < list.length; i += 8) {
+                    // 过时或待关闭则放弃后续处理
+                    if (ts != this._updateTS || this._waitClose) {
+                        break;
+                    }
+
+                    // 绘制新状态
+                    this._global.app.DrawFrame(180);
+
+                    // 一次批量处理8个节点的细分
                     const promises: Promise<void>[] = [];
 
                     for (let j = 0; j < 8; j++) {
@@ -161,14 +249,8 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
                     }
 
                     await Promise.all(promises);
-
-                    this._global.app.DrawFrame(180);
-
-                    if (ts != this._updateTS) {
-                        break;
-                    }
                 }
-            })();
+            })().then(End).catch(End);
         }
     }
 
@@ -589,7 +671,7 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         });
 
         // TODO: 不GC较低层节点
-        if (node._level < 3 && true) {
+        if (node._level < 3 && !this._waitClose) {
             return;
         }
 
@@ -697,6 +779,11 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     private _object3d: Miaoverse.Object3D;
     /** 着色器管线实例ID。 */
     private _pipeline: number;
+
+    /** 后台任务数量（全部完成才可退出）。 */
+    private _backendCount: number = 0;
+    /** 等待退出方法。 */
+    private _waitClose: () => void = null;
 }
 
 /** 倾斜摄影组件内核实现。 */
@@ -747,6 +834,27 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {
         // 注册垃圾回收 ===============-----------------------
 
         return instance;
+    }
+
+    /**
+     * 移除组件实例。
+     * @param id 组件实例ID。
+     */
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Dioramas_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
     }
 
     /**
@@ -855,6 +963,37 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {
         const idle = this._buffers[node.type].idles[node.rows];
 
         idle.list[idle.count++] = node;
+    }
+
+    /**
+     * 清除所有。
+     */
+    public async Dispose() {
+        for (let i = 1; i < this._instanceList.length; i++) {
+            const instance = this._instanceList[i];
+            if (instance && instance.id == i) {
+                await instance.Dispose();
+            }
+        }
+
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的倾斜摄影组件实例", this._instanceCount);
+        }
+
+        for (let buffers of this._buffers) {
+            for (let buffer of buffers.buffers) {
+                this._global.device.FreeBuffer(buffer.id);
+            }
+
+            buffers.buffers = null;
+            buffers.idles = null;
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
     }
 
     /** GPU缓存管理。 */

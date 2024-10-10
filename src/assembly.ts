@@ -63,6 +63,7 @@ export class Assembly {
             const gbRT = renderTargetsLut[g0.gbRT]?.id;
 
             g0.g0 = await resources.Material.CreateFrameUniforms(colorRT, depthRT, gbRT, resources.Texture.defaultAtlas);
+            g0.g0.AddRef();
 
             frameUniformsLut[g0.name] = g0;
         }
@@ -307,6 +308,7 @@ export class Assembly {
 
                 if (framePass.materialSpec) {
                     framePass.materialSpec.instance = await resources.Material.Create(framePass.materialSpec);
+                    framePass.materialSpec.instance.AddRef();
                 }
 
                 framePassLut[framePass.label] = framePass;
@@ -348,6 +350,7 @@ export class Assembly {
             });
 
             this._config.ibl.specular.texture = await resources.Texture.Load(this._config.ibl.specular.uri);
+            this._config.ibl.specular.texture.AddRef();
         }
 
         return this;
@@ -413,6 +416,37 @@ export class Assembly {
         }
 
         return { pixel: data };
+    }
+
+    /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        const device = this._global.device;
+        const frameUniformsList = this._config.frameUniforms.list;
+        const renderTargetsList = this._config.renderTargets.list;
+        const framePassList = this._config.framePass.list;
+
+        this._config.ibl.specular.texture.Release();
+
+        for (let pass of framePassList) {
+            if (pass.materialSpec?.instance) {
+                pass.materialSpec.instance.Release();
+            }
+        }
+
+        for (let g0 of frameUniformsList) {
+            g0.g0.Release();
+        }
+
+        for (let rt of renderTargetsList) {
+            device.FreeTextureRT(rt.id);
+        }
+
+        this._global.assembly = null;
+
+        this._global = null;
+        this._config = null;
     }
 
     /** 默认IBL高光反射贴图资源视图。 */

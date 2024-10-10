@@ -24,4 +24,3 @@ export class VMath_kernel {
     Matrix4x4_FromTransform;
     _global;
 }
-//# sourceMappingURL=index.js.map

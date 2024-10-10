@@ -180,6 +180,7 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
         }
 
         this.view[name + "_sampler"] = sampler;
+        this.bindingID = 0;
     }
 
     /**
@@ -191,6 +192,60 @@ export class Material extends Miaoverse.Uniform<Material_kernel> {
         // TODO ...
         return true;
         return this.view.hasOwnProperty(name);
+    }
+
+    /**
+     * 释放实例引用。
+     */
+    public Release() {
+        if (this.internalPtr) {
+            this._impl["_Release"](this.internalPtr);
+        }
+    }
+
+    /**
+     * 增加实例引用。
+     */
+    public AddRef() {
+        const refCount = this._impl.Get<number>(this._ptr, "refCount");
+        this._impl.Set(this._ptr, "refCount", refCount + 1);
+    }
+
+    /**
+     * 清除对象。
+     */
+    protected Dispose() {
+        // 材质销毁时释放着色器引用
+        if (this.shader) {
+            this.shader.Release();
+        }
+
+        // 材质销毁时会释放贴图引用
+
+        const vars = this.tuple.vars;
+        if (vars) {
+            for (let var_ of vars) {
+                if (undefined !== var_.decl.texture) {
+                    const id_uuid = this._global.env.arrayGet(var_.decl.format, this.blockPtr, var_.offset >> 2, 4);
+                    const texture = this._global.resources.Texture.GetInstanceByID(id_uuid[0]);
+                    if (texture) {
+                        texture.Release();
+                    }
+                }
+            }
+        }
+
+        // ====================--------------------------------
+
+        this._bufferPtr = 0 as Miaoverse.io_ptr;
+        this._bufferSize = 0;
+        this._blockPtr = 0 as Miaoverse.io_ptr;
+
+        this.binding = null;
+        this.atlas2D = null;
+        this.dynamicOffsets = null;
+
+        this._view = null;
     }
 
     /** 资源绑定组布局ID（同时也是着色器内部实例ID）。 */
@@ -254,6 +309,55 @@ export class FrameUniforms extends Miaoverse.Uniform<Material_kernel> {
      */
     public ComputeLightSpaceMatrixes(camera: Miaoverse.Camera, cascadeIndex: number) {
         this._impl["_ComputeLightSpaceMatrixes"](this.internalPtr, camera.internalPtr, cascadeIndex);
+    }
+
+    /**
+     * 释放实例引用。
+     */
+    public Release() {
+        if (this.internalPtr) {
+            this._impl["_ReleaseFrameUniforms"](this.internalPtr);
+        }
+    }
+
+    /**
+     * 增加实例引用。
+     */
+    public AddRef() {
+        const refCount = this._impl.Get<number>(this._ptr, "refCount");
+        this._impl.Set(this._ptr, "refCount", refCount + 1);
+    }
+
+    /**
+     * 清除对象。
+     */
+    protected Dispose() {
+        // G0销毁时会释放贴图引用
+
+        const vars = this.tuple.vars;
+        if (vars) {
+            for (let var_ of vars) {
+                if (undefined !== var_.decl.texture) {
+                    const id_uuid = this._global.env.arrayGet(var_.decl.format, this.blockPtr, var_.offset >> 2, 4);
+                    const texture = this._global.resources.Texture.GetInstanceByID(id_uuid[0]);
+                    if (texture) {
+                        texture.Release();
+                    }
+                }
+            }
+        }
+
+        // ====================--------------------------------
+
+        this._bufferPtr = 0 as Miaoverse.io_ptr;
+        this._bufferSize = 0;
+        this._blockPtr = 0 as Miaoverse.io_ptr;
+
+        this.binding = null;
+        this.atlas2D = null;
+        this.dynamicOffsets = null;
+
+        this._view = null;
     }
 
     /** 相关状态标志集。 */
@@ -381,6 +485,8 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
             return null;
         }
 
+        shader.AddRef();
+
         const ptr = this._Create(shader.uniformSize, this._global.env.ptrZero());
         const id = this._instanceIdle;
 
@@ -431,7 +537,9 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
 
         // 注册垃圾回收 ===============-----------------------
 
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
 
         if (asset.uuid) {
             this._instanceLut[asset.uuid] = instance;
@@ -484,26 +592,51 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
 
         // 注册垃圾回收 ===============-----------------------
 
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
 
         return instance;
     }
 
     /**
-     * 释放材质引用的贴图资源（注意该方法仅提供给内核在释放材质前调用）。
-     * @param instance 材质实例对象。
+     * 移除材质资源实例。
+     * @param id 材质资源实例ID。
      */
-    public Dispose(id: number) {
-        const instance = this.GetInstanceByID(id);
-        const vars = instance.tuple.vars;
-        if (vars) {
-            for (let var_ of vars) {
-                if (undefined !== var_.decl.texture) {
-                    const id_uuid = this._global.env.arrayGet(var_.decl.format, instance.blockPtr, var_.offset >> 2, 4);
-                    this._global.resources.Texture.Release(id_uuid[0]);
-                }
-            }
+    protected Remove(id: number) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Material_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
         }
+
+        (instance as Material)["Dispose"]();
+
+        instance["_impl"] = null;
+
+        instance["_global"] = null;
+        instance["_ptr"] = 0 as never;
+        instance["_id"] = this._instanceIdle;
+
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll() {
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的统一资源实例", this._instanceCount);
+        }
+
+        this._global = null;
+        this._members = null;
+
+        this._instanceList = null;
+        this._instanceLut = null;
+
+        this._gcList = null;
     }
 
     /**
@@ -515,10 +648,20 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
     protected _Create: (size: number, data: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 
     /**
+     * 释放材质资源引用。
+     */
+    protected _Release: (uniform: Miaoverse.io_ptr) => number;
+
+    /**
      * 实例化G0资源内核实例。
      * @returns 返回G0资源内核实例指针。
      */
     protected _CreateFrameUniforms: () => Miaoverse.io_ptr;
+
+    /**
+     * 释放G0资源引用。
+     */
+    protected _ReleaseFrameUniforms: (uniform: Miaoverse.io_ptr) => number;
 
     /**
      * 根据相机组件数据和体积组件数据更新G0数据。
@@ -534,6 +677,9 @@ export class Material_kernel extends Miaoverse.Base_kernel<Material | FrameUnifo
      * @param cascadeIndex Cascaded Shadow Maps视锥分片索引（大于-1时设置阴影投影渲染相关矩阵）。
      */
     protected _ComputeLightSpaceMatrixes: (uniform: Miaoverse.io_ptr, camera: Miaoverse.io_ptr, cascadeIndex: number) => void;
+
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList: (() => void)[] = [];
 }
 
 /** 材质资源内核实现的数据结构成员列表。 */

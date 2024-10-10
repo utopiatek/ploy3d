@@ -7,6 +7,22 @@ export class Texture extends Miaoverse.Resource {
         this._refCount = 1;
         this._texture = texture;
     }
+    Release() {
+        if (--this._refCount == 0) {
+            this.Dispose();
+        }
+    }
+    AddRef() {
+        this._refCount++;
+    }
+    Dispose() {
+        this._global.device.FreeTexture2D(this.internalID);
+        this._impl["_instanceLut"][this.uuid] = undefined;
+        this._impl["Remove"](this.id);
+        this._uuid = null;
+        this._refCount = 0;
+        this._texture = null;
+    }
     get uuid() {
         return this._uuid;
     }
@@ -50,7 +66,9 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new Texture(this, texture, id, uuid || "");
         this._instanceCount++;
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
         if (uuid) {
             this._instanceLut[uuid] = instance;
         }
@@ -73,11 +91,38 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new Texture(this, texture, id, asset.uuid || "");
         this._instanceCount++;
-        this._gcList.push(instance);
+        this._gcList.push(() => {
+            instance.Release();
+        });
         if (asset.uuid) {
             this._instanceLut[asset.uuid] = instance;
         }
         return instance;
+    }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Texture_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
+    }
+    AddRef(id) {
+        const instance = this._instanceList[id];
+        if (instance) {
+            instance.AddRef();
+        }
+    }
+    Release(id) {
+        const instance = this._instanceList[id];
+        if (instance) {
+            instance.Release();
+        }
     }
     async LoadTexture2D_URI(uri, has_alpha) {
         if (uri.endsWith(".ktx2")) {
@@ -166,21 +211,23 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
         };
         return data;
     }
-    AddRef(id) {
-        const instance = this._instanceList[id];
-        if (instance) {
-            instance["_refCount"]++;
+    DisposeAll() {
+        if (this.default2D) {
+            this.default2D.Release();
         }
-    }
-    Release(id) {
-        const instance = this._instanceList[id];
-        if (instance && 0 == --instance["_refCount"]) {
-            this._global.device.FreeTexture2D(instance.internalID);
-            this._instanceList[id] = { id: this._instanceIdle };
-            this._instanceLut[instance.uuid] = undefined;
-            this._instanceCount--;
-            this._instanceIdle = id;
+        if (this.defaultAtlas) {
+            this._global.device.FreeTexture2D(this.defaultAtlas);
         }
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的贴图实例", this._instanceCount);
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+        this._gcList = null;
+        this.default2D = null;
+        this.defaultAtlas = 0;
     }
     _WriteTile(tile, bitmap, xoffset = 0, yoffset = 0) {
         const info = this._global.env.uarrayGet(tile, 12, 8);
@@ -193,6 +240,7 @@ export class Texture_kernel extends Miaoverse.Base_kernel {
     }
     _CreateTile;
     _ReleaseTile;
+    _gcList = [];
     default2D;
     defaultAtlas;
 }
@@ -207,4 +255,3 @@ export const TextureTile_member_index = {
     xoffset: ["uscalarGet", "uscalarSet", 1, 18],
     yoffset: ["uscalarGet", "uscalarSet", 1, 19],
 };
-//# sourceMappingURL=texture.js.map

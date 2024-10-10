@@ -1,4 +1,4 @@
-import * as Miaoverse from "../mod.js"
+import * as Miaoverse from "./mod.js"
 
 /** GIS系统。 */
 export class Gis {
@@ -39,6 +39,7 @@ export class Gis {
                 }
             }
         });
+        this._mesh.AddRef();
 
         this._materials = [];
 
@@ -59,6 +60,8 @@ export class Gis {
             // 从LOD网格内层往外层绘制，可减少开销
             const slot = this._pyramid.levelCount - i - 1;
 
+            material.AddRef();
+
             this._materials[slot] = {
                 slot: slot,
                 submesh: i,
@@ -69,17 +72,38 @@ export class Gis {
         return this;
     }
 
-    /** 
-     * 销毁GIS系统。
+    /**
+     * 清除对象。
      */
-    public Destroy() {
-        // TODO ...
+    public async Dispose() {
+        if (this._flushing > 0) {
+            await (new Promise<void>((resolve, reject) => {
+                this._waitClose = resolve;
+            }));
+        }
+
+        await this.districts.Dispose();
+        await this._pyramid.Dispose();
+
+        if (this._mesh) {
+            this._mesh.Release();
+        }
+
+        if (this._materials) {
+            for (let mat of this._materials) {
+                mat.material.Release();
+            }
+        }
 
         this._global = undefined;
+        this._enable = false;
+
+        this._districts = undefined;
 
         this._pyramid = undefined;
         this._mesh = undefined;
         this._materials = undefined;
+        this._drawParams = undefined;
 
         this._lng = undefined;
         this._lat = undefined;
@@ -98,9 +122,14 @@ export class Gis {
         this._lock = undefined;
         this._timestamp = undefined;
 
-        this._flushing = false;
+        this._flushing = 0;
         this._waiting = undefined;
         this._servers = undefined;
+
+        this._lut1 = undefined;
+        this._lut2 = undefined;
+        this._lut3 = undefined;
+        this._lut4 = undefined;
     }
 
     /**
@@ -209,14 +238,15 @@ export class Gis {
         // 旋转GIS球体使观察点垂直向上
         // 平移GIS球体观察点至相机观察点坐标
 
-        if (this._lock) {
+        if (this._lock || this._waitClose) {
             return;
         }
 
         const timestamp = Date.now();
 
-        if (this._flushing) {
+        if (this._flushing > 0) {
             // 上一次刷新响应未超时的情况下，将当前刷新命令置入等待队列
+            // 保证了异常超时的情况下仍可刷新
             if (Math.ceil((timestamp - this._timestamp) / 1000) < 1) {
                 this._waiting = [x, z, lng, lat, level, pitch, yaw];
                 return;
@@ -295,7 +325,7 @@ export class Gis {
         }
 
         this._timestamp = timestamp;
-        this._flushing = true;
+        this._flushing++;
         this._waiting = null;
 
         this.FlushMaterial({
@@ -305,12 +335,19 @@ export class Gis {
         });
 
         this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
+            this._flushing--;
+
+            if (this._flushing == 0) {
+                if (this._waitClose) {
+                    this._waitClose();
+                    return;
+                }
+            }
+
             if (timestamp != this._timestamp) {
                 //this._global.Track(`Gis.Flush: 该GIS刷新响应已经超时！${Math.ceil((Date.now() - timestamp) / 1000)}s`, 2);
                 return;
             }
-
-            this._flushing = false;
 
             if (this._waiting) {
                 x = this._waiting[0];
@@ -865,9 +902,11 @@ export class Gis {
     private _timestamp: number = 0;
 
     /** 是否正在刷新（限制刷新频率）。 */
-    private _flushing: boolean;
+    private _flushing: number = 0;
     /** 等待刷新参数。 */
     private _waiting: number[];
+    /** 等待退出方法。 */
+    private _waitClose: () => void;
     /** 瓦片服务信息（对应Gis_serv_type）。 */
     private _servers = {
         tianditu_img_w: {
@@ -1300,6 +1339,47 @@ export class Gis_pyramid {
                 };
             }
         }
+    }
+
+    /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        const _global = this._gis["_global"];
+
+        for (let level of this._pyramid) {
+            for (let layer of level.layers) {
+                if (layer.texture) {
+                    _global.resources.Texture._ReleaseTile(layer.texture.tile);
+                }
+
+                layer.invalid = undefined;
+                layer.inherit = undefined;
+                layer.texture = undefined;
+                layer.uvst = undefined;
+                layer.cache = undefined;
+                layer.loading = undefined;
+            }
+
+            level.id = 0;
+            level.level = 0;
+            level.submesh = 0;
+            level.outer = false;
+            level.reset = false;
+            level.projections = null;
+            level.layers = null;
+        }
+
+        this._gis = null;
+        this._forceTerrain = false;
+
+        this._blankTile = null;
+        this._layers = null;
+
+        this._tiling = 0;
+        this._pyramid = null;
+        this._pyramidTop = 0;
+        this._pyramidHeight = 0;
     }
 
     /**
@@ -2076,7 +2156,11 @@ export class Gis_districts {
                 }
             });
 
+            material.AddRef();
+
             const mesh_renderer = await global.resources.MeshRenderer.Create(null, null);
+
+            mesh_renderer.AddRef();
 
             const pipeline = global.context.CreateRenderPipeline({
                 g1: mesh_renderer.layoutID,
@@ -2108,7 +2192,11 @@ export class Gis_districts {
                 }
             });
 
+            material.AddRef();
+
             const mesh_renderer = await global.resources.MeshRenderer.Create(null, null);
+
+            mesh_renderer.AddRef();
 
             const pipeline = global.context.CreateRenderPipeline({
                 g1: mesh_renderer.layoutID,
@@ -2126,6 +2214,35 @@ export class Gis_districts {
         })();
 
         return this;
+    }
+
+    /**
+     * 清除对象。
+     */
+    public async Dispose() {
+        for (let key in this._countries) {
+            const district = this._countries[key];
+            if (district) {
+                district.Dispose(this._gis);
+            }
+        }
+
+        if (this._area_renderer) {
+            this._area_renderer.material.Release();
+            this._area_renderer.mesh_renderer.Release();
+            this._area_renderer.pipeline = null;
+        }
+
+        if (this._line_renderer) {
+            this._line_renderer.material.Release();
+            this._line_renderer.mesh_renderer.Release();
+            this._line_renderer.pipeline = null;
+        }
+
+        this._gis = null;
+        this._area_renderer = null;
+        this._line_renderer = null;
+        this._countries = null;
     }
 
     /**
@@ -2405,6 +2522,47 @@ export class Gis_district {
         }
 
         return this;
+    }
+
+    /**
+     * 清除对象。
+     */
+    public Dispose(gis: Gis) {
+        const global = gis["_global"];
+
+        for (let key in this.districts) {
+            const district = this.districts[key];
+            if (district) {
+                district.Dispose(gis);
+            }
+        }
+
+        if (this.polygons) {
+            if (this.polygons.vertexBuffer) {
+                global.resources.Dioramas.FreeBuffer(this.polygons.vertexBuffer);
+            }
+
+            if (this.polygons.indexBuffer) {
+                global.resources.Dioramas.FreeBuffer(this.polygons.indexBuffer);
+            }
+
+            this.polygons.instanceIndex = 0;
+            this.polygons.vertexCount = 0;
+            this.polygons.indexCount = 0;
+
+            this.polygons.vertexBuffer = null;
+            this.polygons.indexBuffer = null;
+
+            this.polygons.list = null;
+        }
+
+        this.adcode = undefined;
+        this.level = undefined;
+        this.name = undefined;
+        this.center = undefined;
+        this.citycode = undefined;
+        this.districts = undefined;
+        this.polygons = undefined;
     }
 
     /** 行政区编码（街道编码等同所属区县编码）。 */

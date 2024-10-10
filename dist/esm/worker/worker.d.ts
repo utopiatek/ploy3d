@@ -202,6 +202,8 @@ export declare class Miaoworker {
     internal: Internal;
     /** 资源导入器接口。 */
     importer: Importer;
+    /** GLTF导入缓存（避免运行期内重复导入）。 */
+    gltfCache: Record<string, Awaited<ReturnType<Miaoworker["Import_gltf"]>>>;
 }
 /** 事务信息。 */
 export interface WorkInfo {

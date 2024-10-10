@@ -21,7 +21,9 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this._updateTS = this._global.env.frameTS;
         this._intervalGC = 1000;
         this._material = await this._global.resources.Material.Load("1-1-1.miaokit.builtins:/material/32-2_standard_dior.json");
+        this._material.AddRef();
         this._meshRenderer = await this._global.resources.MeshRenderer.Create(null, null);
+        this._meshRenderer.AddRef();
         this._object3d = await this._global.resources.Object.Create(scene);
         this._pipeline = this._global.context.CreateRenderPipeline({
             g1: this._meshRenderer.layoutID,
@@ -36,7 +38,47 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             this._object3d.SetLngLat(lnglat_alt[0], lnglat_alt[1], lnglat_alt[2]);
         }
     }
+    async Dispose() {
+        if (this._backendCount > 0) {
+            await (new Promise((resolve, reject) => {
+                this._waitClose = resolve;
+            }));
+        }
+        this._waitClose = () => { };
+        this.For_children(this._root, (node) => {
+            this.GC_free(node);
+        });
+        if (this._drawBuffer) {
+            this._global.internal.System_Delete(this._drawBuffer.ptr);
+            this._impl.FreeBuffer(this._drawBuffer.buffer);
+        }
+        this._material.Release();
+        this._meshRenderer.Release();
+        this._object3d.Destroy();
+        this._3mx = null;
+        this._root = null;
+        this._drawList = null;
+        this._subdivList = null;
+        this._drawCount = 0;
+        this._subdivCount = 0;
+        this._updateTS = 0;
+        this._intervalGC = 0;
+        this._drawBuffer = null;
+        this._material = null;
+        this._meshRenderer = null;
+        this._object3d = null;
+        this._pipeline = 0;
+        this._backendCount = 0;
+        this._waitClose = null;
+        this._impl["Remove"](this.id);
+    }
     Update(camera) {
+        if (this._waitClose) {
+            if (this._backendCount == 0) {
+                this._waitClose();
+            }
+            return;
+        }
         const env = this._global.env;
         const updateTS = env.frameTS;
         const elapsed = updateTS - this._updateTS;
@@ -62,7 +104,18 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         });
         this.GC();
         if (this._subdivCount > 0) {
+            this._backendCount++;
+            const End = () => {
+                if (--this._backendCount == 0) {
+                    if (this._waitClose) {
+                        this._waitClose();
+                    }
+                }
+            };
             (async () => {
+                if (this._waitClose) {
+                    return;
+                }
                 const list = this._subdivList.slice(0, this._subdivCount).sort((a, b) => {
                     let w = b._level - a._level;
                     if (a._level < 3) {
@@ -99,6 +152,10 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                     }
                 };
                 for (let i = 0; i < list.length; i += 8) {
+                    if (ts != this._updateTS || this._waitClose) {
+                        break;
+                    }
+                    this._global.app.DrawFrame(180);
                     const promises = [];
                     for (let j = 0; j < 8; j++) {
                         if ((i + j) < list.length) {
@@ -109,12 +166,8 @@ export class Dioramas_3mx extends Miaoverse.Resource {
                         }
                     }
                     await Promise.all(promises);
-                    this._global.app.DrawFrame(180);
-                    if (ts != this._updateTS) {
-                        break;
-                    }
                 }
-            })();
+            })().then(End).catch(End);
         }
     }
     Draw(queue) {
@@ -368,7 +421,7 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this.For_children(node._children, (child) => {
             this.GC_free(child);
         });
-        if (node._level < 3 && true) {
+        if (node._level < 3 && !this._waitClose) {
             return;
         }
         node._released = true;
@@ -412,6 +465,8 @@ export class Dioramas_3mx extends Miaoverse.Resource {
     _meshRenderer;
     _object3d;
     _pipeline;
+    _backendCount = 0;
+    _waitClose = null;
 }
 export class Dioramas_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
@@ -438,6 +493,19 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel {
         this._instanceCount++;
         await instance.Init(scene, url, lnglat_alt);
         return instance;
+    }
+    Remove(id) {
+        const instance = this._instanceList[id];
+        if (!instance || instance.id != id) {
+            this._global.Track("Dioramas_kernel.Remove: 实例ID=" + id + "无效！", 3);
+            return;
+        }
+        instance["_impl"] = null;
+        instance["_global"] = null;
+        instance["_ptr"] = 0;
+        instance["_id"] = this._instanceIdle;
+        this._instanceIdle = id;
+        this._instanceCount -= 1;
     }
     GenBuffer(type, count) {
         if (count > 65536) {
@@ -513,6 +581,27 @@ export class Dioramas_kernel extends Miaoverse.Base_kernel {
         const idle = this._buffers[node.type].idles[node.rows];
         idle.list[idle.count++] = node;
     }
+    async Dispose() {
+        for (let i = 1; i < this._instanceList.length; i++) {
+            const instance = this._instanceList[i];
+            if (instance && instance.id == i) {
+                await instance.Dispose();
+            }
+        }
+        if (this._instanceCount != 0) {
+            console.error("异常！存在未释放的倾斜摄影组件实例", this._instanceCount);
+        }
+        for (let buffers of this._buffers) {
+            for (let buffer of buffers.buffers) {
+                this._global.device.FreeBuffer(buffer.id);
+            }
+            buffers.buffers = null;
+            buffers.idles = null;
+        }
+        this._global = null;
+        this._members = null;
+        this._instanceList = null;
+        this._instanceLut = null;
+    }
     _buffers;
 }
-//# sourceMappingURL=dioramas_3mx.js.map

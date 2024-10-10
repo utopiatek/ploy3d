@@ -15,6 +15,12 @@ export declare class Animator extends Miaoverse.Resource<Animator> {
      */
     AddClip(data: AnimationClip): number;
     /**
+     * 移除动画片段实例。
+     * @param _clip
+     * @returns
+     */
+    RemoveClip(_clip: number): void;
+    /**
      * 更新动画帧。
      */
     Update(): void;
@@ -33,6 +39,14 @@ export declare class Animator extends Miaoverse.Resource<Animator> {
      * @param value 属性值。
      */
     SetValue(target: number, attr: number, value: number[]): void;
+    /**
+     * 释放实例引用。
+     */
+    protected Release(): void;
+    /**
+     * 清除对象。
+     */
+    protected Dispose(): void;
     /** 动画控制器。 */
     get ctrl(): Miaoverse.AnimationCtrl;
     /** 动画驱动目标数组。 */
@@ -242,6 +256,11 @@ export declare class Animator_kernel extends Miaoverse.Base_kernel<Animator, any
      */
     Create(targets: Miaoverse.Object3D[], animationsList: string[], pkg?: Miaoverse.PackageReg): Promise<Miaoverse.Animator>;
     /**
+     * 移除动画组件实例。
+     * @param id 动画组件实例ID。
+     */
+    protected Remove(id: number): void;
+    /**
      * 装载动画数据。
      * @param uri 动画数据URI。
      * @param pkg 当前资源包注册信息。
@@ -258,12 +277,26 @@ export declare class Animator_kernel extends Miaoverse.Base_kernel<Animator, any
         refCount: number;
     }>;
     /**
+     * 释放动画数据。
+     * @param uuid 动画数据ID。
+     * @returns
+     */
+    ReleaseAnimations(uuid: string): void;
+    /**
      * 更新动画组件（对象在视锥范围内时触发调用）。
      * @param animator_id 动画组件ID。
      */
     Update(animator_id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
     /** 动画数据查找表。 */
     private _animationsLut;
+    /** 已装载动画数据数量。 */
+    private _animationsCount;
+    /** 待GC资源实例列表（资源在创建时产生1引用计数，需要释放）。 */
+    private _gcList;
 }
 /** 动画数据描述符。 */
 export interface Asset_animations extends Miaoverse.Asset {

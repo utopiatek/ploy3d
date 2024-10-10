@@ -16,6 +16,10 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      */
     Init(scene: Miaoverse.Scene, url: string, lnglat_alt?: number[]): Promise<void>;
     /**
+     * 清除对象。
+     */
+    Dispose(): Promise<void>;
+    /**
      * 更新绘制场景。
      * @param camera 相机组件实例（用于获取全局空间到相机空间变换矩阵）。
      */
@@ -97,6 +101,10 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     private _object3d;
     /** 着色器管线实例ID。 */
     private _pipeline;
+    /** 后台任务数量（全部完成才可退出）。 */
+    private _backendCount;
+    /** 等待退出方法。 */
+    private _waitClose;
 }
 /** 倾斜摄影组件内核实现。 */
 export declare class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx, any> {
@@ -113,6 +121,11 @@ export declare class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx,
      * @returns 异步返回倾斜摄影组件实例。
      */
     Create_3mx(scene: Miaoverse.Scene, url: string, lnglat_alt?: number[]): Promise<Miaoverse.Dioramas_3mx>;
+    /**
+     * 移除组件实例。
+     * @param id 组件实例ID。
+     */
+    protected Remove(id: number): void;
     /**
      * 分配GPU缓存节点。
      * @param type 缓存类型（0：顶点缓存，1：索引缓存）。
@@ -139,6 +152,10 @@ export declare class Dioramas_kernel extends Miaoverse.Base_kernel<Dioramas_3mx,
      * @returns
      */
     FreeBuffer(node: ReturnType<Dioramas_kernel["GenBuffer"]>): void;
+    /**
+     * 清除所有。
+     */
+    Dispose(): Promise<void>;
     /** GPU缓存管理。 */
     private _buffers;
 }

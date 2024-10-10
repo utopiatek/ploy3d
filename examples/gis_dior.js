@@ -184,6 +184,14 @@ export class PloyApp_gis_dior extends PloyApp {
             }
         });
 
+        // 注册键盘按键按下事件监听器
+        this.AddEventListener("keydown", (e) => {
+            // 安全关闭应用
+            if (e.code == "Escape") {
+                this.Shutdown();
+            }
+        });
+
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(10);
     }
@@ -253,6 +261,8 @@ export class PloyApp_gis_dior extends PloyApp {
                     this.engine.config.surface.present();
                 }
             }
+
+            this._gpuRendering = false;
         });
     }
 

@@ -1169,4 +1169,3 @@ export class Importer_gltf {
     _data;
     _files_cache;
 }
-//# sourceMappingURL=importer_gltf.js.map

@@ -12,6 +12,20 @@ export declare class Resources {
      */
     Init(): Promise<this>;
     /**
+     * 清除对象。
+     */
+    Dispose(): Promise<void>;
+    /**
+     * 进行动态资源回收。
+     */
+    GC(): void;
+    /**
+     * 移除资源类型（何时移除交由内核实现决定）。
+     * @param classid 资源类型ID。
+     * @param id 资源实例ID。
+     */
+    Remove(classid: Miaoverse.CLASSID, id: number): void;
+    /**
      * 加载指定URI的文件数据。
      * @param type 资源文件类型。
      * @param uri 资源文件URI。
@@ -90,6 +104,8 @@ export declare class Resources {
         thumbnail?: string;
         /** 缩略图文件中每行包含缩略图数量。 */
         thumbnail_per_row?: number;
+        /** 缩略图行数。 */
+        thumbnail_row_count?: number;
         /** 缩略图数据对象。 */
         thumbnail_blob?: Blob;
         /** 资源清单。 */
@@ -211,6 +227,8 @@ export interface PackageReg {
         thumbnail?: string;
         /** 缩略图文件中每行包含缩略图数量。 */
         thumbnail_per_row?: number;
+        /** 缩略图行数。 */
+        thumbnail_row_count?: number;
         /** 缩略图数据对象。 */
         thumbnail_blob?: Blob;
         /** 资源清单。 */

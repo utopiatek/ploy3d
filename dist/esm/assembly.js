@@ -37,6 +37,7 @@ export class Assembly {
             const depthRT = renderTargetsLut[g0.depthRT]?.id;
             const gbRT = renderTargetsLut[g0.gbRT]?.id;
             g0.g0 = await resources.Material.CreateFrameUniforms(colorRT, depthRT, gbRT, resources.Texture.defaultAtlas);
+            g0.g0.AddRef();
             frameUniformsLut[g0.name] = g0;
         }
         {
@@ -220,6 +221,7 @@ export class Assembly {
                 }
                 if (framePass.materialSpec) {
                     framePass.materialSpec.instance = await resources.Material.Create(framePass.materialSpec);
+                    framePass.materialSpec.instance.AddRef();
                 }
                 framePassLut[framePass.label] = framePass;
                 framePassIndex += framePass.variantCount || 1;
@@ -252,6 +254,7 @@ export class Assembly {
                 height: dfg_cfg.writeHeight
             });
             this._config.ibl.specular.texture = await resources.Texture.Load(this._config.ibl.specular.uri);
+            this._config.ibl.specular.texture.AddRef();
         }
         return this;
     }
@@ -288,6 +291,27 @@ export class Assembly {
             }
         }
         return { pixel: data };
+    }
+    async Dispose() {
+        const device = this._global.device;
+        const frameUniformsList = this._config.frameUniforms.list;
+        const renderTargetsList = this._config.renderTargets.list;
+        const framePassList = this._config.framePass.list;
+        this._config.ibl.specular.texture.Release();
+        for (let pass of framePassList) {
+            if (pass.materialSpec?.instance) {
+                pass.materialSpec.instance.Release();
+            }
+        }
+        for (let g0 of frameUniformsList) {
+            g0.g0.Release();
+        }
+        for (let rt of renderTargetsList) {
+            device.FreeTextureRT(rt.id);
+        }
+        this._global.assembly = null;
+        this._global = null;
+        this._config = null;
     }
     get default_iblSpecular() {
         const id = this._config.ibl.specular.texture.internalID;
@@ -802,4 +826,3 @@ export class Assembly {
         }
     };
 }
-//# sourceMappingURL=assembly.js.map

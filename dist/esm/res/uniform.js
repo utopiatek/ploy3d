@@ -123,4 +123,3 @@ export const Uniform_member_index = {
     updated: ["uscalarGet", "uscalarSet", 1, 18],
     m_reserved76: ["uscalarGet", "uscalarSet", 1, 19],
 };
-//# sourceMappingURL=uniform.js.map

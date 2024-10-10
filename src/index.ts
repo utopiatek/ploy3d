@@ -351,12 +351,21 @@ export class Ploy3D {
                     this.resources.Animator.Update(id);
                 }
             },
-            Release: (classid: number, id: number) => {
-                // TODO ...
-                return 0;
-            }
+            Remove: (classid: number, id: number) => {
+                if (classid == Miaoverse.CLASSID.ASSET_COMPONENT_ANIMATOR) {
+                    const component = this.resources.Animator.GetInstanceByID(id);
+                    if (component) {
+                        component["Release"]();
+                    }
+                }
+                else {
+                    this.resources.Remove(classid, id);
+                }
+            },
+            DrawPart: (g1: number, g2: number, pipeline: number, mesh: number, submesh: number, instanceCount: number, firstInstance: number, materialSlot: number) => {
+                this.renderer["_queue"].DrawPart(g1, g2, pipeline, mesh, submesh, instanceCount, firstInstance, materialSlot);
+            },
         });
-
         if (!this.kernel) {
             throw "内核接口初始化失败！"
         }
@@ -419,9 +428,20 @@ export class Ploy3D {
 
         this.started = false;
 
-        // ...
+        const renderer2d = await this.renderer2d.Dispose();
+        const gis = await this.gis.Dispose();
+        const dior = await this.resources.Dioramas.Dispose();
+        const worker = await this.worker.Shutdown();
+        const assembly = await this.assembly.Dispose();
+        const resources = await this.resources.Dispose();
+        const renderer = await this.renderer.Dispose();
+        const context = await this.context.Dispose();
+        const device = await this.device.Dispose();
+        const kernel = await this.kernel.Dispose();
 
-        return {};
+        return {
+            kernel,
+        };
     }
 
     /**
@@ -629,11 +649,57 @@ export class PloyApp {
             return;
         }
 
-        this.started = false;
-
         this.engine.Track("即将退出程序");
 
+        for (let type in this.events) {
+            if (type == "keydown" || type == "keyup") {
+                document.removeEventListener(type, this.events[type]);
+            }
+            else {
+                this.ui_canvas.removeEventListener(type, this.events[type]);
+            }
+        }
+
+        this.DrawFrame(2);
+
+        await (new Promise<void>((resolve, reject) => {
+            this._waitClose = resolve;
+        }));
+
+        if (this._atmosphere) {
+            this._atmosphere.mesh.Release();
+            this._atmosphere.material.Release();
+        }
+
+        if (this._transformCtrl) {
+            // 跟随场景销毁 ...
+        }
+
         const state = await this.engine.Shutdown();
+
+        this.engine = null;
+        this.started = false;
+        this.sdl_window = null;
+        this.sdl_canvas = null;
+        this.ui_canvas = null;
+        this.ui_ctx = null;
+        this.event_listener = null;
+
+        this._atmosphere = null;
+        this._transformCtrl = null;
+
+        this._loop2d = 0;
+        this._loop3d = 0;
+        this._draw3d = false;
+        this._steps = 0;
+        this._drawQueue = null;
+        this._sleep = false;
+        this._loopFunc = null;
+        this._waitClose = null;
+
+        this._fps = 0;
+        this._fpsTime = 0;
+        this._status = null;
 
         console.log(state);
         console.log("已退出程序");
@@ -782,6 +848,9 @@ export class PloyApp {
             }
         };
 
+        mesh.AddRef();
+        material.AddRef();
+
         return this._atmosphere;
     }
 
@@ -805,16 +874,29 @@ export class PloyApp {
         }
 
         return new Promise<void>(async (resolve, reject) => {
-            const events = ["click", "dblclick", "mousewheel", "wheel", "pointerout", "pointerup", "pointerdown", "pointermove", "contextmenu"];
+            const events = ["keydown", "keyup", "click", "dblclick", "mousewheel", "wheel", "pointerout", "pointerup", "pointerdown", "pointermove", "contextmenu"];
 
             for (let type of events) {
                 const listeners = this.event_listener[type] || (this.event_listener[type] = []);
 
-                this.ui_canvas.addEventListener(type, async (event) => {
-                    for (let listener of listeners) {
-                        await listener(event);
-                    }
-                });
+                if (type == "keydown" || type == "keyup") {
+                    this.events[type] = async (event: any) => {
+                        for (let listener of listeners) {
+                            await listener(event);
+                        }
+                    };
+
+                    document.addEventListener(type, this.events[type]);
+                }
+                else {
+                    this.events[type] = async (event: any) => {
+                        for (let listener of listeners) {
+                            await listener(event);
+                        }
+                    };
+
+                    this.ui_canvas.addEventListener(type, this.events[type]);
+                }
             }
 
             resolve();
@@ -932,14 +1014,19 @@ export class PloyApp {
      * @returns 返回false表示无必要进一步步进。
      */
     public Step() {
-        // 非绘制任务中才可退出或进一步更新
-        if (!this._draw3d) {
-            // 执行退出操作
-            if (this._waitClose) {
-                this._waitClose();
-                return false;
-            }
+        if (!this.started) {
+            return false;
+        }
 
+        // 执行退出操作
+        if (this._waitClose && !this._gpuRendering) {
+            this._waitClose();
+            this.started = false;
+            return false;
+        }
+
+        // 非绘制任务中才可进一步更新
+        if (!this._draw3d) {
             // 更新场景
             const flags = (this._loop2d ? 1 : 0) + (this._loop3d ? 2 : 0);
             if (flags) {
@@ -960,6 +1047,11 @@ export class PloyApp {
 
                 // 调用用户的场景更新方法
                 this.Update(flags);
+
+                // 约1分钟回收一次资源
+                if ((this._steps % 1800) == 0) {
+                    this.engine.resources.GC();
+                }
 
                 // 每步进60次，收集一次应用运行状态
                 if ((++this._steps % 60) == 0) {
@@ -995,6 +1087,7 @@ export class PloyApp {
                 }
 
                 this._loop3d--;
+                this._gpuRendering = true;
                 this.Draw3D();
 
                 this._draw3d = false;
@@ -1042,6 +1135,10 @@ export class PloyApp {
         this._fpsTime = curtime;
 
         this.engine.Track("fps: " + this._fps);
+
+        const kernel = this.engine.kernel.Status();
+
+        console.info(kernel);
     }
 
     /** 引擎实例。 */
@@ -1058,6 +1155,8 @@ export class PloyApp {
     public ui_ctx: CanvasRenderingContext2D;
     /** 事件监听器。 */
     public event_listener = {} as Record<string, ((event: any) => Promise<void>)[]>;
+    /** 事件绑定列表。 */
+    public events = {} as Record<string, any>;
 
     /** 地球大气层对象。 */
     protected _atmosphere?: {
@@ -1081,6 +1180,8 @@ export class PloyApp {
     protected _steps: number = 0;
     /** 最新请求得到的渲染队列，每次渲染前都需要请求渲染队列。 */
     protected _drawQueue: Miaoverse.DrawQueue = null;
+    /** GPU渲染中。 */
+    protected _gpuRendering: boolean = false;
     /** 当前循环陷入睡眠。 */
     protected _sleep: boolean = false;
     /** 当前循环句柄。 */
@@ -1513,3 +1614,15 @@ export function Start(instance: Ploy3D, appid = "default", title = "PLOY3D引擎
 
     return instance.app.Startup(title, width, height);
 }
+
+/*/
+PropTuple.view是一个类的构造函数，Material._view等由该构造函数实例化
+PropLayout包含GPUBindGroupLayout和PropTuple两个重要属性，代表资源组的数据结构和访问器
+ShaderAsset.depth_stencil可令Shader自定义深度和模板缓存控制
+ShaderAsset.vertex_buffers可令Shader自定义顶点结构
+ShaderAsset.custom_g3可令Shader自定义G3资源组（额外更多缓存绑定）
+Shader着色器模块只生成1次，不同分支使用不同的宏和不同的构造函数与其它设置生成不同的GPURenderPipeline
+
+TODO:
+释放图集
+/*/

@@ -209,6 +209,14 @@ export class PloyApp_gltf_skin_anim extends PloyApp {
             }
         });
 
+        // 注册键盘按键按下事件监听器
+        this.AddEventListener("keydown", (e) => {
+            // 安全关闭应用
+            if (e.code == "Escape") {
+                this.Shutdown();
+            }
+        });
+
         // 触发一帧绘制，这样本机程序才会启动循环监听事件（当前场景持续绘制动画）
         this.DrawFrame(100000);
     }
@@ -259,6 +267,8 @@ export class PloyApp_gltf_skin_anim extends PloyApp {
                     this.engine.config.surface.present();
                 }
             }
+
+            this._gpuRendering = false;
         });
     }
 

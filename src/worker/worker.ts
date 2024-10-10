@@ -122,9 +122,11 @@ const __worker = new Miaoworker();
                     this.Track("Miaoworker内核不应调用Update方法！");
                     return 0;
                 },
-                Release: (classid: number, id: number) => {
-                    this.Track("Miaoworker内核不应调用Release方法！");
-                    return 0;
+                Remove: (classid: number, id: number) => {
+                    this.Track("Miaoworker内核不应调用Remove方法！");
+                },
+                DrawPart: (g1: number, g2: number, pipeline: number, mesh: number, submesh: number, instanceCount: number, firstInstance: number, materialSlot: number) => {
+                    this.Track("Miaoworker内核不应调用DrawPart方法！");
                 },
             });
 
@@ -204,8 +206,16 @@ const __worker = new Miaoworker();
                 return;
             }
 
+            if (this.gltfCache[url]) {
+                resolve(this.gltfCache[url]);
+                return;
+            }
+
             if (0 === worker) {
-                this.importer.Import_gltf(url, progress).then(resolve).catch(reject);
+                this.importer.Import_gltf(url, progress).then((res) => {
+                    this.gltfCache[url] = res;
+                    resolve(res);
+                }).catch(reject);
             }
             else {
                 this.PostMessage({
@@ -214,7 +224,10 @@ const __worker = new Miaoworker();
                     args: {
                         url: url
                     },
-                }).then(resolve).catch(reject);
+                }).then((res) => {
+                    this.gltfCache[url] = res;
+                    resolve(res);
+                }).catch(reject);
             }
         });
     }
@@ -710,6 +723,9 @@ const __worker = new Miaoworker();
     public internal: Internal;
     /** 资源导入器接口。 */
     public importer: Importer;
+
+    /** GLTF导入缓存（避免运行期内重复导入）。 */
+    public gltfCache: Record<string, Awaited<ReturnType<Miaoworker["Import_gltf"]>>> = {};
 }
 
 /** 事务信息。 */

@@ -1,8 +1,8 @@
 /** 导入PLOY3D引擎。 */
-import { Ploy3D, PloyApp, Scene, Object3D, Camera, Volume, Dioramas_3mx } from "../dist/esm/mod.js"
+import { Ploy3D, PloyApp, Scene, Object3D, Camera, Volume, Canvas2D } from "../dist/esm/mod.js"
 
-/** 扩展实现APP类[gis_vtile]。 */
-export class PloyApp_gis_vtile extends PloyApp {
+/** 扩展实现APP类[nature_base]。 */
+export class PloyApp_nature_base extends PloyApp {
     /**
      * 构造函数。
      * @constructor
@@ -26,52 +26,51 @@ export class PloyApp_gis_vtile extends PloyApp {
         this.camera = await resources.Camera.Create(this.object3d);
         this.volume = await resources.Volume.Create(this.object3d);
 
-        this.volume.shadowBias = 0.1;
-        this.volume.iblLuminance = 0.2;
-        this.volume.sunlitColorIntensity = [0.22, 0.22, 0.22, 0.5];
-        this.volume.sunlitDirection = engine.Vector3([1.0, 1.0, 1.0]).normalized.values;
+        this.volume.iblLuminance = 1.0;
+        this.volume.sunlitColorIntensity = [1.22, 1.22, 1.22, 1.0];
+        this.volume.sunlitDirection = engine.Vector3([1.0, 1.0, 0.0]).normalized.values;
 
-        this.volume.shadowDisable = 1;
-        this.volume.ssrDisable = 1;
-        this.volume.ssaoDisable = 1;
-
-        // 自定义渲染管线帧通道列表（我们排出了默认设置中的"shadow_cast","early_z","ssao_extract","ssr_extract","sss_extract","sss_blur","proc_bloom"）
+        // 自定义渲染管线帧通道列表（我们排出了默认设置中的"sss_extract","sss_blur"）
         {
             this.framePassList = {};
 
             this.framePassList.framePassName = [
-                "opaque",       // 0
-                "blit",         // 1
+                "shadow_cast",  // 0
+                "early_z",      // 1
+                "ssao_extract", // 2
+                "ssr_extract",  // 3
+                "opaque",       // 4
+                "proc_bloom",   // 5
+                "blit",         // 6
             ];
 
             this.framePassList.framePass = this.framePassList.framePassName.map((label) => {
                 return engine.assembly.GetFramePass(label);
             });
 
-            // 我们排除了"early_z"通道，以此需要修改"opaque"通道的深度测试配置
-            this.framePassList.framePass[0].depthStencilAttachment.depthCompare = "greater";
-            this.framePassList.framePass[0].depthStencilAttachment.depthLoadOp = "clear";
-            this.framePassList.framePass[0].depthStencilAttachment.depthWriteEnabled = true;
-
-            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
-            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_COMBINE_BLOOM = 0;
-            this.framePassList.framePass[1].shaderMacro.BLIT_CANVAS_TONE_MAPPING = 0;
+            this.framePassList.framePass[6].shaderMacro.BLIT_CANVAS_COMBINE_SSS = 0;
+            this.framePassList.framePass[6].shaderMacro.BLIT_CANVAS_COMBINE_BLOOM = 0;
         }
 
-        // 启用GIS定位
-        this.engine.gis.enable = true;
+        {
+            const pkg = await engine.worker.Import_gltf(1, "./.git.assets/nature/realistics_grass_06.zip", () => { });
 
-        // 加载行政区数据
-        const district = await engine.gis.districts.Load(["中华人民共和国"], "ad592e63640a58865bd1640560cbe82e");
-        console.error(district);
+            resources.Register(pkg.pkg, pkg.files);
+
+            const prefab = await resources.Scene.InstancePrefab(this.scene, "65-0", pkg.pkg);
+        }
 
         // 创建地球大气层对象
-        await this.CreateAtmosphere(this.scene);
+        // await this.CreateAtmosphere(this.scene);
 
-        // 跳转查看指定地理位置方法（北京天安门经纬度: [116.397459, 39.908796]）
-        const targetLL = this.engine.gis.GCJ02_WGS84([104, 30]);
-        const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
-        this.camera.Set3D(targetWPOS, 7000000, 90, 0);
+        // 创建变换组件控制器工具
+        // await this.CreateTransformCtrl(this.scene);
+
+        // 默认相机姿态
+        this.camera.Set3D([0, 2, 0], 33.0, 6, 0);
+        this.camera.nearZ = 0.1;
+        this.camera.farZ = 100.0;
+        this.camera.fov = 45 / 180 * Math.PI;
 
         // 注册鼠标滚轮事件监听器
         this.AddEventListener("wheel", (e) => {
@@ -170,14 +169,6 @@ export class PloyApp_gis_vtile extends PloyApp {
             }
         });
 
-        // 注册键盘按键按下事件监听器
-        this.AddEventListener("keydown", (e) => {
-            // 安全关闭应用
-            if (e.code == "Escape") {
-                this.Shutdown();
-            }
-        });
-
         // 触发一帧绘制，这样本机程序才会启动循环监听事件
         this.DrawFrame(10);
     }
@@ -198,16 +189,6 @@ export class PloyApp_gis_vtile extends PloyApp {
      * 绘制场景3D画面。
      */
     Draw3D() {
-        // 将GIS网格添加到绘制列表
-        if (this.engine.gis) {
-            const target = this.engine.gis.Update(this.camera);
-            if (target) {
-                this.camera.target = target;
-            }
-
-            this.engine.gis.DrawMesh(this._drawQueue);
-        }
-
         // 将地球大气层网格添加到绘制列表
         if (this._atmosphere) {
             this._drawQueue.DrawMesh(this._atmosphere.draw_params);
@@ -217,11 +198,6 @@ export class PloyApp_gis_vtile extends PloyApp {
         const drawScene = (queue) => {
             // 绘制当前绘制列表内容
             queue.DrawList();
-
-            // 绘制地图矢量图形
-            if (this.engine.gis) {
-                this.engine.gis.Draw(queue);
-            }
         };
 
         // ========================----------------------------------------
@@ -243,8 +219,6 @@ export class PloyApp_gis_vtile extends PloyApp {
                     this.engine.config.surface.present();
                 }
             }
-
-            this._gpuRendering = false;
         });
     }
 

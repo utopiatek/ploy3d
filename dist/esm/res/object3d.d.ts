@@ -14,7 +14,9 @@ export declare class Object3D extends Miaoverse.Resource<Object3D> {
      * @param worldPositionStays 是否保持世界空间位置。
      */
     SetParent(parent: Object3D, worldPositionStays?: boolean): void;
-    /** 遍历处理每个子对象。 */
+    /**
+     * 遍历处理每个子对象。
+     */
     ForEachChild(proc: (index: number, obj: Object3D) => void): void;
     /**
      * 设置根对象变换参考的经纬度和海拔高度。
@@ -118,6 +120,15 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      */
     Create(scene: Miaoverse.Scene): Promise<Miaoverse.Object3D>;
     /**
+     * 移除3D对象实例。
+     * @param id 3D对象实例ID。
+     */
+    protected Remove(id: number): void;
+    /**
+     * 清除所有。
+     */
+    protected DisposeAll(): void;
+    /**
      * 实例化3D对象内核实例。
      * @param scene 场景内核实例指针。
      * @param node 3D对象节点数据指针。
@@ -136,6 +147,12 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      * @returns 返回变换组件最新状态时间戳。
      */
     protected _Flush: (object3d: Miaoverse.io_ptr, ctrl: number) => number;
+    /**
+     * 获取对象在世界空间包围盒。
+     * @param object3d 3D对象实例指针。
+     * @param withChildren 是否将子级纳入范围计算。
+     */
+    protected _GetAABB: (object3d: Miaoverse.io_ptr, withChildren: number) => number[];
     /**
      * 计算模型空间到指定相机空间变换矩阵。
      * @param object3d 3D对象实例指针（用于获得模型空间到世界空间变换矩阵）。
@@ -184,6 +201,11 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      * @param animator 动画组件实例ID。
      */
     protected _SetAnimator: (object3d: Miaoverse.io_ptr, animator: number) => void;
+    /**
+     * 在绘制过程中调用绘制对象。
+     * @param object3d 3D对象内核实例指针。
+     */
+    protected _Draw: (object3d: Miaoverse.io_ptr) => void;
 }
 /** 场景节点内核实现的数据结构成员列表。 */
 export declare const Node_member_index: {

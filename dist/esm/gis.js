@@ -22,6 +22,7 @@ export class Gis {
                 }
             }
         });
+        this._mesh.AddRef();
         this._materials = [];
         for (let i = 0; i < this._pyramid.levelCount; i++) {
             const material = await resources.Material.Create({
@@ -37,6 +38,7 @@ export class Gis {
                 }
             });
             const slot = this._pyramid.levelCount - i - 1;
+            material.AddRef();
             this._materials[slot] = {
                 slot: slot,
                 submesh: i,
@@ -45,11 +47,29 @@ export class Gis {
         }
         return this;
     }
-    Destroy() {
+    async Dispose() {
+        if (this._flushing > 0) {
+            await (new Promise((resolve, reject) => {
+                this._waitClose = resolve;
+            }));
+        }
+        await this.districts.Dispose();
+        await this._pyramid.Dispose();
+        if (this._mesh) {
+            this._mesh.Release();
+        }
+        if (this._materials) {
+            for (let mat of this._materials) {
+                mat.material.Release();
+            }
+        }
         this._global = undefined;
+        this._enable = false;
+        this._districts = undefined;
         this._pyramid = undefined;
         this._mesh = undefined;
         this._materials = undefined;
+        this._drawParams = undefined;
         this._lng = undefined;
         this._lat = undefined;
         this._level = undefined;
@@ -65,9 +85,13 @@ export class Gis {
         this._meshS = undefined;
         this._lock = undefined;
         this._timestamp = undefined;
-        this._flushing = false;
+        this._flushing = 0;
         this._waiting = undefined;
         this._servers = undefined;
+        this._lut1 = undefined;
+        this._lut2 = undefined;
+        this._lut3 = undefined;
+        this._lut4 = undefined;
     }
     Update(camera) {
         const target = camera.target;
@@ -115,11 +139,11 @@ export class Gis {
         return resetOrigin ? target : null;
     }
     Flush(x, z, lng, lat, level, pitch, yaw) {
-        if (this._lock) {
+        if (this._lock || this._waitClose) {
             return;
         }
         const timestamp = Date.now();
-        if (this._flushing) {
+        if (this._flushing > 0) {
             if (Math.ceil((timestamp - this._timestamp) / 1000) < 1) {
                 this._waiting = [x, z, lng, lat, level, pitch, yaw];
                 return;
@@ -173,7 +197,7 @@ export class Gis {
             lb_tile_bias[3] = (0.5 - localZ) / layerTiling;
         }
         this._timestamp = timestamp;
-        this._flushing = true;
+        this._flushing++;
         this._waiting = null;
         this.FlushMaterial({
             centerMC: centerMC,
@@ -181,10 +205,16 @@ export class Gis {
             size: [this._meshS],
         });
         this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
+            this._flushing--;
+            if (this._flushing == 0) {
+                if (this._waitClose) {
+                    this._waitClose();
+                    return;
+                }
+            }
             if (timestamp != this._timestamp) {
                 return;
             }
-            this._flushing = false;
             if (this._waiting) {
                 x = this._waiting[0];
                 z = this._waiting[1];
@@ -518,8 +548,9 @@ export class Gis {
     _meshS;
     _lock;
     _timestamp = 0;
-    _flushing;
+    _flushing = 0;
     _waiting;
+    _waitClose;
     _servers = {
         tianditu_img_w: {
             label: "天地图-影像底图-CGCS2000",
@@ -806,6 +837,37 @@ export class Gis_pyramid {
                 };
             }
         }
+    }
+    async Dispose() {
+        const _global = this._gis["_global"];
+        for (let level of this._pyramid) {
+            for (let layer of level.layers) {
+                if (layer.texture) {
+                    _global.resources.Texture._ReleaseTile(layer.texture.tile);
+                }
+                layer.invalid = undefined;
+                layer.inherit = undefined;
+                layer.texture = undefined;
+                layer.uvst = undefined;
+                layer.cache = undefined;
+                layer.loading = undefined;
+            }
+            level.id = 0;
+            level.level = 0;
+            level.submesh = 0;
+            level.outer = false;
+            level.reset = false;
+            level.projections = null;
+            level.layers = null;
+        }
+        this._gis = null;
+        this._forceTerrain = false;
+        this._blankTile = null;
+        this._layers = null;
+        this._tiling = 0;
+        this._pyramid = null;
+        this._pyramidTop = 0;
+        this._pyramidHeight = 0;
     }
     Update(level, lb_col, lb_row, lb_bias_x, lb_bias_z, callback) {
         const levelCount = this.levelCount;
@@ -1308,7 +1370,9 @@ export class Gis_districts {
                     vectors: {}
                 }
             });
+            material.AddRef();
             const mesh_renderer = await global.resources.MeshRenderer.Create(null, null);
+            mesh_renderer.AddRef();
             const pipeline = global.context.CreateRenderPipeline({
                 g1: mesh_renderer.layoutID,
                 g2: material.layoutID,
@@ -1333,7 +1397,9 @@ export class Gis_districts {
                     vectors: {}
                 }
             });
+            material.AddRef();
             const mesh_renderer = await global.resources.MeshRenderer.Create(null, null);
+            mesh_renderer.AddRef();
             const pipeline = global.context.CreateRenderPipeline({
                 g1: mesh_renderer.layoutID,
                 g2: material.layoutID,
@@ -1346,6 +1412,28 @@ export class Gis_districts {
             return { material, mesh_renderer, pipeline };
         })();
         return this;
+    }
+    async Dispose() {
+        for (let key in this._countries) {
+            const district = this._countries[key];
+            if (district) {
+                district.Dispose(this._gis);
+            }
+        }
+        if (this._area_renderer) {
+            this._area_renderer.material.Release();
+            this._area_renderer.mesh_renderer.Release();
+            this._area_renderer.pipeline = null;
+        }
+        if (this._line_renderer) {
+            this._line_renderer.material.Release();
+            this._line_renderer.mesh_renderer.Release();
+            this._line_renderer.pipeline = null;
+        }
+        this._gis = null;
+        this._area_renderer = null;
+        this._line_renderer = null;
+        this._countries = null;
     }
     async Load(keywords, token) {
         let serv = `https://restapi.amap.com/v3/config/district?key=${token}&extensions=all&subdistrict=`;
@@ -1508,6 +1596,36 @@ export class Gis_district {
             global.device.WriteBuffer(polygons.indexBuffer.buffer, polygons.indexBuffer.offset, ibuffer.buffer, 0, ibuffer.byteLength);
         }
         return this;
+    }
+    Dispose(gis) {
+        const global = gis["_global"];
+        for (let key in this.districts) {
+            const district = this.districts[key];
+            if (district) {
+                district.Dispose(gis);
+            }
+        }
+        if (this.polygons) {
+            if (this.polygons.vertexBuffer) {
+                global.resources.Dioramas.FreeBuffer(this.polygons.vertexBuffer);
+            }
+            if (this.polygons.indexBuffer) {
+                global.resources.Dioramas.FreeBuffer(this.polygons.indexBuffer);
+            }
+            this.polygons.instanceIndex = 0;
+            this.polygons.vertexCount = 0;
+            this.polygons.indexCount = 0;
+            this.polygons.vertexBuffer = null;
+            this.polygons.indexBuffer = null;
+            this.polygons.list = null;
+        }
+        this.adcode = undefined;
+        this.level = undefined;
+        this.name = undefined;
+        this.center = undefined;
+        this.citycode = undefined;
+        this.districts = undefined;
+        this.polygons = undefined;
     }
     adcode;
     level;
