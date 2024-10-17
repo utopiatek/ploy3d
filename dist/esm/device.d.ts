@@ -63,6 +63,14 @@ export declare class Device {
      */
     WriteBuffer(id: number, bufferOffset: number, data: BufferSource | SharedArrayBuffer, dataOffset: number, size: number): void;
     /**
+     * 读取缓存数据。
+     * @param id 缓存ID。
+     * @param offset 缓存偏移。
+     * @param size 读取大小。
+     * @returns 返回数据数组缓存。
+     */
+    ReadBuffer(id: number, offset: number, size: number): Promise<ArrayBuffer>;
+    /**
      * 创建2D贴图实例。
      * @param width 贴图宽度。
      * @param height 贴图高度。

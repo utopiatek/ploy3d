@@ -1,0 +1,15 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "name": "Ploy3D",
+    "readme": "none",
+    "includeVersion": false,
+    "excludeExternals": true,
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "disableSources": true,
+    "entryPoints": [
+        "../dist/esm/mod.d.ts"
+    ],
+    "tsconfig": "./tsconfig.json",
+    "out": "./api"
+}

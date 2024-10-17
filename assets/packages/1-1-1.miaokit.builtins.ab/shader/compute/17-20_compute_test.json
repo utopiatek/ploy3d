@@ -1,0 +1,49 @@
+{
+    "classid": 17,
+    "name": "compute_test",
+    "label": "compute_test",
+    "asset": {
+        "name": "",
+        "type": "compute",
+        "settings": {},
+        "properties": {
+            "baseColor": {
+                "note": "",
+                "sign": "vec4<f32>",
+                "value": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        "codes": {
+            "compute": {
+                "includes": [
+                    ":/shader/compute/20-70_compute.common.wgsl"
+                ],
+                "main": ""
+            }
+        },
+        "custom_g3": {
+            "label": "compute_test",
+            "entries": [
+                {
+                    "binding": 0,
+                    "visibility": 4,
+                    "buffer": {
+                        "type": "read-only-storage"
+                    }
+                },
+                {
+                    "binding": 1,
+                    "visibility": 4,
+                    "buffer": {
+                        "type": "storage"
+                    }
+                }
+            ]
+        }
+    }
+}

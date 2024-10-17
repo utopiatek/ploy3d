@@ -72,6 +72,11 @@ tsc -p ./
 
 # 3、输出引擎ES6模块的.d.ts文件（输出到./dist/esm/路径）
 tsc --declaration true --emitDeclarationOnly true --removeComments false -p ./tsconfig.json
+
+# 4、生成API文档
+npm install -g typedoc typedoc-plugin-markdown
+cd ./docs
+npx typedoc --plugin typedoc-plugin-markdown --options ./typedoc.json
 ```
 * 本机启动
 ```

@@ -37,7 +37,7 @@ export interface ShaderAsset {
     /** 着色器代码。 */
     codes: {
         /** 顶点着色器代码。 */
-        vertex: {
+        vertex?: {
             /** 顶点着色器依赖代码文件。 */
             includes: string[];
             /** 顶点着色器实现代码文件。 */
@@ -46,7 +46,7 @@ export interface ShaderAsset {
             code?: string;
         };
         /** 材质着色器代码。 */
-        material: {
+        material?: {
             /** 材质着色器依赖代码文件。 */
             includes: string[];
             /** 材质着色器实现代码文件。 */
@@ -55,10 +55,19 @@ export interface ShaderAsset {
             code?: string;
         };
         /** 光照着色器代码。 */
-        shading: {
+        shading?: {
             /** 光照着色器依赖代码文件。 */
             includes: string[];
             /** 光照着色器实现代码文件。 */
+            main: string;
+            /** 装配所得代码 */
+            code?: string;
+        };
+        /** 计算着色器代码。 */
+        compute?: {
+            /** 计算着色器依赖代码文件。 */
+            includes: string[];
+            /** 计算着色器实现代码文件。 */
             main: string;
             /** 装配所得代码 */
             code?: string;

@@ -304,6 +304,9 @@ export declare class PloyApp {
         material: Miaoverse.Material;
         /** 网格绘制参数对象。 */
         draw_params: {
+            /**
+             * 销毁当前信号对象。
+             */
             flags: number;
             layers: number;
             userData: number;

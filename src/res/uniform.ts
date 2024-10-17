@@ -24,7 +24,7 @@ export class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
      * 绑定资源组到着色器管线（包括统一缓存和所有贴图）。
      * @param passEncoder 渲染通道命令编码器。
      */
-    public Bind(passEncoder: GPURenderPassEncoder) {
+    public Bind(passEncoder: GPURenderPassEncoder | GPUComputePassEncoder) {
         // 如果数据有更新，则提交到GPU
         if (this.updated) {
             this._global.device.WriteBuffer(

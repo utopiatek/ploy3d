@@ -13,7 +13,7 @@ export declare class Uniform<T> extends Miaoverse.Resource<Uniform<T>> {
      * 绑定资源组到着色器管线（包括统一缓存和所有贴图）。
      * @param passEncoder 渲染通道命令编码器。
      */
-    Bind(passEncoder: GPURenderPassEncoder): void;
+    Bind(passEncoder: GPURenderPassEncoder | GPUComputePassEncoder): void;
     /**
      * 读取GPU常量缓存占用节点。
      * @param ptr 缓存占用节点指针。

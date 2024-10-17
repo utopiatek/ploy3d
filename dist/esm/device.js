@@ -479,6 +479,10 @@ export class Device {
             usage = GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST;
             label = "index_buffer:";
         }
+        else if (classid === 4) {
+            usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
+            label = "storage_buffer:";
+        }
         else {
             this._global.Track("Device.CreateBuffer: 不支持的缓存类型resourceID=" + classid + "！", 3);
             return 0;
@@ -542,6 +546,37 @@ export class Device {
             return;
         }
         this._device.queue.writeBuffer(buffer.buffer, bufferOffset, data, dataOffset, size);
+    }
+    async ReadBuffer(id, offset, size) {
+        const buffer = this._buffers.list[id];
+        if (!buffer || buffer.id != id) {
+            this._global.Track("Device.ReadBuffer: 缓存实例ID=" + id + "无效！", 3);
+            return;
+        }
+        if (this._buffers.readLock) {
+            console.warn("请等待上次缓存读取完成！");
+            return null;
+        }
+        if (this._buffers.readCapacity < size) {
+            if (this._buffers.readCapacity) {
+                this._buffers.readCapacity *= 2;
+            }
+            else {
+                this._buffers.readCapacity = Math.max(size, 1024 * 64);
+            }
+            this._buffers.readBuffer = this._device.createBuffer({
+                size: this._buffers.readCapacity,
+                usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+            });
+        }
+        const readBuffer = this._buffers.readBuffer;
+        const cmdEncoder = this._device.createCommandEncoder();
+        cmdEncoder.copyBufferToBuffer(buffer.buffer, offset, readBuffer, 0, size);
+        this._device.queue.submit([cmdEncoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const outputAB = readBuffer.getMappedRange().slice(0, size);
+        readBuffer.unmap();
+        return outputAB;
     }
     CreateTexture2D(width, height, depth, levelCount, format, usage) {
         const formatDesc = this._textureFormatDescLut[format];
@@ -1010,6 +1045,9 @@ export class Device {
         freeId: 1,
         usedCount: 0,
         usedSize: 0,
+        readBuffer: null,
+        readLock: false,
+        readCapacity: 0,
         list: [null]
     };
     _textures2D = {

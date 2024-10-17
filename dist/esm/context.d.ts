@@ -61,6 +61,19 @@ export declare class Context {
      */
     private GenerateGroupLayout_G1;
     /**
+     * 创建计算着色器管线实例。
+     * @param g2_ 计算材质ID。
+     * @returns 返回计算着色器管线实例ID。
+     */
+    CreateComputePipeline(g2_: number): number;
+    /**
+     * 获取对应入口的GPU计算着色器管线实例。
+     * @param id 计算着色器管线实例ID。
+     * @param entryPoint 入口函数名称。
+     * @returns 返回GPU计算着色器管线实例。
+     */
+    GetComputePipeline(id: number, entryPoint: string): GPUComputePipeline;
+    /**
      * 创建着色器管线实例。
      * @param desc 着色器管线描述符。
      * @returns 返回着色器管线实例ID。
@@ -163,6 +176,8 @@ export declare class Context {
     private _shaders;
     /** 着色器管线实例容器。 */
     private _pipelines;
+    /** 空白着色器资源组。 */
+    private _blankGroup;
 }
 /** 材质属性类型描述。 */
 export interface MaterialPropTypeDesc {

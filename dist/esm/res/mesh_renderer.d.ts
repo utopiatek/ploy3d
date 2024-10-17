@@ -211,7 +211,7 @@ export declare const MeshRendere_member_index: {
     readonly bn_offset: Miaoverse.Kernel_member;
     readonly bn_size: Miaoverse.Kernel_member;
     readonly buffer: Miaoverse.Kernel_member;
-    readonly bufferID: Miaoverse.Kernel_member;
+    readonly bufferID: Miaoverse.Kernel_member; /** 材质应用到子网格索引（相同子网格可绑定多个材质进行多次重叠渲染）。*/
     readonly bufferBlockOffset: Miaoverse.Kernel_member;
     readonly bufferBlockSize: Miaoverse.Kernel_member;
     readonly group: Miaoverse.Kernel_member;

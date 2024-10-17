@@ -29,4 +29,5 @@ export * from "./worker/worker.js";
 export * from "./ui/canvas.js";
 export * from "./ui/index.js";
 export * from "./tools/file_system.js";
+export * from "./tools/gpu_tools.js";
 export * from "./tools/transform_ctrl.js";

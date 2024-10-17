@@ -1,0 +1,12 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "typeRoots": [ "../node_modules/@webgpu/types", "." ]
+    },
+    "include": [
+        "./lib.deno.d.ts"
+    ],
+    "files": [
+        "../dist/esm/mod.d.ts"
+    ]
+}

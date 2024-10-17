@@ -141,6 +141,15 @@ export class Context {
         }
         this.GenerateGroupLayout_G0();
         this.GenerateGroupLayout_G1();
+        this._blankGroup = (() => {
+            const layout = this._global.device.device.createBindGroupLayout({ entries: [] });
+            const binding = this._global.device.device.createBindGroup({
+                label: "blank_group",
+                layout: layout,
+                entries: []
+            });
+            return { layout, binding };
+        })();
         this._builtinSampler = [];
         this._builtinSampler[0] = this._global.device.CreateSampler(this._global.device.GenerateSamplerFlags({
             label: "spnnn1",
@@ -240,6 +249,7 @@ export class Context {
         this._pipelines.list = null;
         this._pipelines.lut = null;
         this._pipelines = null;
+        this._blankGroup = null;
         for (let id of this._builtinSampler) {
             this._global.device.FreeSampler(id);
         }
@@ -1219,6 +1229,66 @@ struct ObjectUniforms {
         };
         return 2;
     }
+    CreateComputePipeline(g2_) {
+        const key = `compute_${g2_}`;
+        let id = this._pipelines.lut[key];
+        if (id) {
+            return id;
+        }
+        const device = this._global.device.device;
+        const g2 = this._shaders.list[g2_];
+        const pipelineLDesc = {
+            label: `pll:${g2_}`,
+            bindGroupLayouts: [this._blankGroup.layout, this._blankGroup.layout, g2.layout],
+        };
+        if (g2.custom_g3) {
+            pipelineLDesc.bindGroupLayouts.push(g2.custom_g3);
+        }
+        const pipelineLayout = device.createPipelineLayout(pipelineLDesc);
+        const shaderModules = this.CompileShaderModule(g2, null, null, null);
+        const pipelineDesc = {
+            label: key,
+            layout: pipelineLayout,
+            compute: {
+                module: shaderModules[2],
+                entryPoint: "",
+                constants: {}
+            }
+        };
+        id = this._pipelines.freeId;
+        if (this._pipelines.list[id]) {
+            this._pipelines.freeId = this._pipelines.list[id].id;
+        }
+        else {
+            this._pipelines.freeId++;
+        }
+        this._pipelines.list[id] = {
+            key,
+            id,
+            params: g2,
+            shaderModules,
+            pipelineLayout,
+            pipelineDesc: pipelineDesc,
+            pipelines: [{}]
+        };
+        this._pipelines.lut[key] = id;
+        this._pipelines.usedCount += 1;
+        return id;
+    }
+    GetComputePipeline(id, entryPoint) {
+        const entry = this._pipelines.list[id];
+        if (!entry) {
+            return null;
+        }
+        let pipeline = entry.pipelines[0][entryPoint];
+        if (pipeline) {
+            return pipeline;
+        }
+        const pipelineDesc_ = entry.pipelineDesc;
+        pipelineDesc_.compute.entryPoint = entryPoint;
+        pipeline = entry.pipelines[0][entryPoint] = this._global.device.device.createComputePipeline(pipelineDesc_);
+        return pipeline;
+    }
     CreateRenderPipeline(desc) {
         const key = `${desc.g1}-${desc.g2}-${desc.g3}-${desc.topology}-${desc.frontFace}-${desc.cullMode}-` + desc.flags;
         let id = this._pipelines.lut[key];
@@ -1476,6 +1546,14 @@ struct ObjectUniforms {
     }
     CompileShaderModule(shader, g0, g1, g3) {
         if (shader.module) {
+            return shader.module;
+        }
+        if (shader.asset.type == "compute") {
+            const cscode = shader.vscode + shader.asset.codes.compute.code;
+            const csmodule = this._global.device.device.createShaderModule({
+                code: cscode,
+            });
+            shader.module = [undefined, undefined, csmodule];
             return shader.module;
         }
         const macro = `
@@ -1810,4 +1888,5 @@ struct OutputFS_DU {
         list: [null],
         lut: {},
     };
+    _blankGroup;
 }

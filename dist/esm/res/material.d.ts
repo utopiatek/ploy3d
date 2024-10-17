@@ -254,7 +254,7 @@ export declare const Material_member_index: {
     readonly group: Miaoverse.Kernel_member;
     readonly binding: Miaoverse.Kernel_member;
     readonly updated: Miaoverse.Kernel_member;
-    readonly m_reserved76: Miaoverse.Kernel_member; /** 属性访问视图。 */
+    readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;

@@ -796,7 +796,7 @@ export class PloyApp {
             creater: {
                 type: "sphere",
                 sphere: {
-                    radius: 6478137.0,
+                    radius: 6378137.0 + 8000.0,
                     widthSegments: 180,
                     heightSegments: 90,
                     phiStart: 0,
@@ -816,7 +816,14 @@ export class PloyApp {
             shader: "1-1-1.miaokit.builtins:/shader/atmosphere_ulit/17-14_atmosphere_ulit.json",
             flags: Miaoverse.RENDER_FLAGS.ATTRIBUTES0,
             properties: {
-                textures: {},
+                textures: {
+                    noiseTex: {
+                        uri: "1-1-1.miaokit.builtins:/texture/25-3_noise2.png"
+                    },
+                    moonTex: {
+                        uri: "1-1-1.miaokit.builtins:/texture/25-4_color2.jpg"
+                    }
+                },
                 vectors: {}
             }
         });

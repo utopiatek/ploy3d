@@ -56,17 +56,21 @@ export class Shader_kernel extends Miaoverse.Base_kernel {
         }
         desc.data.uuid = uuid;
         desc.data.asset.name = uuid;
-        const keys = ["vertex", "material", "shading"];
+        const keys = ["vertex", "material", "shading", "compute"];
         const codes = desc.data.asset.codes;
         for (let key of keys) {
+            const stage_ = codes[key];
             const codes_ = [];
-            for (let inc of codes[key].includes) {
+            if (!stage_) {
+                continue;
+            }
+            for (let inc of stage_.includes) {
                 const code = (await this._global.resources.Load_file("text", inc, false, desc.pkg))?.data;
                 codes_.push(code);
             }
-            const code = (await this._global.resources.Load_file("text", codes[key].main, false, desc.pkg))?.data;
+            const code = (await this._global.resources.Load_file("text", stage_.main, false, desc.pkg))?.data;
             codes_.push(code);
-            codes[key].code = codes_.join("");
+            stage_.code = codes_.join("");
         }
         const shader = this._global.context.CreateShader(desc.data.asset);
         const id = this._instanceIdle;

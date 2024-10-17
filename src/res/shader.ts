@@ -110,21 +110,26 @@ export class Shader_kernel extends Miaoverse.Base_kernel<ShaderRes, any> {
         desc.data.uuid = uuid;
         desc.data.asset.name = uuid;
 
-        const keys = ["vertex", "material", "shading"];
+        const keys = ["vertex", "material", "shading", "compute"];
         const codes = desc.data.asset.codes;
 
-        for (let key of keys as ["vertex", "material", "shading"]) {
+        for (let key of keys as ["vertex", "material", "shading", "compute"]) {
+            const stage_ = codes[key];
             const codes_: string[] = [];
 
-            for (let inc of codes[key].includes) {
+            if (!stage_) {
+                continue;
+            }
+
+            for (let inc of stage_.includes) {
                 const code = (await this._global.resources.Load_file<string>("text", inc, false, desc.pkg))?.data;
                 codes_.push(code);
             }
 
-            const code = (await this._global.resources.Load_file<string>("text", codes[key].main, false, desc.pkg))?.data;
+            const code = (await this._global.resources.Load_file<string>("text", stage_.main, false, desc.pkg))?.data;
             codes_.push(code);
 
-            codes[key].code = codes_.join("");
+            stage_.code = codes_.join("");
         }
 
         // 创建实例 ===============-----------------------

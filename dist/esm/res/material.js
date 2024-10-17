@@ -302,6 +302,9 @@ export class Material_kernel extends Miaoverse.Base_kernel {
             const prop = asset.properties.textures[key];
             if (prop.uri && !prop.texture) {
                 prop.texture = await this._global.resources.Texture.Load(prop.uri);
+                if (!prop.texture) {
+                    console.warn("材质贴图加载失败！", prop.uri);
+                }
             }
             instance.SetTexture(key, prop);
         }
