@@ -5,6 +5,8 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this._impl = impl;
     }
     async Init(scene, url, lnglat_alt) {
+        this._url = url;
+        this._scene = scene;
         this._3mx = await this._global.Fetch(url, null, "json");
         this._3mx._path = url.substring(0, (url.lastIndexOf("/") + 1));
         this._root = [];
@@ -12,6 +14,9 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             if ("meshPyramid" === layer.type) {
                 const group = await this.Load_3mxb(this._3mx._path + layer.root, null, this._root.length);
                 this._root.push(group);
+                if (layer.SRS && layer.SRSOrigin && !this._srs) {
+                    this._srs = this._global.gis.Proj4(layer);
+                }
             }
         }
         this._drawList = [];
@@ -34,11 +39,20 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             frontFace: 0,
             cullMode: 2
         });
-        if (lnglat_alt) {
-            this._object3d.SetLngLat(lnglat_alt[0], lnglat_alt[1], lnglat_alt[2]);
+        if (this._srs || lnglat_alt) {
+            if (this._srs) {
+                this._object3d.SetLngLat(this._srs.ll_gcj02[0], this._srs.ll_gcj02[1], this._srs.altitude);
+            }
+            else {
+                this._object3d.SetLngLat(lnglat_alt[0], lnglat_alt[1], lnglat_alt[2]);
+            }
         }
+        this._inited = true;
     }
     async Dispose() {
+        if (!this._inited) {
+            return;
+        }
         if (this._backendCount > 0) {
             await (new Promise((resolve, reject) => {
                 this._waitClose = resolve;
@@ -73,6 +87,9 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         this._impl["Remove"](this.id);
     }
     Update(camera) {
+        if (!this._inited) {
+            return;
+        }
         if (this._waitClose) {
             if (this._backendCount == 0) {
                 this._waitClose();
@@ -171,6 +188,9 @@ export class Dioramas_3mx extends Miaoverse.Resource {
         }
     }
     Draw(queue) {
+        if (!this._inited) {
+            return;
+        }
         this._meshRenderer.UpdateG1(this._object3d);
         const passEncoder = queue.passEncoder;
         queue.BindMeshRenderer(this._meshRenderer);
@@ -448,11 +468,24 @@ export class Dioramas_3mx extends Miaoverse.Resource {
             }
         }
     }
+    get url() {
+        return this._url;
+    }
+    get scene() {
+        return this._scene;
+    }
     get object3d() {
         return this._object3d;
     }
+    get srs() {
+        return this._srs;
+    }
     _impl;
+    _url;
+    _scene;
     _3mx;
+    _srs;
+    _inited;
     _root;
     _drawList;
     _subdivList;

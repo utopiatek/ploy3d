@@ -447,6 +447,9 @@ export class SharedENV {
     get gisState() {
         return this.uscalarGet(this._ptr, 11);
     }
+    set gisState(state) {
+        this.uscalarSet(this._ptr, 11, state);
+    }
     get worldLngLat() {
         return this.farrayGet(this._ptr, 12, 4);
     }

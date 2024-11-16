@@ -47,6 +47,10 @@ export class Assets implements molecule.model.IExtension {
      * @returns
      */
     public renderPane(item: any, tab?: molecule.component.ITabProps, group?: molecule.model.IEditorGroup) {
+        if (!this.menu) {
+            return <div>请在资源包管理面板选择一个资源包查看！</div>;
+        }
+
         const thumbnailUrl = this.menu.thumbnail;
         const thumbnailWidth = this.menu.thumbnail_per_row * 96;
         const thumbnailHeight = this.menu.thumbnail_row_count * 96;
@@ -98,7 +102,8 @@ export class Assets implements molecule.model.IExtension {
                     isDragging: monitor.isDragging(),
                 };
             },
-        }, []);
+            // 列表元素变化，从新设置拖拽引用，否则拖拽数据不正确
+        }, [props.item]);
 
         return (
             <div ref={dragRef} style={{

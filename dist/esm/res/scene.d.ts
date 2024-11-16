@@ -12,8 +12,44 @@ export declare class Scene extends Miaoverse.Resource<Scene> {
      * 销毁场景。
      */
     Destroy(): void;
+    /**
+     * 遍历处理每个场景根对象。
+     */
+    ForEachRoot(proc: (index: number, obj: Miaoverse.Object3D) => void): void;
+    /**
+     * 保存当前场景。
+     */
+    Save(): Promise<Miaoverse.Asset_prefab>;
+    /** 场景名称。 */
+    get name(): string;
+    set name(name: string);
+    /** 场景参考经纬度坐标（使用GCJ02坐标系）。 */
+    get lnglat(): number[];
+    set lnglat(gcj02: number[]);
+    /** 场景参考海拔高度。 */
+    get altitude(): number;
+    set altitude(value: number);
+    /** 场景预制件实例（场景保存为预制件，从预制件装载）。 */
+    get prefab(): Miaoverse.Prefab;
+    /** 默认相机状态。 */
+    get viewState(): {
+        /** 观察目标坐标（世界空间）。 */
+        target?: number[];
+        /** 距观察目标距离。 */
+        distance?: number;
+        /** 相机俯角。 */
+        pitch?: number;
+        /** 相机偏航角。 */
+        yaw?: number;
+    };
     /** 内核实现。 */
     private _impl;
+    /** 场景名称。 */
+    private _name;
+    /** 场景预制件实例（场景保存为预制件，从预制件装载）。 */
+    private _prefab;
+    /** 默认相机状态。 */
+    private _viewState?;
 }
 /** 场景内核实现。 */
 export declare class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_member_index> {
@@ -63,7 +99,7 @@ export declare class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Sc
      * @param listBeg 3D对象数组起始添加偏移。
      * @returns 返回预制件实例数据。
      */
-    InstancePrefab(scene: Scene, uri: string, pkg?: Miaoverse.PackageReg, master?: Prefab, listBeg?: number): Promise<Miaoverse.Prefab>;
+    InstancePrefab(scene: Scene, uri: string, pkg?: Miaoverse.PackageReg, master?: Prefab, listBeg?: number, loadScene?: boolean): Promise<Miaoverse.Prefab>;
     /**
      * 实例化预制件中的节点源。
      * @param scene 实例化出的3D对象所属场景。
@@ -73,7 +109,7 @@ export declare class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Sc
      * @param instanceList 3D对象数组。
      * @returns 返回实例化出的3D对象数量。
      */
-    protected InstanceNode(scene: Scene, source: number, listBeg: number, nodes: Asset_prefab["nodes"], instanceList: Miaoverse.Object3D[]): Promise<{
+    protected InstanceNode(scene: Scene, source: number, listBeg: number, nodes: Asset_prefab["nodes"], instanceList: Miaoverse.Object3D[], prefab: Prefab): Promise<{
         instanceCount: number;
         root: Miaoverse.Object3D;
     }>;
@@ -99,6 +135,10 @@ export declare class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Sc
      * 基于屏幕拾取射线与对象包围盒相交法拾取最近对象。
      */
     protected _Raycast: (camera: Miaoverse.io_ptr, screenX: number, screenY: number, layerMask: number) => Miaoverse.io_ptr;
+    /**
+     * 获取场景第一个根节点。
+     */
+    protected _FirstRoot: (scene: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 }
 /** 场景内核实现的数据结构成员列表。 */
 export declare const Scene_member_index: {
@@ -129,11 +169,11 @@ export declare const Scene_member_index: {
  */
 export interface Asset_prefab extends Miaoverse.Asset {
     /** 预制件构建体系（不同体系预制件实例化方法存在一些区别）。 */
-    scheme?: "daz";
+    scheme?: "scene" | "daz";
     /**
      * 预制件参考经纬度坐标（使用GCJ02坐标系）。
      */
-    lnglat?: [number, number];
+    lnglat?: number[];
     /**
      * 预制件参考海拔高度。
      */
@@ -144,6 +184,19 @@ export interface Asset_prefab extends Miaoverse.Asset {
      * 该自动创建的根对象放置在当前实例数组末尾，不影响实例索引排序。
      */
     instanceCount: number;
+    /**
+     * 默认相机状态。
+     */
+    viewState?: {
+        /** 观察目标坐标（世界空间）。 */
+        target?: number[];
+        /** 距观察目标距离。 */
+        distance?: number;
+        /** 相机俯角。 */
+        pitch?: number;
+        /** 相机偏航角。 */
+        yaw?: number;
+    };
     /**
      * 节点数组。
      * 节点用于实例化出3D对象，保存时会重新生成完整节点数组。
@@ -313,6 +366,13 @@ export interface Asset_prefab extends Miaoverse.Asset {
          */
         targets_binding?: number[];
     }[];
+    /**
+     * 倾斜摄影模型。
+     */
+    dioramas?: {
+        /** 模型资源URL。 */
+        url: string;
+    }[];
 }
 /**
  * 预制件实例。
@@ -320,6 +380,8 @@ export interface Asset_prefab extends Miaoverse.Asset {
 export interface Prefab {
     /** 预制件UUID。 */
     uuid: string;
+    /** 场景保存时该预制件的对象是否需要保存。 */
+    needSave?: boolean;
     /** 根源预制件实例（预制件可嵌套）。 */
     master?: Prefab;
     /** 当前预制件根对象（不是从预制件节点实例化出的，而是引擎自动创建用于容纳预制件的，预制件实例化3D对象数量包含了该实例）。 */

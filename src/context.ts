@@ -1216,7 +1216,7 @@ struct LightList {
                 },
                 {// Atlas
                     binding: 7,
-                    visibility: GPUShaderStage.FRAGMENT,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     texture: {
                         sampleType: "float",
                         viewDimension: "2d-array"
@@ -1232,7 +1232,7 @@ struct LightList {
                 },
                 {// splln1
                     binding: 9,
-                    visibility: GPUShaderStage.FRAGMENT,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     sampler: {
                         type: "filtering"
                     }

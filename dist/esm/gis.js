@@ -1,3 +1,4 @@
+import proj4 from "./worker/proj4.js";
 export class Gis {
     constructor(_global) {
         this._global = _global;
@@ -33,7 +34,14 @@ export class Gis {
                 shader: "1-1-1.miaokit.builtins:/shader/gis_ulit/17-11_gis_ulit.json",
                 flags: 1,
                 properties: {
-                    textures: {},
+                    textures: {
+                        noiseTex: {
+                            uri: "1-1-1.miaokit.builtins:/texture/25-3_noise2.png"
+                        },
+                        moonTex: {
+                            uri: "1-1-1.miaokit.builtins:/texture/25-4_color2.jpg"
+                        }
+                    },
                     vectors: {}
                 }
             });
@@ -507,6 +515,9 @@ export class Gis {
     get enable_terrain() {
         return this._pyramid.terrain;
     }
+    set enable_terrain(b) {
+        this._pyramid.terrain = b;
+    }
     get force_terrain() {
         return this._pyramid.forceTerrain;
     }
@@ -598,6 +609,18 @@ export class Gis {
             min_level: 1
         }
     };
+    Proj4(params) {
+        const ll_wgs84 = proj4(params.SRS, "EPSG:4326", params.SRSOrigin);
+        const mc_wgs84 = this.LL2MC(ll_wgs84);
+        const ll_gcj02 = this.WGS84_GCJ02(ll_wgs84);
+        const altitude = ll_wgs84[2];
+        return {
+            ll_gcj02,
+            ll_wgs84,
+            mc_wgs84,
+            altitude
+        };
+    }
     OutOfChina(ll) {
         const lng = ll[0];
         const lat = ll[1];
@@ -1340,6 +1363,9 @@ export class Gis_pyramid {
     }
     get terrain() {
         return this._layers[0].enabled && (this._forceTerrain || (this._gis.level > 8 && this._gis.level < 17));
+    }
+    set terrain(b) {
+        this._layers[0].enabled = b;
     }
     _gis;
     _forceTerrain;

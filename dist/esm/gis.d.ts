@@ -200,6 +200,7 @@ export declare class Gis {
     get perimeter_half(): number;
     /** 当前是否显示地形。 */
     get enable_terrain(): boolean;
+    set enable_terrain(b: boolean);
     /** 地形数据可用时，强制开启地形。 */
     get force_terrain(): boolean;
     set force_terrain(enable: boolean);
@@ -255,6 +256,18 @@ export declare class Gis {
     private _waitClose;
     /** 瓦片服务信息（对应Gis_serv_type）。 */
     private _servers;
+    /**
+     * 解析3MX图层原点经纬度。
+     */
+    Proj4(params: {
+        SRS: string;
+        SRSOrigin: number[];
+    }): {
+        ll_gcj02: number[];
+        ll_wgs84: number[];
+        mc_wgs84: number[];
+        altitude: number;
+    };
     /**
      * 检测指定经纬度是否在中国范围框之外（纬度3.86~53.55、经度73.66~135.05）。
      * 范围框之内使用GCJ02加密。
@@ -399,6 +412,7 @@ export declare class Gis_pyramid {
     set forceTerrain(enable: boolean);
     /** 当前是否启用地形。 */
     get terrain(): boolean;
+    set terrain(b: boolean);
     /** GIS实例。 */
     private _gis;
     /** 地形数据可用时，强制开启地形。 */

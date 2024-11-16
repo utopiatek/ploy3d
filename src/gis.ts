@@ -1,4 +1,5 @@
 import * as Miaoverse from "./mod.js"
+import proj4 from "./worker/proj4.js"
 
 /** GIS系统。 */
 export class Gis {
@@ -53,7 +54,14 @@ export class Gis {
                 shader: "1-1-1.miaokit.builtins:/shader/gis_ulit/17-11_gis_ulit.json",
                 flags: Miaoverse.RENDER_FLAGS.ATTRIBUTES0,
                 properties: {
-                    textures: {},
+                    textures: {
+                        noiseTex: {
+                            uri: "1-1-1.miaokit.builtins:/texture/25-3_noise2.png"
+                        },
+                        moonTex: {
+                            uri: "1-1-1.miaokit.builtins:/texture/25-4_color2.jpg"
+                        }
+                    },
                     vectors: {}
                 }
             });
@@ -820,6 +828,9 @@ export class Gis {
     public get enable_terrain() {
         return this._pyramid.terrain;
     }
+    public set enable_terrain(b: boolean) {
+        this._pyramid.terrain = b;
+    }
 
     /** 地形数据可用时，强制开启地形。 */
     public get force_terrain() {
@@ -955,6 +966,26 @@ export class Gis {
             min_level: 1
         }
     };
+
+    /**
+     * 解析3MX图层原点经纬度。
+     */
+    public Proj4(params: {
+        SRS: string;
+        SRSOrigin: number[];
+    }) {
+        const ll_wgs84 = proj4(params.SRS, "EPSG:4326", params.SRSOrigin) as number[];
+        const mc_wgs84 = this.LL2MC(ll_wgs84);
+        const ll_gcj02 = this.WGS84_GCJ02(ll_wgs84);
+        const altitude = ll_wgs84[2];
+
+        return {
+            ll_gcj02,
+            ll_wgs84,
+            mc_wgs84,
+            altitude
+        };
+    }
 
     /**
      * 检测指定经纬度是否在中国范围框之外（纬度3.86~53.55、经度73.66~135.05）。
@@ -2103,6 +2134,9 @@ export class Gis_pyramid {
     /** 当前是否启用地形。 */
     public get terrain() {
         return this._layers[0].enabled && (this._forceTerrain || (this._gis.level > 8 && this._gis.level < 17));
+    }
+    public set terrain(b: boolean) {
+        this._layers[0].enabled = b;
     }
 
     /** GIS实例。 */

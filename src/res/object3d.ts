@@ -201,7 +201,8 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
 
     /** 世界空间坐标。 */
     public get position(): Miaoverse.Vector3 {
-        return this.wfmMat.MultiplyVector3(1, this._global.Vector3([0, 0, 0]));
+        // return this.wfmMat.MultiplyVector3(1, this._global.Vector3([0, 0, 0]));
+        return this._global.Vector3(this._impl["_GetPosition"](this._ptr));
     }
     public set position(pos: Miaoverse.Vector3) {
         this._impl["_SetPosition"](this._ptr, pos.x, pos.y, pos.z);
@@ -309,10 +310,17 @@ export class Object3D extends Miaoverse.Resource<Object3D> {
         }
     }
 
+    /** 对象所属预制件（非空且根源预制件标记了保存位，保存时对象才会被保存。否则视对象为运行时临时创建）。 */
+    public get prefab() {
+        return this._prefab;
+    }
+
     /** 内核实现。 */
     private _impl: Object_kernel;
     /** 对象名称。 */
     private _name: string = "object3d";
+    /** 对象所属预制件（非空且根源预制件标记了保存位，保存时对象才会被保存。否则视对象为运行时临时创建）。 */
+    private _prefab?: Miaoverse.Prefab;
 }
 
 /** 3D对象内核实现。 */
@@ -327,9 +335,12 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
 
     /**
      * 创建3D对象实例。
+     * @param scene 对象所属场景。
+     * @param name 对象名称。
+     * @param prefab  对象所属预制件（非空且根源预制件标记了保存位，保存时对象才会被保存。否则视对象为运行时临时创建）。
      * @returns 返回3D对象实例。
      */
-    public async Create(scene: Miaoverse.Scene) {
+    public async Create(scene: Miaoverse.Scene, name?: string, prefab?: Miaoverse.Prefab) {
         const ptr = this._Instance(scene.internalPtr, 0 as never);
         const id = this._instanceIdle;
 
@@ -338,6 +349,14 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
 
         const instance = this._instanceList[id] = new Object3D(this, ptr, id);
+
+        if (name) {
+            instance.name = name;
+        }
+
+        if (prefab) {
+            instance["_prefab"] = prefab;
+        }
 
         this._instanceCount++;
 
@@ -379,6 +398,37 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
         this._instanceList = null;
         this._instanceLut = null;
     }
+
+    /**
+     * 获取指定对象列表的世界空间包围盒信息。
+     * @param objects 对象列表。
+     * @param traverse 是否遍历每个对象的树型结构。
+     * @returns 
+     */
+    public GetBounding(objects: Object3D[], traverse: boolean) {
+        const min = [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE];
+        const max = [-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE];
+
+        for (let obj of objects) {
+            if (obj) {
+                const aabb = this._GetAABB(obj.internalPtr, traverse ? 1 : 0);
+
+                min[0] = min[0] < aabb[0] ? min[0] : aabb[0];
+                min[1] = min[1] < aabb[1] ? min[1] : aabb[1];
+                min[2] = min[2] < aabb[2] ? min[2] : aabb[2];
+
+                max[0] = max[0] > aabb[3] ? max[0] : aabb[3];
+                max[1] = max[1] > aabb[4] ? max[1] : aabb[4];
+                max[2] = max[2] > aabb[5] ? max[2] : aabb[5];
+            }
+        }
+
+        const center = [(min[0] + max[0]) * 0.5, (min[1] + max[1]) * 0.5, (min[2] + max[2]) * 0.5];
+        const extents = [Math.max((max[0] - min[0]) * 0.5, 0.01), Math.max((max[1] - min[1]) * 0.5, 0.01), Math.max((max[2] - min[2]) * 0.5, 0.01)];
+        const radius = Math.sqrt(extents[0] * extents[0] + extents[1] * extents[1] + extents[2] * extents[2]);
+
+        return { center, extents, radius };
+    };
 
     /**
      * 实例化3D对象内核实例。
@@ -436,6 +486,11 @@ export class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object
      */
     protected _SetRotation: (object3d: Miaoverse.io_ptr, qx: number, qy: number, qz: number, qw: number) => void;
 
+    /** 
+     * 获取对象世界坐标。
+     */
+    protected _GetPosition: (object3d: Miaoverse.io_ptr) => number[];
+ 
     /**
      * 设置父级3D对象。
      * @param object3d 3D对象内核实例指针。

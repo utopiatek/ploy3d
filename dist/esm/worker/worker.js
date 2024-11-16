@@ -1,5 +1,7 @@
 import { Kernel } from "../kernel.js";
 import { Importer } from "./importer.js";
+export { localforage } from "./localforage.js";
+import BASIS from "./basis_encoder.js";
 import pako from "./pako.esm.js";
 import earcut from "./earcut.js";
 import "./jszip.min.js";
@@ -23,6 +25,7 @@ export class Miaoworker {
         this.internal = _global?.internal;
         if (!globalThis.document) {
             globalThis.onmessage = (ev) => {
+                this.uid = ev.data.uid;
                 this.OnMessage(ev.data);
             };
         }
@@ -297,7 +300,93 @@ const __worker = new Miaoworker();
         return earcut(vertices, holeIndices, dim);
     }
     async EncodeTexture(data_, has_alpha) {
-        return null;
+        const basis = await this.Basis();
+        if (!basis) {
+            return null;
+        }
+        let data = data_;
+        if (this.workerID == 0) {
+            const data = await this.ResizeTexture(data_);
+        }
+        if (!data) {
+            return { data: null, has_alpha };
+        }
+        const { KTX2File, BasisEncoder, initializeBasis, encodeBasisTexture } = basis;
+        initializeBasis();
+        const basisEncoder = new BasisEncoder();
+        const qualityLevel = 128;
+        const uastcFlag = false;
+        basisEncoder.setCreateKTX2File(true);
+        basisEncoder.setKTX2UASTCSupercompression(true);
+        basisEncoder.setKTX2SRGBTransferFunc(true);
+        basisEncoder.setSliceSourceImage(0, new Uint8Array(data), 0, 0, true);
+        basisEncoder.setDebug(false);
+        basisEncoder.setComputeStats(false);
+        basisEncoder.setPerceptual(true);
+        basisEncoder.setMipSRGB(true);
+        basisEncoder.setQualityLevel(qualityLevel);
+        basisEncoder.setUASTC(uastcFlag);
+        basisEncoder.setMipGen(true);
+        basisEncoder.setCheckForAlpha(has_alpha);
+        const buffer = new Uint8Array(1024 * 1024 * 10);
+        const length = basisEncoder.encode(buffer);
+        basisEncoder.delete();
+        if (0 < length) {
+            let data = new Uint8Array(new Uint8Array(buffer.buffer, 0, length));
+            if (has_alpha) {
+                const file = new KTX2File(data);
+                if (file.isValid()) {
+                    has_alpha = file.getHasAlpha();
+                }
+                else {
+                    data = null;
+                }
+                file.close();
+                file.delete();
+            }
+            return { data: data.buffer, has_alpha };
+        }
+        else {
+            return { data: null, has_alpha };
+        }
+    }
+    ResizeTexture(buffer) {
+        return new Promise(function (resolve, reject) {
+            const data = new Uint8Array(buffer);
+            const blob = new Blob([data]);
+            const url = globalThis.URL.createObjectURL(blob);
+            const image = new Image();
+            image.src = url;
+            image.onload = (e) => {
+                let width = Math.round(Math.log2(image.width));
+                let height = Math.round(Math.log2(image.height));
+                width = Math.max(6, Math.min(11, width));
+                height = Math.max(6, Math.min(11, height));
+                width = Math.pow(2, width);
+                height = Math.pow(2, height);
+                if (true || width != image.width || height != image.height) {
+                    console.log("缩放贴图尺寸：", image.width, image.height, width, height);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(image, 0, 0, width, height);
+                    canvas.toBlob((blob) => {
+                        const reader = new FileReader();
+                        reader.readAsArrayBuffer(blob);
+                        reader.onload = function () {
+                            resolve(this.result);
+                        };
+                    });
+                }
+                else {
+                    resolve(buffer);
+                }
+            };
+            image.onerror = (e) => {
+                reject(e);
+            };
+        });
     }
     PostMessage(info) {
         info.id = this.sendTick++;
@@ -310,6 +399,7 @@ const __worker = new Miaoworker();
             info.state = 1;
         }
         if (this.worker) {
+            info.uid = this.uid;
             this.worker.postMessage(info, info.transfer);
         }
         else {
@@ -455,6 +545,19 @@ const __worker = new Miaoworker();
         const res = await fetch(input, init);
         return await res[type]();
     }
+    async Basis() {
+        if (false || !BASIS) {
+            return null;
+        }
+        if (this.basis !== undefined) {
+            return this.basis;
+        }
+        const wasmBinary = await this.Fetch(this.baseURI + "lib/basis_encoder.wasm", null, "arrayBuffer");
+        this.basis = await BASIS({ wasmBinary, onRuntimeInitialized: () => { } }).catch((e) => {
+            this.basis = null;
+        });
+        return this.basis;
+    }
     workerID;
     worker;
     slots;
@@ -473,4 +576,5 @@ const __worker = new Miaoworker();
     internal;
     importer;
     gltfCache = {};
+    basis;
 }

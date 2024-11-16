@@ -279,11 +279,13 @@ export declare const Volume_member_index: {
     readonly fogColorFromIbl: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
+    /** 体积参数应用时间戳。 */
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
     readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
+    /** 体积参数是否有更新。 */
     readonly readTS: Miaoverse.Kernel_member;
     readonly last: Miaoverse.Kernel_member;
     readonly next: Miaoverse.Kernel_member;

@@ -18,6 +18,15 @@ export class MeshRenderer extends Miaoverse.Uniform {
             this._global.env.uarraySet(array_ptr, 0, joints);
         }
     }
+    GetSkeleton() {
+        const enabled = this._impl.Get(this._ptr, "skeleton_skin_enabled");
+        if (enabled) {
+            const array_ptr = this._impl.Get(this._ptr, "skeleton_skin_joints");
+            const joints = this._global.env.uarrayGet(array_ptr, 0, 1);
+            return joints;
+        }
+        return undefined;
+    }
     UpdateG1(object3d) {
         this._impl["_UpdateG1"](this._ptr, object3d.internalPtr);
     }

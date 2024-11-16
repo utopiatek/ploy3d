@@ -95,7 +95,7 @@ export class TransformCtrl {
                 [this.mesh_cylinder, this.mat_blue_rot, [0, -0.4, 0.], [90, 0, 0], [0.05, 0.03, 0.05]],
             ]
         ];
-        this.obj_root = await resources.Object.Create(scene);
+        this.obj_root = await resources.Object.Create(scene, "Transform Ctrl");
         this.obj_root.staticWorld = true;
         this.obj_lut = {};
         this.obj_list = [];
@@ -106,7 +106,7 @@ export class TransformCtrl {
                 if (!desc) {
                     continue;
                 }
-                const object3D = await resources.Object.Create(scene);
+                const object3D = await resources.Object.Create(scene, `Transform Ctrl ${i}-${j}`);
                 const meshRenderer = await resources.MeshRenderer.Create(desc[0], [
                     {
                         slot: 0,
@@ -175,7 +175,7 @@ export class TransformCtrl {
         this._camPos = camera.wposition;
         this._camDir = camera.wdirection;
         const target = this._selectedObject;
-        const objpos = target ? target.position : this._global.Vector3([0, 0, 0]);
+        const objpos = target ? target.position.AddVector3(this._selectedBounding.centerOffset) : this._global.Vector3([0, 0, 0]);
         const objrot = target ? target.rotation : this._global.Quaternion([0, 0, 0, 1]);
         const dis = this._camPos.DistanceTo(objpos);
         const factor = dis * Math.min(1.0 * Math.tan(camera.fov * 0.5), 7);
@@ -188,7 +188,17 @@ export class TransformCtrl {
         this._ctrl = this.obj_lut[target?.internalPtr];
         if (this._ctrl == undefined) {
             this._ctrl = -1;
-            this._selectedObject = target;
+            if (target) {
+                const bounding = this._global.resources.Object.GetBounding([target], true);
+                const position = target.position;
+                const centerOffset = this._global.Vector3([bounding.center[0] - position.x, bounding.center[1] - position.y, bounding.center[2] - position.z]);
+                this._selectedObject = target;
+                this._selectedBounding = { bounding, centerOffset };
+            }
+            else {
+                this._selectedObject = null;
+                this._selectedBounding = null;
+            }
         }
         let object3D = this._selectedObject;
         if (!object3D) {
@@ -397,6 +407,7 @@ export class TransformCtrl {
     }
     _global;
     _selectedObject;
+    _selectedBounding;
     _ctrl;
     _camPos;
     _camDir;

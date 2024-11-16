@@ -27,6 +27,7 @@ export declare class Camera extends Miaoverse.Resource<Camera> {
     Fit(bounding: {
         center: number[];
         extents: number[];
+        radius?: number;
     }, pitch?: number, yaw?: number): void;
     /**
      * 相机平移控制方法。
@@ -67,6 +68,12 @@ export declare class Camera extends Miaoverse.Resource<Camera> {
         origin: Miaoverse.Vector3;
         dir: Miaoverse.Vector3;
     };
+    /**
+     * 在水平面上拾取坐标。
+     * @param x 屏幕坐标X[0, 1]
+     * @param y 屏幕坐标Y[0, 1]
+     */
+    HitHorizontal(x: number, y: number): Miaoverse.Vector3;
     /**
      * 获取相机相关变换矩阵。
      * @param key 变换矩阵名称。

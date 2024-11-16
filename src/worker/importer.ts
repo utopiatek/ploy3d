@@ -82,8 +82,78 @@ export class Importer {
 
     /** 装载GLTF场景数据。 */
     public async Import_gltf_file(file: File, progress: (rate: number, msg: string) => void) {
-        // TODO ...
-        return null as any;
+        progress(0.0, "加载文件：" + file.name);
+
+        if (file.name.endsWith(".zip")) {
+            const zip = await (globalThis as any).JSZip.loadAsync(file);
+            if (!zip) {
+                return null;
+            }
+
+            let filename = null as string;
+
+            for (let key in zip.files) {
+                // 压缩包内应当仅存在一个gltf文件
+                if (key.endsWith("gltf")) {
+                    filename = key;
+                    break;
+                }
+            }
+
+            const text = await zip.file(filename).async("text");
+            const data = JSON.parse(text);
+            if (data) {
+                const split = filename.lastIndexOf('/') + 1;
+                const path = filename.slice(0, split);
+                const name = filename.slice(split, filename.length);
+
+                data.asset.extras = {
+                    zip: zip,
+                    path: path,
+                    name: file.name,
+                    position: [0, 0, 0],
+                    rotation: [0, 0, 0],
+                    scale: [1.0, 1.0, 1.0]
+                };
+
+                return (new Importer_gltf(this._worker)).Load(data, (rate, msg) => {
+                    progress(0.1 + 0.9 * rate, msg);
+                });
+            }
+            else {
+                return null;
+            }
+        }
+        else {
+            return new Promise<Awaited<ReturnType<Importer_gltf["Load"]>>>(function (resolve, reject) {
+                const reader = new FileReader();
+
+                reader.onload = () => {
+                    const data = JSON.parse(reader.result as string);
+                    if (data) {
+                        const path = "./";
+                        const name = file.name;
+
+                        data.asset.extras = {
+                            path: path,
+                            name: name,
+                            position: [0, 0, 0],
+                            rotation: [0, 0, 0],
+                            scale: [1.0, 1.0, 1.0]
+                        };
+
+                        return (new Importer_gltf(this._worker)).Load(data, (rate, msg) => {
+                            progress(0.1 + 0.9 * rate, msg);
+                        });
+                    }
+                    else {
+                        reject("JSON解析失败！");
+                    }
+                };
+
+                reader.readAsText(file);
+            });
+        }
     }
 
     /** 装载DAZ数据文件。 */

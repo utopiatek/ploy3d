@@ -87,6 +87,34 @@ export class Importer_gltf {
             meta: pkg
         };
 
+        // 保留原作者版权声明文件
+        if (true) {
+            const zip = this._data.asset.extras.zip;
+            const path = this._data.asset.extras.path;
+            const license_path = path + "license.txt";
+
+            try {
+                if (zip) {
+                    const license_txt_file = zip.file(license_path);
+                    if (license_txt_file) {
+                        const license_txt = await license_txt_file.async("text");
+                        if (license_txt) {
+                            this._files_cache["license.txt"] = license_txt;
+                        }
+                    }
+                }
+                else {
+                    const license_txt = await this._worker.Fetch<string>(license_path, null, "text");
+                    if (license_txt) {
+                        this._files_cache["license.txt"] = license_txt;
+                    }
+                }
+            }
+            catch (e) {
+                console.info('找不到模型包版权声明文件"license.txt"！', e);
+            }
+        }
+
         return { pkg: pkg_reg, files: this._files_cache };
     }
 
@@ -1300,7 +1328,7 @@ export class Importer_gltf {
         }
 
         // 蒙皮数据直接保存在网格数据中
-        return [root_index, joints_name, skeleton_buffer, /*skin_buffer*/null];
+        return [root_index, joints_name, new Uint8Array(skeleton_buffer), /*skin_buffer*/null];
     }
 
 
@@ -1404,7 +1432,7 @@ export class Importer_gltf {
         const asset_name = this._data.asset.extras.name;
         const file_path = `anims/${uuid}_${asset_name}.bin`;
 
-        this._files_cache[file_path] = buffer;
+        this._files_cache[file_path] = new Uint8Array(buffer);
 
         const asset: Miaoverse.Asset_animations = {
             uuid: "" + CLASSID.ASSET_ANIMATIONS + "-0",

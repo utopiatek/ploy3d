@@ -102,10 +102,14 @@ export declare class Object3D extends Miaoverse.Resource<Object3D> {
     get meshRenderer(): Miaoverse.MeshRenderer;
     /** 动画组件。 */
     set animator(component: Miaoverse.Animator);
+    /** 对象所属预制件（非空且根源预制件标记了保存位，保存时对象才会被保存。否则视对象为运行时临时创建）。 */
+    get prefab(): Miaoverse.Prefab;
     /** 内核实现。 */
     private _impl;
     /** 对象名称。 */
     private _name;
+    /** 对象所属预制件（非空且根源预制件标记了保存位，保存时对象才会被保存。否则视对象为运行时临时创建）。 */
+    private _prefab?;
 }
 /** 3D对象内核实现。 */
 export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeof Object_member_index> {
@@ -116,9 +120,12 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
     constructor(_global: Miaoverse.Ploy3D);
     /**
      * 创建3D对象实例。
+     * @param scene 对象所属场景。
+     * @param name 对象名称。
+     * @param prefab  对象所属预制件（非空且根源预制件标记了保存位，保存时对象才会被保存。否则视对象为运行时临时创建）。
      * @returns 返回3D对象实例。
      */
-    Create(scene: Miaoverse.Scene): Promise<Miaoverse.Object3D>;
+    Create(scene: Miaoverse.Scene, name?: string, prefab?: Miaoverse.Prefab): Promise<Miaoverse.Object3D>;
     /**
      * 移除3D对象实例。
      * @param id 3D对象实例ID。
@@ -128,6 +135,17 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      * 清除所有。
      */
     protected DisposeAll(): void;
+    /**
+     * 获取指定对象列表的世界空间包围盒信息。
+     * @param objects 对象列表。
+     * @param traverse 是否遍历每个对象的树型结构。
+     * @returns
+     */
+    GetBounding(objects: Object3D[], traverse: boolean): {
+        center: number[];
+        extents: number[];
+        radius: number;
+    };
     /**
      * 实例化3D对象内核实例。
      * @param scene 场景内核实例指针。

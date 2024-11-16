@@ -201,8 +201,8 @@ export class DrawQueue {
         };
 
         // 相机宽高比与画布元素宽高比相关，而不与渲染目标贴图宽高比相关
-        this.camera.width = this._global.width;
-        this.camera.height = this._global.height;
+        this.camera.width = 128;    // this._global.width;
+        this.camera.height = 128;   // this._global.height;
 
         if (!this._snapshotUtil) {
             this._snapshotUtil = {} as any;
@@ -828,6 +828,7 @@ export class DrawQueue {
     public BindFrameUniforms(frameUniforms: Miaoverse.FrameUniforms, shadow_cast_index = -1) {
         const infoRT = this._global.assembly.config.renderTargets;
 
+        frameUniforms.view.time = [this._global.env.frameTS * 0.001];
         frameUniforms.UpdateFrameUniforms(this.camera, this.volume);
         frameUniforms.view.targetInfo = [infoRT.width, infoRT.width * infoRT.scale, 1.0 / (infoRT.width * infoRT.scale), infoRT.scale];
 

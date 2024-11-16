@@ -4,11 +4,219 @@ export class Scene extends Miaoverse.Resource {
         super(impl["_global"], ptr, id);
         this._impl = impl;
         this._impl.Set(this._ptr, "id", id);
+        this._prefab = {
+            uuid: "",
+            needSave: false,
+            master: null,
+            root: null,
+            instanceList: [],
+            instanceBeg: 0,
+            instanceCount: 0
+        };
     }
     Destroy() {
         this._impl["_Destroy"](this.internalPtr);
     }
+    ForEachRoot(proc) {
+        let firstChild = this._impl["_FirstRoot"](this._ptr);
+        if (firstChild) {
+            let child = this._global.resources.Object.GetInstanceByPtr(firstChild);
+            let index = 0;
+            while (child) {
+                proc(index, child);
+                child = child.nextSib;
+                index++;
+            }
+        }
+    }
+    async Save() {
+        if (!this.prefab?.needSave || !this.prefab?.uuid) {
+            return null;
+        }
+        const userSpace = this._global.resources.userSpace;
+        const file = userSpace.GetNode(this.prefab.uuid);
+        if (!file) {
+            return null;
+        }
+        const batches = [];
+        const TraverseTree = (indexSib, obj) => {
+            const obj_master_prefab = obj.prefab?.master || obj.prefab;
+            if (obj_master_prefab?.needSave) {
+                if (obj.layers == 32 && !obj.prefab.master) {
+                    batches.push({
+                        master: obj_master_prefab,
+                        root: obj_master_prefab.root,
+                        instanceList: obj_master_prefab.instanceList,
+                    });
+                }
+                else if (obj.prefab === this.prefab) {
+                    const obj_parent = obj.parent;
+                    if (!obj_parent || (obj_parent.prefab !== this.prefab)) {
+                        batches.push({
+                            master: null,
+                            root: obj,
+                            instanceList: [],
+                        });
+                    }
+                }
+            }
+            obj.ForEachChild(TraverseTree);
+        };
+        this.ForEachRoot(TraverseTree);
+        const asset = {
+            uuid: this.prefab.uuid,
+            classid: 65,
+            name: this.prefab.uuid,
+            label: this.name,
+            scheme: "scene",
+            lnglat: this.lnglat,
+            altitude: this.altitude,
+            instanceCount: 0,
+            nodes: [],
+            batches: [],
+            transforms: [],
+            mesh_renderers: [],
+            animators: [],
+            dioramas: [],
+        };
+        let instanceBeg = 0;
+        const GetParentInstanceID = (obj) => {
+            let pid = undefined;
+            let parent = obj.parent;
+            if (parent) {
+            }
+            return pid;
+        };
+        const RecordTransform = (obj, instance, node, parent) => {
+            const localPosition = obj.localPosition.values;
+            const localRotation = obj.localRotation.values;
+            const localScale = obj.localScale.values;
+            const transform = {
+                instance: instance,
+                node: node,
+                deactive: !obj.active,
+                layers: obj.layers,
+                parent: parent,
+                localPosition: [localPosition[0], localPosition[1], localPosition[2]],
+                localRotation: [localRotation[0], localRotation[1], localRotation[2], localRotation[3]],
+                localScale: [localScale[0], localScale[1], localScale[2]],
+            };
+            asset.transforms.push(transform);
+        };
+        const RecordMeshRenderer = (obj, instance, node) => {
+            const meshRenderer = obj.meshRenderer;
+            if (meshRenderer) {
+                if (!meshRenderer["_uuid"]) {
+                }
+                const joints_binding = meshRenderer.GetSkeleton();
+                if (joints_binding) {
+                }
+                asset.mesh_renderers.push({
+                    instance: instance,
+                    node: node,
+                    mesh_renderer: meshRenderer["_uuid"],
+                    joints_binding: undefined
+                });
+            }
+        };
+        for (let batch of batches) {
+            if (batch.master) {
+                asset.batches.push({
+                    source: batch.master.uuid,
+                    instanceBeg: instanceBeg,
+                    instanceCount: batch.master.instanceCount,
+                });
+                const pid = GetParentInstanceID(batch.root);
+                RecordTransform(batch.root, instanceBeg + batch.master.instanceCount - 1, undefined, pid);
+                instanceBeg += batch.master.instanceCount;
+            }
+            else {
+                const source = asset.nodes.length;
+                const list = batch.instanceList;
+                const TraverseBatch = (depth, parent, obj) => {
+                    if (obj.prefab !== this.prefab) {
+                        return;
+                    }
+                    const index = asset.nodes.length;
+                    list.push(obj);
+                    asset.nodes.push({
+                        index: index,
+                        id: "" + index,
+                        name: obj.name,
+                        depth: depth,
+                        parent: parent
+                    });
+                    obj.ForEachChild((_, _obj) => {
+                        TraverseBatch(depth + 1, index, _obj);
+                    });
+                };
+                TraverseBatch(0, -1, batch.root);
+                asset.batches.push({
+                    source: source,
+                    instanceBeg: instanceBeg,
+                    instanceCount: list.length,
+                });
+                for (let i = 0; i < list.length; i++) {
+                    const obj = list[i];
+                    const pid = i > 0 ? undefined : GetParentInstanceID(obj);
+                    RecordTransform(obj, instanceBeg + i, source + i, pid);
+                    RecordMeshRenderer(obj, instanceBeg + i, source + i);
+                }
+                instanceBeg += list.length;
+            }
+        }
+        asset.instanceCount = instanceBeg + 1;
+        const diorList = this._global.resources.Dioramas.GetInstanceList();
+        for (let dior of diorList) {
+            if (dior.scene == this) {
+                asset.dioramas.push({
+                    url: dior.url
+                });
+            }
+        }
+        const camera = this._global.app.camera;
+        const target = camera.target;
+        asset.viewState = {
+            target: [target[0], target[1], target[2]],
+            distance: camera.distance,
+            pitch: camera.pitch,
+            yaw: camera.yaw
+        };
+        userSpace.Update(file.id, JSON.stringify(asset));
+        return asset;
+    }
+    get name() {
+        return this._name;
+    }
+    set name(name) {
+        this._name = name;
+    }
+    get lnglat() {
+        const wgs84 = this._impl.Get(this._ptr, "worldLLMC");
+        const gcj02 = this._global.gis.WGS84_GCJ02([wgs84[0], wgs84[1]]);
+        return gcj02;
+    }
+    set lnglat(gcj02) {
+        const ll = this._global.gis.GCJ02_WGS84(gcj02);
+        const mc = this._global.gis.LL2MC(ll);
+        this._impl.Set(this._ptr, "worldLLMC", [ll[0], ll[1], mc[0], mc[1]]);
+    }
+    get altitude() {
+        return this._impl.Get(this._ptr, "altitude");
+    }
+    set altitude(value) {
+        this._impl.Set(this._ptr, "altitude", value);
+    }
+    get prefab() {
+        return this._prefab;
+    }
+    get viewState() {
+        return this._viewState;
+    }
     _impl;
+    _name = "scene";
+    _prefab;
+    _viewState;
 }
 export class Scene_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
@@ -71,8 +279,8 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
         }
         return null;
     }
-    async InstancePrefab(scene, uri, pkg, master, listBeg) {
-        const prefab = {
+    async InstancePrefab(scene, uri, pkg, master, listBeg, loadScene) {
+        let prefab = {
             uuid: "",
             master: master,
             root: null,
@@ -91,24 +299,51 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
             return prefab;
         }
         pkg = desc.pkg;
-        prefab.root = await this._global.resources.Object.Create(scene);
-        prefab.root.layers = 32;
-        prefab.instanceCount = data.instanceCount;
+        if (loadScene && data.scheme != "scene") {
+            loadScene = false;
+        }
+        if (loadScene) {
+            prefab = scene.prefab;
+            prefab.master = null;
+            prefab.root = null;
+            prefab.instanceList = [];
+            prefab.instanceBeg = 0;
+            prefab.instanceCount = data.instanceCount;
+        }
+        else {
+            prefab.root = await this._global.resources.Object.Create(scene, data.name, prefab);
+            prefab.root.layers = 32;
+            prefab.instanceCount = data.instanceCount;
+        }
         const daz_figure = data.scheme != "daz" ? null : {};
         for (let batch of data.batches) {
             if (typeof batch.source == "string") {
-                const child_prefab = await this.InstancePrefab(scene, batch.source, desc.pkg, prefab.master, prefab.instanceBeg + batch.instanceBeg);
+                const child_prefab = await this.InstancePrefab(scene, batch.source, desc.pkg, prefab.master || prefab, prefab.instanceBeg + batch.instanceBeg);
                 if (child_prefab.instanceCount != batch.instanceCount) {
                     this._global.Track(`Scene_kernel.InstancePrefab: 预制件 ${uuid} 实际3D对象实例数量 ${child_prefab.instanceCount} 与预期 ${batch.instanceCount} 不符！`, 3);
                 }
-                child_prefab.root.SetParent(prefab.root);
+                if (!loadScene) {
+                    child_prefab.root.SetParent(prefab.root);
+                }
+                else {
+                    child_prefab.master = null;
+                    child_prefab.needSave = true;
+                    if (data.lnglat) {
+                        child_prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+                    }
+                }
             }
             else {
-                const instances = await this.InstanceNode(scene, batch.source, prefab.instanceBeg + batch.instanceBeg, data.nodes, prefab.instanceList);
+                const instances = await this.InstanceNode(scene, batch.source, prefab.instanceBeg + batch.instanceBeg, data.nodes, prefab.instanceList, prefab);
                 if (instances.instanceCount != batch.instanceCount) {
                     this._global.Track(`Scene_kernel.InstancePrefab: 节点源 ${uuid} 实际3D对象实例数量 ${instances.instanceCount} 与预期 ${batch.instanceCount} 不符！`, 3);
                 }
-                instances.root.SetParent(prefab.root);
+                if (!loadScene) {
+                    instances.root.SetParent(prefab.root);
+                }
+                else if (data.lnglat) {
+                    instances.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+                }
             }
         }
         prefab.instanceList[prefab.instanceBeg + prefab.instanceCount - 1] = prefab.root;
@@ -215,11 +450,20 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
             }
         }
         if (data.lnglat) {
-            prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+            if (!loadScene) {
+                prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+            }
+            else {
+                scene.lnglat = data.lnglat;
+                scene["_viewState"] = data.viewState;
+                for (let dior of (data.dioramas || [])) {
+                    await this._global.resources.Dioramas.Create_3mx(scene, dior.url);
+                }
+            }
         }
         return prefab;
     }
-    async InstanceNode(scene, source, listBeg, nodes, instanceList) {
+    async InstanceNode(scene, source, listBeg, nodes, instanceList, prefab) {
         let instanceCount = 0;
         const min_depth = nodes[source].depth + 1;
         for (let i = source; i < nodes.length; i++) {
@@ -234,9 +478,8 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
                     this._global.Track(`Scene_kernel.InstanceNode: 父级节点索引异常！`, 3);
                 }
             }
-            const instance = await this._global.resources.Object.Create(scene);
+            const instance = await this._global.resources.Object.Create(scene, asset.name, prefab);
             instanceList[listBeg + instanceCount++] = instance;
-            instance.name = asset.name;
             if (parent) {
                 instance.SetParent(parent);
             }
@@ -247,6 +490,7 @@ export class Scene_kernel extends Miaoverse.Base_kernel {
     _Destroy;
     _Culling;
     _Raycast;
+    _FirstRoot;
 }
 export const Scene_member_index = {
     ...Miaoverse.Binary_member_index,

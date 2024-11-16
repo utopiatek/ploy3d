@@ -149,7 +149,7 @@ export class TransformCtrl {
             ]
         ];
 
-        this.obj_root = await resources.Object.Create(scene);
+        this.obj_root = await resources.Object.Create(scene, "Transform Ctrl");
         this.obj_root.staticWorld = true;
         this.obj_lut = {};
         this.obj_list = [];
@@ -162,7 +162,7 @@ export class TransformCtrl {
                     continue;
                 }
 
-                const object3D = await resources.Object.Create(scene);
+                const object3D = await resources.Object.Create(scene, `Transform Ctrl ${i}-${j}`);
 
                 const meshRenderer = await resources.MeshRenderer.Create(desc[0] as Miaoverse.Mesh, [
                     {
@@ -257,7 +257,7 @@ export class TransformCtrl {
         this._camDir = camera.wdirection;
 
         const target = this._selectedObject;
-        const objpos = target ? target.position : this._global.Vector3([0, 0, 0]);
+        const objpos = target ? target.position.AddVector3(this._selectedBounding.centerOffset) : this._global.Vector3([0, 0, 0]);
         const objrot = target ? target.rotation : this._global.Quaternion([0, 0, 0, 1]);
         const dis = this._camPos.DistanceTo(objpos);
         const factor = dis * Math.min(1.0 * Math.tan(camera.fov * 0.5), 7);
@@ -266,8 +266,6 @@ export class TransformCtrl {
         this.obj_root.localPosition = objpos;
         this.obj_root.localRotation = objrot;
         this.obj_root.localScale = this._global.Vector3([scale, scale, scale]);
-
-        // Global.internal.Object3D_SetHighlight(this.obj_root.internalPtr, target ? 1 : 0, 1);
     }
 
     /**
@@ -280,7 +278,19 @@ export class TransformCtrl {
         if (this._ctrl == undefined) {
             this._ctrl = -1;
 
-            this._selectedObject = target;
+            // 获取目标包围盒，目标原点不一定在目标包围盒中心，但我们希望变换组件控制器在目标包围盒中心
+            if (target) {
+                const bounding = this._global.resources.Object.GetBounding([target], true);
+                const position = target.position;
+                const centerOffset = this._global.Vector3([bounding.center[0] - position.x, bounding.center[1] - position.y, bounding.center[2] - position.z]);
+
+                this._selectedObject = target;
+                this._selectedBounding = { bounding, centerOffset };
+            }
+            else {
+                this._selectedObject = null;
+                this._selectedBounding = null;
+            }
         }
 
         let object3D = this._selectedObject;
@@ -572,6 +582,10 @@ export class TransformCtrl {
     /** 模块实例对象。 */
     private _global: Miaoverse.Ploy3D;
     private _selectedObject: Miaoverse.Object3D;
+    private _selectedBounding: {
+        bounding: ReturnType<Miaoverse.Object_kernel["GetBounding"]>;
+        centerOffset: Miaoverse.Vector3;
+    };
 
     private _ctrl: number;
     private _camPos: Miaoverse.Vector3;

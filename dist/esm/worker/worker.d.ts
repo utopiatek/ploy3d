@@ -1,6 +1,7 @@
 import type { PackageReg, GLPrimitiveTopology } from "../mod.js";
 import { Kernel, SharedENV, Internal } from "../kernel.js";
 import { Importer } from "./importer.js";
+export { localforage } from "./localforage.js";
 import "./jszip.min.js";
 /** 事务处理器。 */
 export declare class Miaoworker {
@@ -52,7 +53,10 @@ export declare class Miaoworker {
      * @param file GLTF文件描述。
      * @returns 异步对象。
      */
-    Import_gltf_file(worker: number, file: File, progress: (rate: number, msg: string) => void): Promise<PackageReg>;
+    Import_gltf_file(worker: number, file: File, progress: (rate: number, msg: string) => void): Promise<{
+        pkg: PackageReg;
+        files: Record<string, any>;
+    }>;
     /**
      * 导入DAZ文件，返回资源包UUID。
      * @param worker 派遣线程索引，0为主线程。
@@ -100,7 +104,12 @@ export declare class Miaoworker {
      * @returns 异步对象
      */
     Load_3mxb_resource(worker: number, group: Parameters<Importer["Load_3mxb_resource"]>[0], progress: (rate: number, msg: string) => void): Promise<{
-        _path: string;
+        _path: string; /**
+         * 导入GLTF文件，返回资源包内容。
+         * @param worker 派遣线程索引，0为主线程。
+         * @param url GLTF文件路径。
+         * @returns 异步对象
+         */
         _file: string;
         _ab?: ArrayBuffer;
         _ab_offset: number;
@@ -145,6 +154,10 @@ export declare class Miaoworker {
         has_alpha: boolean;
     }>;
     /**
+     * 缩放贴图尺寸为2的次幂。
+     */
+    ResizeTexture(buffer: ArrayBuffer): Promise<ArrayBuffer>;
+    /**
      * 发送事务信息给其它线程。
      * @param info 事务信息。
      */
@@ -168,6 +181,10 @@ export declare class Miaoworker {
      * @returns 返回指定类型数据。
      */
     Fetch<T>(input: string, init: RequestInit, type: "arrayBuffer" | "blob" | "formData" | "json" | "text"): Promise<T>;
+    /**
+     * 获取纹理压缩模块实例。
+     */
+    Basis(): Promise<any>;
     /** 当前事务处理器ID（0为主线程）。 */
     private workerID;
     /** 子线程事务处理器（主线程包含）。 */
@@ -204,9 +221,13 @@ export declare class Miaoworker {
     importer: Importer;
     /** GLTF导入缓存（避免运行期内重复导入）。 */
     gltfCache: Record<string, Awaited<ReturnType<Miaoworker["Import_gltf"]>>>;
+    /** 纹理压缩模块实例。 */
+    private basis;
 }
 /** 事务信息。 */
 export interface WorkInfo {
+    /** 同步用户ID到子线程。 */
+    uid?: number;
     /** 事务ID。 */
     id?: number;
     /** 事务槽。 */

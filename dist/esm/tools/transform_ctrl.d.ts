@@ -49,6 +49,7 @@ export declare class TransformCtrl {
     /** 模块实例对象。 */
     private _global;
     private _selectedObject;
+    private _selectedBounding;
     private _ctrl;
     private _camPos;
     private _camDir;

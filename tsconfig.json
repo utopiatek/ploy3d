@@ -4,6 +4,7 @@
         "target": "ES2022",
         "module": "ES2022",
         "outDir": "dist/esm",
+        "jsx": "react",
         "moduleResolution": "Node",
         "noImplicitAny": true,
         "noEmitOnError": true,

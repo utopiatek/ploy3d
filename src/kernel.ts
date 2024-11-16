@@ -666,6 +666,9 @@ export class SharedENV {
     public get gisState(): number {
         return this.uscalarGet(this._ptr, Env_member.gisState);
     }
+    public set gisState(state: number) {
+        this.uscalarSet(this._ptr, Env_member.gisState, state);
+    }
     /** 当前世界坐标原点经纬度和墨卡托坐标。 */
     public get worldLngLat(): Float32Array {
         return this.farrayGet(this._ptr, Env_member.worldLngLat, 4);

@@ -12,7 +12,10 @@ export declare class Importer {
         files: Record<string, any>;
     }>;
     /** 装载GLTF场景数据。 */
-    Import_gltf_file(file: File, progress: (rate: number, msg: string) => void): Promise<any>;
+    Import_gltf_file(file: File, progress: (rate: number, msg: string) => void): Promise<{
+        pkg: import("../mod.js").PackageReg;
+        files: Record<string, any>;
+    }>;
     /** 装载DAZ数据文件。 */
     Import_daz(path: string, progress: (rate: number, msg: string) => void): Promise<{
         main: string;

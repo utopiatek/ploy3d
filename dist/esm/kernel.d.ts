@@ -217,6 +217,7 @@ export declare class SharedENV {
     get gisTS(): number;
     /** 当前GIS状态：0-不启用GIS，1-启用一般GIS，2-启用带地形GIS。 */
     get gisState(): number;
+    set gisState(state: number);
     /** 当前世界坐标原点经纬度和墨卡托坐标。 */
     get worldLngLat(): Float32Array;
     /** 模块实例对象。 */

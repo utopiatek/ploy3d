@@ -29,7 +29,17 @@
         {
             const base = document.createElement("base");
 
-            base.setAttribute("href", globalThis.sdk ? `https://oss.ploycloud.com/ploy3d/${globalThis.sdk}/` : document.location.origin + document.location.pathname);
+            if (globalThis.sdk) {
+                if (true && globalThis.sdk == "local") {
+                    base.setAttribute("href", `http://localhost/ploy3d/`);
+                }
+                else {
+                    base.setAttribute("href", `https://oss.ploycloud.com/ploy3d/${globalThis.sdk}/`);
+                }
+            }
+            else {
+                base.setAttribute("href", document.location.origin + document.location.pathname);
+            }
 
             document.head.appendChild(base);
 
@@ -64,6 +74,8 @@
             <div class="progressbar-msg" id="progressbar-msg">UI渲染</div>
         </div>
     </div>
+    <!--控制台元素-->
+    <div id="eruda">eruda</div>
     <!--主画布元素-->
     <canvas id="canvas3d"></canvas>
     <canvas id="canvas2d"></canvas>

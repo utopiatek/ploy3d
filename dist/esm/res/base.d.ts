@@ -59,6 +59,11 @@ export declare class Base_kernel<T, K extends typeof Binary_member_index> {
      * @returns 返回资源实例。
      */
     GetInstanceByID(id: number): T;
+    /**
+     * 获取有效实例数组。
+     * @returns
+     */
+    GetInstanceList(): T[];
     /** 引擎实例。 */
     protected _global: Miaoverse.Ploy3D;
     /** 资源内核实现的数据结构成员列表。 */

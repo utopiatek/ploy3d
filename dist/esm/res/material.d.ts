@@ -263,7 +263,11 @@ export declare const Material_member_index: {
     readonly uuid: Miaoverse.Kernel_member;
     readonly writeTS: Miaoverse.Kernel_member;
     readonly readTS: Miaoverse.Kernel_member;
-    readonly last: Miaoverse.Kernel_member;
+    readonly last: Miaoverse.Kernel_member; /**
+     * 获取向量属性（标量被视为一维向量）。
+     * @param name 属性名称。
+     * @returns 返回数值数组。
+     */
     readonly next: Miaoverse.Kernel_member;
 };
 /** 材质资源描述符。 */

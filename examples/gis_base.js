@@ -67,7 +67,8 @@ export class PloyApp_gis_base extends PloyApp {
         // 跳转查看指定地理位置方法（北京天安门经纬度: [116.397459, 39.908796]）
         const targetLL = this.engine.gis.GCJ02_WGS84([116.397459, 39.908796]);
         const targetWPOS = this.engine.gis.LL2WPOS(targetLL);
-        this.camera.Set3D(targetWPOS, 17000, 28, 0);
+        this.camera.Set3D([6921, 1, -445], 2078, 10, -6);
+        this.camera.fov = 70 / 180 * Math.PI;
 
         // 注册鼠标滚轮事件监听器
         this.AddEventListener("wheel", (e) => {
@@ -77,6 +78,16 @@ export class PloyApp_gis_base extends PloyApp {
 
         // 注册鼠标滑动事件监听器
         this.AddEventListener("pointermove", (e) => {
+            if (false && (e.buttons & 4) == 4) {
+                const point = [
+                    (e.layerX * this.engine.config.devicePixelRatio) / this.engine.width,
+                    (e.layerY * this.engine.config.devicePixelRatio) / this.engine.height
+                ];
+
+                const ray = this.camera.ScreenPointToRay(point[0], point[1]);
+                this.volume.sunlitDirection = ray.dir.values;
+            }
+
             if ((e.buttons & 1) == 1) {
                 if (this._transformCtrl && this._transformCtrl.ctrl) {
                     this._transformCtrl.Drag(this.camera, e.layerX, e.layerY, engine.width, engine.height);
@@ -107,6 +118,11 @@ export class PloyApp_gis_base extends PloyApp {
                     (e.layerX * this.engine.config.devicePixelRatio) / this.engine.width,
                     (e.layerY * this.engine.config.devicePixelRatio) / this.engine.height
                 ];
+
+                if (true && e.button == 0) {
+                    const ray = this.camera.ScreenPointToRay(point[0], point[1]);
+                    this.volume.sunlitDirection = ray.dir.values;
+                }
 
                 engine.assembly.GetObjectInScreen(point[0], point[1]).then((hit) => {
                     if (time != click_times) {

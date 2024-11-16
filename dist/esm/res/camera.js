@@ -44,10 +44,14 @@ export class Camera extends Miaoverse.Resource {
         }
     }
     Fit(bounding, pitch, yaw) {
-        const radius = Math.sqrt(bounding.extents[0] * bounding.extents[0] + bounding.extents[1] * bounding.extents[1] + bounding.extents[2] * bounding.extents[2]);
+        const radius = bounding.radius || Math.sqrt(bounding.extents[0] * bounding.extents[0] + bounding.extents[1] * bounding.extents[1] + bounding.extents[2] * bounding.extents[2]);
         const aspect = this.width / this.height;
         const size = 1 < aspect ? radius : radius / aspect;
         const distance = size / Math.tan(0.5 * this.fov);
+        this.nearZ = Math.max(distance * 0.1, 0.01);
+        if (Math.min(bounding.extents[0], bounding.extents[2]) / bounding.extents[1] > 100 && pitch === undefined) {
+            pitch = 90;
+        }
         this.Set3D(bounding.center, distance, pitch || 0, yaw || 0);
     }
     Move(offsetX, offsetY, width, height) {
@@ -114,6 +118,22 @@ export class Camera extends Miaoverse.Resource {
             origin: this._global.Vector3(ray.slice(0, 3)),
             dir: this._global.Vector3(ray.slice(3))
         };
+    }
+    HitHorizontal(x, y) {
+        const ray = this.ScreenPointToRay(x, y);
+        let distance = 10;
+        if (0.01 < Math.abs(ray.dir.y)) {
+            distance = -ray.origin.y / ray.dir.y;
+            if (distance < 0) {
+                distance = 10;
+            }
+            else if (distance > 1000) {
+                distance = 1000;
+            }
+        }
+        const dir = ray.dir.MultiplyScalar(distance);
+        const pos = ray.origin.AddVector3(dir);
+        return pos;
     }
     GetMatrix(key) {
         return this._global.Matrix4x4(this._impl.Get(this._ptr, key));

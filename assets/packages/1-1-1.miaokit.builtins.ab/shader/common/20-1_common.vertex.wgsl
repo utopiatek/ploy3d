@@ -282,7 +282,8 @@ fn init_vertex_1(vertex: InputVS_1) {
     }
 
     // 如果顶点缓存中的属性vertex.qtbn.w < 0，将切线镜像到反方向
-    mesh_tangent = vec4f(tangent, vertex.qtbn.w);
+    // 注意我们使用四元数保存切线空间，W位并不表示切线的镜像，但我们保证了四元数W为正数，因此向上取整以兼容其它切线形式
+    mesh_tangent = vec4f(tangent, ceil(vertex.qtbn.w));
 }
 
 // 初始化顶点属性

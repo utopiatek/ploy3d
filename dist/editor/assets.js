@@ -20,6 +20,9 @@ export class Assets {
         molecule.panel.remove(this.panel.id);
     }
     renderPane(item, tab, group) {
+        if (!this.menu) {
+            return React.createElement("div", null, "\u8BF7\u5728\u8D44\u6E90\u5305\u7BA1\u7406\u9762\u677F\u9009\u62E9\u4E00\u4E2A\u8D44\u6E90\u5305\u67E5\u770B\uFF01");
+        }
         const thumbnailUrl = this.menu.thumbnail;
         const thumbnailWidth = this.menu.thumbnail_per_row * 96;
         const thumbnailHeight = this.menu.thumbnail_row_count * 96;
@@ -48,7 +51,7 @@ export class Assets {
                     isDragging: monitor.isDragging(),
                 };
             },
-        }, []);
+        }, [props.item]);
         return (React.createElement("div", { ref: dragRef, style: {
                 width: "96px",
                 height: "120px",

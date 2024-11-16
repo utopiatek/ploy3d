@@ -138,8 +138,12 @@ export declare class Resources {
     GetPackageByKey(key: string): Miaoverse.PackageReg;
     /** 资源包注册表（该清单可缓存）。 */
     get packageList(): Miaoverse.PackageReg[];
+    /** 用户空间。 */
+    get userSpace(): Miaoverse.UserSpace;
     /** 模块实例对象。 */
     private _global;
+    /** 用户空间。 */
+    private _user_space;
     /** 资源包键名到资源包注册号的查找表。 */
     private _pkg_keyLut;
     /** 资源包UUID到资源包注册号的查找表。 */
@@ -170,6 +174,8 @@ export declare class Resources {
     Animator: Miaoverse.Animator_kernel;
     /** 倾斜摄影组件内核实现。 */
     Dioramas: Miaoverse.Dioramas_kernel;
+    /** 脚本内核实现。 */
+    Script: Miaoverse.Script_kernel;
     /** 3D对象内核实现。 */
     Object: Miaoverse.Object_kernel;
     /** 场景内核实现。 */
@@ -389,7 +395,13 @@ export declare const enum CLASSID {
     /** 3D场景（BIN，数据文件，类似于ASSET_PREFAB，但以二进制形式保存，不可作为预制件使用）。 */
     ASSET_SCENE = 66,
     /** 3D对象（JSON，描述文件）。 */
-    ASSET_OBJECT = 67
+    ASSET_OBJECT = 67,
+    /** 脚本模块。 */
+    ASSET_SCRIPT = 68,
+    /** 数据提供器。 */
+    ASSET_DATA_PROVIDER = 69,
+    /** UI面板配置。 */
+    ASSET_UI_PANEL = 70
 }
 /** 资源数据格式标识基数。 */
 export declare const MAGIC_INVALID = 1297174816;

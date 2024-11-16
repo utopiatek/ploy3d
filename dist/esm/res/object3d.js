@@ -132,7 +132,7 @@ export class Object3D extends Miaoverse.Resource {
         });
     }
     get position() {
-        return this.wfmMat.MultiplyVector3(1, this._global.Vector3([0, 0, 0]));
+        return this._global.Vector3(this._impl["_GetPosition"](this._ptr));
     }
     set position(pos) {
         this._impl["_SetPosition"](this._ptr, pos.x, pos.y, pos.z);
@@ -208,18 +208,28 @@ export class Object3D extends Miaoverse.Resource {
             component["_refCount"]++;
         }
     }
+    get prefab() {
+        return this._prefab;
+    }
     _impl;
     _name = "object3d";
+    _prefab;
 }
 export class Object_kernel extends Miaoverse.Base_kernel {
     constructor(_global) {
         super(_global, Object_member_index);
     }
-    async Create(scene) {
+    async Create(scene, name, prefab) {
         const ptr = this._Instance(scene.internalPtr, 0);
         const id = this._instanceIdle;
         this._instanceIdle = this._instanceList[id]?.id || id + 1;
         const instance = this._instanceList[id] = new Object3D(this, ptr, id);
+        if (name) {
+            instance.name = name;
+        }
+        if (prefab) {
+            instance["_prefab"] = prefab;
+        }
         this._instanceCount++;
         return instance;
     }
@@ -245,6 +255,26 @@ export class Object_kernel extends Miaoverse.Base_kernel {
         this._instanceList = null;
         this._instanceLut = null;
     }
+    GetBounding(objects, traverse) {
+        const min = [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE];
+        const max = [-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE];
+        for (let obj of objects) {
+            if (obj) {
+                const aabb = this._GetAABB(obj.internalPtr, traverse ? 1 : 0);
+                min[0] = min[0] < aabb[0] ? min[0] : aabb[0];
+                min[1] = min[1] < aabb[1] ? min[1] : aabb[1];
+                min[2] = min[2] < aabb[2] ? min[2] : aabb[2];
+                max[0] = max[0] > aabb[3] ? max[0] : aabb[3];
+                max[1] = max[1] > aabb[4] ? max[1] : aabb[4];
+                max[2] = max[2] > aabb[5] ? max[2] : aabb[5];
+            }
+        }
+        const center = [(min[0] + max[0]) * 0.5, (min[1] + max[1]) * 0.5, (min[2] + max[2]) * 0.5];
+        const extents = [Math.max((max[0] - min[0]) * 0.5, 0.01), Math.max((max[1] - min[1]) * 0.5, 0.01), Math.max((max[2] - min[2]) * 0.5, 0.01)];
+        const radius = Math.sqrt(extents[0] * extents[0] + extents[1] * extents[1] + extents[2] * extents[2]);
+        return { center, extents, radius };
+    }
+    ;
     _Instance;
     _Destroy;
     _Flush;
@@ -253,6 +283,7 @@ export class Object_kernel extends Miaoverse.Base_kernel {
     _SetLocalMatrix;
     _SetPosition;
     _SetRotation;
+    _GetPosition;
     _SetParent;
     _SetMeshRenderer;
     _GetMeshRenderer;

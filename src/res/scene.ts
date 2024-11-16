@@ -12,6 +12,16 @@ export class Scene extends Miaoverse.Resource<Scene> {
         super(impl["_global"], ptr, id);
         this._impl = impl;
         this._impl.Set(this._ptr, "id", id);
+
+        this._prefab = {
+            uuid: "",
+            needSave: false,
+            master: null,
+            root: null,
+            instanceList: [],
+            instanceBeg: 0,
+            instanceCount: 0
+        };
     }
 
     /**
@@ -21,8 +31,305 @@ export class Scene extends Miaoverse.Resource<Scene> {
         this._impl["_Destroy"](this.internalPtr);
     }
 
+    /**
+     * 遍历处理每个场景根对象。
+     */
+    public ForEachRoot(proc: (index: number, obj: Miaoverse.Object3D) => void) {
+        let firstChild = this._impl["_FirstRoot"](this._ptr);
+        if (firstChild) {
+            let child = this._global.resources.Object.GetInstanceByPtr(firstChild);
+            let index = 0;
+
+            while (child) {
+                proc(index, child);
+                child = child.nextSib;
+                index++;
+            }
+        }
+    }
+
+    /**
+     * 保存当前场景。
+     */
+    public async Save() {
+        // 以下情况跳过保存
+        if (!this.prefab?.needSave || !this.prefab?.uuid) {
+            return null;
+        }
+
+        // 对应场景文件不存在则跳过保存
+        const userSpace = this._global.resources.userSpace;
+        const file = userSpace.GetNode(this.prefab.uuid);
+        if (!file) {
+            return null;
+        }
+
+        const batches: {
+            /** 根源预制件实例。 */
+            master: Prefab;
+            /** 当前批次实例根对象。 */
+            root: Miaoverse.Object3D;
+            /** 当前批次实例对象数组。 */
+            instanceList: Miaoverse.Object3D[];
+        }[] = [];
+
+        // 先根顺序遍历，生成源批次列表：
+        // 节点非运行时创建时（节点所属根源预制件标记了保存位）：
+        // 遇到以下情况节点将作为一个批次的预制件源：节点层标记包含Miaoverse.LAYER_FLAGS.PREFAB，节点所属预制件为根源预制件
+        // 遇到以下情况节点将作为一个批次的节点源: 对象属于当前场景预制件且含以下情况之一：父级为空、父级不属于当前场景预制件
+        const TraverseTree = (indexSib: number, obj: Miaoverse.Object3D) => {
+            // 对象所属根源预制件
+            const obj_master_prefab = obj.prefab?.master || obj.prefab;
+            // 根源预制件实例指示跟随场景保存
+            if (obj_master_prefab?.needSave) {
+                if (obj.layers == Miaoverse.LAYER_FLAGS.PREFAB && !obj.prefab.master) {
+                    batches.push({
+                        master: obj_master_prefab,
+                        root: obj_master_prefab.root,
+                        instanceList: obj_master_prefab.instanceList,
+                    });
+                }
+                else if (obj.prefab === this.prefab) {
+                    const obj_parent = obj.parent;
+                    if (!obj_parent || (obj_parent.prefab !== this.prefab)) {
+                        batches.push({
+                            master: null,
+                            root: obj,
+                            instanceList: [],
+                        });
+                    }
+                }
+            }
+
+            obj.ForEachChild(TraverseTree);
+        };
+
+        this.ForEachRoot(TraverseTree);
+
+        // ====================------------------------------------------------
+
+        // 场景数据
+        const asset: Asset_prefab = {
+            uuid: this.prefab.uuid,
+            classid: Miaoverse.CLASSID.ASSET_PREFAB,
+            name: this.prefab.uuid,
+            label: this.name,
+
+            scheme: "scene",
+            lnglat: this.lnglat,
+            altitude: this.altitude,
+
+            instanceCount: 0,
+            nodes: [],
+            batches: [],
+            transforms: [],
+            mesh_renderers: [],
+            animators: [],
+            dioramas: [],
+        };
+
+        // 场景实例对象索引
+        let instanceBeg = 0;
+
+        // 获取父级实例编号
+        const GetParentInstanceID = (obj: Miaoverse.Object3D) => {
+            let pid: number = undefined;
+            let parent = obj.parent;
+            if (parent) {
+                // TODO: 记录当前批次根节点的父级
+            }
+
+            return pid;
+        };
+
+        // 记录相关实例变换组件数据
+        const RecordTransform = (obj: Miaoverse.Object3D, instance: number, node?: number, parent?: number) => {
+            const localPosition = obj.localPosition.values;
+            const localRotation = obj.localRotation.values;
+            const localScale = obj.localScale.values;
+
+            const transform: typeof asset.transforms[0] = {
+                instance: instance,
+                node: node,
+                deactive: !obj.active,
+                layers: obj.layers,
+                parent: parent,
+                localPosition: [localPosition[0], localPosition[1], localPosition[2]],
+                localRotation: [localRotation[0], localRotation[1], localRotation[2], localRotation[3]],
+                localScale: [localScale[0], localScale[1], localScale[2]],
+                // localMatrix: undefined,
+                // bone_init: undefined,
+                // bone_ctrl: undefined,
+            };
+
+            // TODO: 为根对象设置参考经纬度
+
+            asset.transforms.push(transform);
+        };
+
+        // 记录相关实例网格渲染器组件数据
+        const RecordMeshRenderer = (obj: Miaoverse.Object3D, instance: number, node?: number) => {
+            const meshRenderer = obj.meshRenderer;
+            if (meshRenderer) {
+                if (!meshRenderer["_uuid"]) {
+                    // TODO: 保存网格渲染器组件
+                }
+
+                const joints_binding = meshRenderer.GetSkeleton();
+                if (joints_binding) {
+                    // TODO: 保存骨骼绑定
+                }
+
+                asset.mesh_renderers.push({
+                    instance: instance,
+                    node: node,
+                    mesh_renderer: meshRenderer["_uuid"],
+                    joints_binding: undefined
+                });
+            }
+        };
+
+        for (let batch of batches) {
+            if (batch.master) {
+                asset.batches.push({
+                    source: batch.master.uuid,
+                    instanceBeg: instanceBeg,
+                    instanceCount: batch.master.instanceCount,
+                });
+
+                // 获取父级实例编号
+                const pid = GetParentInstanceID(batch.root);
+
+                // 为预制件根对象保存变换组件数据
+                RecordTransform(batch.root, instanceBeg + batch.master.instanceCount - 1, undefined, pid);
+
+                instanceBeg += batch.master.instanceCount;
+            }
+            else {
+                const source = asset.nodes.length;
+                const list: Miaoverse.Object3D[] = batch.instanceList;
+
+                // 先根顺序深度优先遍历生成批次内所有节点。
+                // 遇到以下情况跳过该子级：子级不属于当前场景预制件
+                const TraverseBatch = (depth: number, parent: number, obj: Miaoverse.Object3D) => {
+                    if (obj.prefab !== this.prefab) {
+                        return;
+                    }
+
+                    const index = asset.nodes.length;
+
+                    list.push(obj);
+
+                    asset.nodes.push({
+                        index: index,
+                        id: "" + index,
+                        name: obj.name,
+                        depth: depth,
+                        parent: parent
+                    });
+
+                    obj.ForEachChild((_, _obj) => {
+                        TraverseBatch(depth + 1, index, _obj);
+                    });
+                };
+
+                TraverseBatch(0, -1, batch.root);
+
+                asset.batches.push({
+                    source: source,
+                    instanceBeg: instanceBeg,
+                    instanceCount: list.length,
+                });
+
+                for (let i = 0; i < list.length; i++) {
+                    const obj = list[i];
+                    const pid = i > 0 ? undefined : GetParentInstanceID(obj);
+
+                    RecordTransform(obj, instanceBeg + i, source + i, pid);
+
+                    RecordMeshRenderer(obj, instanceBeg + i, source + i);
+                }
+
+                instanceBeg += list.length;
+            }
+        }
+
+        // 预留一个槽位来存放运行时为预制件创建的根对象
+        asset.instanceCount = instanceBeg + 1;
+
+        // 倾斜摄影模型
+        const diorList = this._global.resources.Dioramas.GetInstanceList();
+        for (let dior of diorList) {
+            if (dior.scene == this) {
+                asset.dioramas.push({
+                    url: dior.url
+                });
+            }
+        }
+
+        // 保存相机状态
+        const camera: Miaoverse.Camera = (this._global.app as any).camera;
+        const target = camera.target;
+        asset.viewState = {
+            target: [target[0], target[1], target[2]],
+            distance: camera.distance,
+            pitch: camera.pitch,
+            yaw: camera.yaw
+        }
+
+        // ====================------------------------------------------------
+
+        userSpace.Update(file.id, JSON.stringify(asset));
+
+        return asset;
+    }
+
+    /** 场景名称。 */
+    public get name(): string {
+        return this._name;
+    }
+    public set name(name: string) {
+        this._name = name;
+    }
+
+    /** 场景参考经纬度坐标（使用GCJ02坐标系）。 */
+    public get lnglat() {
+        const wgs84 = this._impl.Get<number[]>(this._ptr, "worldLLMC");
+        const gcj02 = this._global.gis.WGS84_GCJ02([wgs84[0], wgs84[1]]);
+        return gcj02;
+    }
+    public set lnglat(gcj02: number[]) {
+        const ll = this._global.gis.GCJ02_WGS84(gcj02);
+        const mc = this._global.gis.LL2MC(ll);
+        this._impl.Set(this._ptr, "worldLLMC", [ll[0], ll[1], mc[0], mc[1]]);
+    }
+
+    /** 场景参考海拔高度。 */
+    public get altitude() {
+        return this._impl.Get<number>(this._ptr, "altitude");
+    }
+    public set altitude(value: number) {
+        this._impl.Set(this._ptr, "altitude", value);
+    }
+
+    /** 场景预制件实例（场景保存为预制件，从预制件装载）。 */
+    public get prefab() {
+        return this._prefab;
+    }
+
+    /** 默认相机状态。 */
+    public get viewState() {
+        return this._viewState;
+    }
+
     /** 内核实现。 */
     private _impl: Scene_kernel;
+    /** 场景名称。 */
+    private _name: string = "scene";
+    /** 场景预制件实例（场景保存为预制件，从预制件装载）。 */
+    private _prefab: Prefab;
+    /** 默认相机状态。 */
+    private _viewState?: Asset_prefab["viewState"];
 }
 
 /** 场景内核实现。 */
@@ -147,8 +454,8 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
      * @param listBeg 3D对象数组起始添加偏移。
      * @returns 返回预制件实例数据。
      */
-    public async InstancePrefab(scene: Scene, uri: string, pkg?: Miaoverse.PackageReg, master?: Prefab, listBeg?: number) {
-        const prefab: Prefab = {
+    public async InstancePrefab(scene: Scene, uri: string, pkg?: Miaoverse.PackageReg, master?: Prefab, listBeg?: number, loadScene?: boolean) {
+        let prefab: Prefab = {
             uuid: "",
             master: master,
             root: null,
@@ -172,9 +479,25 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
 
         pkg = desc.pkg;
 
-        prefab.root = await this._global.resources.Object.Create(scene);
-        prefab.root.layers = Miaoverse.LAYER_FLAGS.PREFAB;
-        prefab.instanceCount = data.instanceCount;
+        // 非场景数据，不能按场景方案装载
+        if (loadScene && data.scheme != "scene") {
+            loadScene = false;
+        }
+
+        // 加载场景不创建根对象
+        if (loadScene) {
+            prefab = scene.prefab;
+            prefab.master = null;
+            prefab.root = null;
+            prefab.instanceList = [];
+            prefab.instanceBeg = 0;
+            prefab.instanceCount = data.instanceCount;
+        }
+        else {
+            prefab.root = await this._global.resources.Object.Create(scene, data.name, prefab);
+            prefab.root.layers = Miaoverse.LAYER_FLAGS.PREFAB;
+            prefab.instanceCount = data.instanceCount;
+        }
 
         // 对于DAZ角色预制件，我们缓存身体网格原始数据，并使服装网格自适应包裹身体网格
         const daz_figure: {
@@ -186,22 +509,44 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
 
         for (let batch of data.batches) {
             if (typeof batch.source == "string") {
-                const child_prefab = await this.InstancePrefab(scene, batch.source, desc.pkg, prefab.master, prefab.instanceBeg + batch.instanceBeg);
+                const child_prefab = await this.InstancePrefab(scene, batch.source, desc.pkg, prefab.master || prefab, prefab.instanceBeg + batch.instanceBeg);
 
                 if (child_prefab.instanceCount != batch.instanceCount) {
                     this._global.Track(`Scene_kernel.InstancePrefab: 预制件 ${uuid} 实际3D对象实例数量 ${child_prefab.instanceCount} 与预期 ${batch.instanceCount} 不符！`, 3);
                 }
 
-                child_prefab.root.SetParent(prefab.root);
+                // 加载场景不创建根对象
+                if (!loadScene) {
+                    child_prefab.root.SetParent(prefab.root);
+                }
+                // 场景引用的资源包需要被保存
+                else {
+                    // 修改场景的直接子预制件，使场景保存的时候它们能被识别为预制件批次源
+                    // 实例化场景的直接子预制件，时必须设置场景预制件为它们的根源预制件，否则它们的实例对象无法合并到场景实例对象列表中，也就影响了后续组件的绑定
+                    child_prefab.master = null;
+                    child_prefab.needSave = true;
+
+                    // 为批次根节点设置参考经纬度
+                    if (data.lnglat) {
+                        child_prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+                    }
+                }
             }
             else {
-                const instances = await this.InstanceNode(scene, batch.source, prefab.instanceBeg + batch.instanceBeg, data.nodes, prefab.instanceList);
+                const instances = await this.InstanceNode(scene, batch.source, prefab.instanceBeg + batch.instanceBeg, data.nodes, prefab.instanceList, prefab);
 
                 if (instances.instanceCount != batch.instanceCount) {
                     this._global.Track(`Scene_kernel.InstancePrefab: 节点源 ${uuid} 实际3D对象实例数量 ${instances.instanceCount} 与预期 ${batch.instanceCount} 不符！`, 3);
                 }
 
-                instances.root.SetParent(prefab.root);
+                // 加载场景不创建根对象
+                if (!loadScene) {
+                    instances.root.SetParent(prefab.root);
+                }
+                // 为批次根节点设置参考经纬度
+                else if (data.lnglat) {
+                    instances.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+                }
             }
         }
 
@@ -352,7 +697,19 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
         }
 
         if (data.lnglat) {
-            prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+            // 加载场景不创建根对象
+            if (!loadScene) {
+                prefab.root.SetLngLat(data.lnglat[0], data.lnglat[1], data.altitude || 0);
+            }
+            // 加载场景
+            else {
+                scene.lnglat = data.lnglat;
+                scene["_viewState"] = data.viewState;
+
+                for (let dior of (data.dioramas || [])) {
+                    await this._global.resources.Dioramas.Create_3mx(scene, dior.url);
+                }
+            }
         }
 
         return prefab;
@@ -367,7 +724,7 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
      * @param instanceList 3D对象数组。
      * @returns 返回实例化出的3D对象数量。
      */
-    protected async InstanceNode(scene: Scene, source: number, listBeg: number, nodes: Asset_prefab["nodes"], instanceList: Miaoverse.Object3D[]) {
+    protected async InstanceNode(scene: Scene, source: number, listBeg: number, nodes: Asset_prefab["nodes"], instanceList: Miaoverse.Object3D[], prefab: Prefab) {
         let instanceCount = 0;
 
         // 最小层级深度约束（应大于源节点层级深度）
@@ -392,12 +749,10 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
             }
 
             // 实例化节点为3D对象
-            const instance = await this._global.resources.Object.Create(scene);
+            const instance = await this._global.resources.Object.Create(scene, asset.name, prefab);
 
             // 添加到实例列表
             instanceList[listBeg + instanceCount++] = instance;
-
-            instance.name = asset.name;
 
             // 构建父子关系
             if (parent) {
@@ -433,6 +788,11 @@ export class Scene_kernel extends Miaoverse.Base_kernel<Scene, typeof Scene_memb
      * 基于屏幕拾取射线与对象包围盒相交法拾取最近对象。
      */
     protected _Raycast: (camera: Miaoverse.io_ptr, screenX: number, screenY: number, layerMask: number) => Miaoverse.io_ptr;
+
+    /**
+     * 获取场景第一个根节点。
+     */
+    protected _FirstRoot: (scene: Miaoverse.io_ptr) => Miaoverse.io_ptr;
 }
 
 /** 场景内核实现的数据结构成员列表。 */
@@ -457,12 +817,12 @@ export const Scene_member_index = {
  */
 export interface Asset_prefab extends Miaoverse.Asset {
     /** 预制件构建体系（不同体系预制件实例化方法存在一些区别）。 */
-    scheme?: "daz";
+    scheme?: "scene" | "daz";
 
     /**
      * 预制件参考经纬度坐标（使用GCJ02坐标系）。
      */
-    lnglat?: [number, number];
+    lnglat?: number[];
 
     /**
      * 预制件参考海拔高度。
@@ -475,6 +835,20 @@ export interface Asset_prefab extends Miaoverse.Asset {
      * 该自动创建的根对象放置在当前实例数组末尾，不影响实例索引排序。
      */
     instanceCount: number;
+
+    /**
+     * 默认相机状态。
+     */
+    viewState?: {
+        /** 观察目标坐标（世界空间）。 */
+        target?: number[];
+        /** 距观察目标距离。 */
+        distance?: number;
+        /** 相机俯角。 */
+        pitch?: number;
+        /** 相机偏航角。 */
+        yaw?: number;
+    };
 
     /**
      * 节点数组。
@@ -675,6 +1049,14 @@ export interface Asset_prefab extends Miaoverse.Asset {
          */
         targets_binding?: number[];
     }[];
+
+    /**
+     * 倾斜摄影模型。
+     */
+    dioramas?: {
+        /** 模型资源URL。 */
+        url: string;
+    }[];
 }
 
 /**
@@ -683,6 +1065,8 @@ export interface Asset_prefab extends Miaoverse.Asset {
 export interface Prefab {
     /** 预制件UUID。 */
     uuid: string;
+    /** 场景保存时该预制件的对象是否需要保存。 */
+    needSave?: boolean;
     /** 根源预制件实例（预制件可嵌套）。 */
     master?: Prefab;
     /** 当前预制件根对象（不是从预制件节点实例化出的，而是引擎自动创建用于容纳预制件的，预制件实例化3D对象数量包含了该实例）。 */

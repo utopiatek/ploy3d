@@ -112,6 +112,14 @@
                     1,
                     1
                 ]
+            },
+            "noiseTex": {
+                "note": "噪音贴图。",
+                "sign": "texture_2d<f32>"
+            },
+            "moonTex": {
+                "note": "月球表面贴图。",
+                "sign": "texture_2d<f32>"
             }
         },
         "codes": {
@@ -127,7 +135,8 @@
                 "includes": [
                     ":/shader/common/20-0_common.wgsl",
                     ":/shader/common/20-2_common.varyings.wgsl",
-                    ":/shader/common/20-3_common.material.wgsl"
+                    ":/shader/common/20-3_common.material.wgsl",
+                    ":/shader/common/20-7_common.sky_ocean.wgsl"
                 ],
                 "main": ":/shader/gis_ulit/20-36_gis_ulit.material.wgsl"
             },

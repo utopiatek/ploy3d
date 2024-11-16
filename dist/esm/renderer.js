@@ -122,8 +122,8 @@ export class DrawQueue {
             drawPartCount: 0,
             computeCount: 0,
         };
-        this.camera.width = this._global.width;
-        this.camera.height = this._global.height;
+        this.camera.width = 128;
+        this.camera.height = 128;
         if (!this._snapshotUtil) {
             this._snapshotUtil = {};
             this._snapshotUtil.outputCanvas = document.createElement('canvas');
@@ -516,6 +516,7 @@ export class DrawQueue {
     }
     BindFrameUniforms(frameUniforms, shadow_cast_index = -1) {
         const infoRT = this._global.assembly.config.renderTargets;
+        frameUniforms.view.time = [this._global.env.frameTS * 0.001];
         frameUniforms.UpdateFrameUniforms(this.camera, this.volume);
         frameUniforms.view.targetInfo = [infoRT.width, infoRT.width * infoRT.scale, 1.0 / (infoRT.width * infoRT.scale), infoRT.scale];
         if (shadow_cast_index > -1) {

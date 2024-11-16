@@ -670,9 +670,6 @@ export class PloyApp {
         const curtime = this.engine.env.frameTS;
         this._fps = 60000 / (curtime - this._fpsTime);
         this._fpsTime = curtime;
-        this.engine.Track("fps: " + this._fps);
-        const kernel = this.engine.kernel.Status();
-        console.info(kernel);
     }
     engine;
     started;
@@ -710,6 +707,9 @@ export class SimpleSignal {
     }
     AddListener(listener) {
         this._signal.add(listener, this);
+    }
+    RemoveListener(listener) {
+        this._signal.remove(listener, this);
     }
     async Dispatch(data) {
         if (data === undefined && this._generator) {

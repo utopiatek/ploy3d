@@ -1141,11 +1141,11 @@ export class PloyApp {
         this._fps = 60000 / (curtime - this._fpsTime);
         this._fpsTime = curtime;
 
-        this.engine.Track("fps: " + this._fps);
+        // this.engine.Track("fps: " + this._fps);
 
-        const kernel = this.engine.kernel.Status();
+        // const kernel = this.engine.kernel.Status();
 
-        console.info(kernel);
+        // console.info(kernel);
     }
 
     /** 引擎实例。 */
@@ -1232,6 +1232,14 @@ export class SimpleSignal<T, G> {
      */
     public AddListener(listener: (data: T, old?: T) => void) {
         this._signal.add(listener, this);
+    }
+
+    /**
+     * 移除事件监听器。
+     * @param listener 事件监听器。
+     */
+    public RemoveListener(listener: (data: T, old?: T) => void) {
+        this._signal.remove(listener, this);
     }
 
     /**

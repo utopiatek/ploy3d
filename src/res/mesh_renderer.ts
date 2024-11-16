@@ -47,6 +47,21 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
     }
 
     /**
+     * 获取当前绑定的网格骨骼蒙皮骨架关节实例。
+     * @returns 
+     */
+    public GetSkeleton() {
+        const enabled = this._impl.Get<number>(this._ptr, "skeleton_skin_enabled");
+        if (enabled) {
+            const array_ptr = this._impl.Get<Miaoverse.io_ptr>(this._ptr, "skeleton_skin_joints");
+            const joints: Miaoverse.io_ptr[] = this._global.env.uarrayGet(array_ptr, 0, 1) as any; // TODO 获取长度
+            return joints;
+        }
+
+        return undefined;
+    }
+
+    /**
      * 基于指定3D对象更新G1相关数据。
      * @param object3d 3D对象内核实例指针。
      */
@@ -161,7 +176,7 @@ export class MeshRenderer extends Miaoverse.Uniform<MeshRenderer_kernel> {
         return this._impl.Get<number>(this._ptr, "boneBuffer");
     }
 
-    /** 骨骼蒙皮骨骼变换数据数组空间起始索引。。 */
+    /** 骨骼蒙皮骨骼变换数据数组空间起始索引。 */
     public get boneArrayStart() {
         return this._impl.Get<number>(this._ptr, "boneArrayStart");
     }

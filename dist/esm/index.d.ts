@@ -121,7 +121,12 @@ export declare class Ploy3D {
             Memory_blockCount: number;
             Memory_useCount: number;
             Memory_freeCount: number;
-            Memory_blockSize: number;
+            Memory_blockSize: number; /**
+             * 加载图像元素。
+             * @param src 图片URL。
+             * @param crossOrigin 允许跨域资源。
+             * @returns 返回图像元素。
+             */
             Memory_useSize: number;
             Memory_freeSize: number;
             System_frameTS: number;
@@ -304,11 +309,11 @@ export declare class PloyApp {
         material: Miaoverse.Material;
         /** 网格绘制参数对象。 */
         draw_params: {
-            /**
-             * 销毁当前信号对象。
-             */
             flags: number;
             layers: number;
+            /**
+             * 移除所有事件监听器。
+             */
             userData: number;
             castShadows?: boolean;
             receiveShadows?: boolean;
@@ -452,6 +457,11 @@ export declare class SimpleSignal<T, G> {
      * @param listener 事件监听器。
      */
     AddListener(listener: (data: T, old?: T) => void): void;
+    /**
+     * 移除事件监听器。
+     * @param listener 事件监听器。
+     */
+    RemoveListener(listener: (data: T, old?: T) => void): void;
     /**
      * 设置事件最新参数并触发事件。
      * @param data 事件最新参数，未定义则内部通过参数生成器生成。

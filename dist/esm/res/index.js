@@ -2,6 +2,7 @@ import * as Miaoverse from "../mod.js";
 export class Resources {
     constructor(_global) {
         this._global = _global;
+        this._user_space = new Miaoverse.UserSpace(_global);
         this._pkg_keyLut = {};
         this._pkg_uuidLut = {};
         this._pkg_list = [null];
@@ -17,6 +18,7 @@ export class Resources {
         this.Volume = new Miaoverse.Volume_kernel(_global);
         this.Animator = new Miaoverse.Animator_kernel(_global);
         this.Dioramas = new Miaoverse.Dioramas_kernel(_global);
+        this.Script = new Miaoverse.Script_kernel(_global);
         this.Object = new Miaoverse.Object_kernel(_global);
         this.Scene = new Miaoverse.Scene_kernel(_global);
     }
@@ -110,10 +112,23 @@ export class Resources {
                 zip: false
             };
             this.Register(pkg);
+            const pkg_us = {
+                index: 0,
+                key: "0-0-0.user.space",
+                uuid: "0-0-0",
+                invalid: false,
+                path: "",
+                zip: false,
+                meta: {},
+                resid_path: {},
+            };
+            this.Register(pkg_us);
         }
         return this;
     }
     async Dispose() {
+        this._user_space.Dispose();
+        this._user_space = null;
         this.GC();
         this.Dioramas = null;
         this.Scene["DisposeAll"]();
@@ -247,7 +262,14 @@ export class Resources {
                 await this.Preview(pkg);
             }
             if (pkg.resid_path) {
-                path = pkg.resid_path[resid];
+                if (keys.uuid[0] == "0-0-0") {
+                    path = await this.userSpace.GetData(resid);
+                    if (type == "json") {
+                        path = JSON.parse(path);
+                    }
+                    return { pkg, data: path, path: resid };
+                }
+                path = pkg.resid_path[resid] || pkg.resid_path[keys.uuid[0] + "-" + resid];
                 if (typeof path != "string") {
                     return { pkg, data: path, path: resid };
                 }
@@ -413,6 +435,12 @@ export class Resources {
             console.warn("资源包已注册！", entry.key);
             return;
         }
+        if (entry.location == "store") {
+            entry.path = "https://oss.ploycloud.com/" + entry.path;
+            if (entry.menu.thumbnail == "thumbnail.jpg") {
+                entry.menu.thumbnail = entry.path + "/thumbnail.jpg";
+            }
+        }
         entry.index = this._pkg_list.length;
         this._pkg_list.push(entry);
         this._pkg_keyLut[entry.key] = entry.index;
@@ -519,7 +547,11 @@ export class Resources {
     get packageList() {
         return this._pkg_list;
     }
+    get userSpace() {
+        return this._user_space;
+    }
     _global;
+    _user_space;
     _pkg_keyLut;
     _pkg_uuidLut;
     _pkg_list;
@@ -535,6 +567,7 @@ export class Resources {
     Volume;
     Animator;
     Dioramas;
+    Script;
     Object;
     Scene;
 }

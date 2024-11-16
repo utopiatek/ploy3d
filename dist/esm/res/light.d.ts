@@ -106,7 +106,7 @@ export declare const Light_member_index: {
     readonly spotCone: Miaoverse.Kernel_member;
     readonly spotScaleOffset: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
-    readonly version: Miaoverse.Kernel_member; /** 组件所属对象。 */
+    readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;

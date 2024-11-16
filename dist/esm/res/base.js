@@ -33,6 +33,9 @@ export class Base_kernel {
     GetInstanceByID(id) {
         return this._instanceList[id];
     }
+    GetInstanceList() {
+        return this._instanceList.filter((item) => !!(item?.["_impl"]));
+    }
     _global;
     _members;
     _instanceList = [null];

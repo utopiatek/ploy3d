@@ -75,13 +75,24 @@ fn material_vs() ->OutputVS {
 
     var normal = normalize(vertex);
 
-    vertex.y -= radius;
+    // 计算地形高度
+    let had_dem = materialParams.layers_enabled.x;
+    var height = 0.0;
+    if (had_dem > 0 && materialParams.layers_uvst0.z < 1.0) {
+        let layer = materialParams.layers_layer.x;
+        let uvst = materialParams.layers_uvst0;
+        let uv = uvst.xy + uvst.zw * mesh_uv;
+        let dem = textureSampleLevel(atlas2D, splln1, uv, layer, 0);
+        height = ((dem.r * 256.0 * 256.0 * 256.0) + (dem.g * 256.0 * 256.0) + (dem.b * 256.0)) * 0.001 - 991.0;
+    }
+
+    vertex.y -= radius - height;
 
     if (materialParams.level > 16) {
         let center_lat = (2.0 * atan(exp((materialParams.centerMC.y * 3.141592654) / perimeter_half)) - 1.570796327);
         let scale = cos(center_lat);
 
-        vertex = vec3f((mesh_xz.x - materialParams.movedMC.x) * scale, 0.0, (mesh_xz.y + materialParams.movedMC.y) * scale);
+        vertex = vec3f((mesh_xz.x - materialParams.movedMC.x) * scale, height, (mesh_xz.y + materialParams.movedMC.y) * scale);
     }
 
     vertex.x += materialParams.targetXZ.x;
@@ -109,7 +120,8 @@ fn material_vs() ->OutputVS {
     output.gl_Position = output.clipPosition;
 
     output.litPosition = computeLightSpacePosition(output.viewPosition.xyz, output.viewNormal, 0u);
-    
+    output.custom2 = worldPosition;
+
     // 对于VSM，我们使用光照空间线性Z坐标作为深度度量，它适用于平行光和聚光灯，并且可以安全地进行插值
     // 在相机空间中，该值保证在[-znear，-zfar]之间，使用output.viewPosition.w存储内插光照空间深度
     let z_ = output.viewPosition.z;

@@ -52,6 +52,31 @@ export class Importer_gltf {
             zip: false,
             meta: pkg
         };
+        if (true) {
+            const zip = this._data.asset.extras.zip;
+            const path = this._data.asset.extras.path;
+            const license_path = path + "license.txt";
+            try {
+                if (zip) {
+                    const license_txt_file = zip.file(license_path);
+                    if (license_txt_file) {
+                        const license_txt = await license_txt_file.async("text");
+                        if (license_txt) {
+                            this._files_cache["license.txt"] = license_txt;
+                        }
+                    }
+                }
+                else {
+                    const license_txt = await this._worker.Fetch(license_path, null, "text");
+                    if (license_txt) {
+                        this._files_cache["license.txt"] = license_txt;
+                    }
+                }
+            }
+            catch (e) {
+                console.info('找不到模型包版权声明文件"license.txt"！', e);
+            }
+        }
         return { pkg: pkg_reg, files: this._files_cache };
     }
     async LoadBuffers() {
@@ -956,7 +981,7 @@ export class Importer_gltf {
             }
             skeleton_buffer = buffer;
         }
-        return [root_index, joints_name, skeleton_buffer, null];
+        return [root_index, joints_name, new Uint8Array(skeleton_buffer), null];
     }
     async LoadAnimations() {
         if (!this._data.animations) {
@@ -1032,7 +1057,7 @@ export class Importer_gltf {
         const uuid = "" + 40 + "-0";
         const asset_name = this._data.asset.extras.name;
         const file_path = `anims/${uuid}_${asset_name}.bin`;
-        this._files_cache[file_path] = buffer;
+        this._files_cache[file_path] = new Uint8Array(buffer);
         const asset = {
             uuid: "" + 41 + "-0",
             classid: 41,

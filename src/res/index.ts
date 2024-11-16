@@ -44,6 +44,7 @@ export class Resources {
      */
     public constructor(_global: Miaoverse.Ploy3D) {
         this._global = _global;
+        this._user_space = new Miaoverse.UserSpace(_global);
 
         this._pkg_keyLut = {};
         this._pkg_uuidLut = {};
@@ -61,6 +62,7 @@ export class Resources {
         this.Volume = new Miaoverse.Volume_kernel(_global);
         this.Animator = new Miaoverse.Animator_kernel(_global);
         this.Dioramas = new Miaoverse.Dioramas_kernel(_global);
+        this.Script = new Miaoverse.Script_kernel(_global);
         this.Object = new Miaoverse.Object_kernel(_global);
         this.Scene = new Miaoverse.Scene_kernel(_global);
     }
@@ -175,6 +177,7 @@ export class Resources {
         // ========================-------------------------------
 
         // 在不允许访问本地文件夹时，无法扫描本地资源包，因此在此处注册默认资源包
+        // 同时注册用户空间资源包
         if (!this._global.localFS) {
             const pkg: PackageReg = {
                 index: 0,
@@ -186,6 +189,19 @@ export class Resources {
             };
 
             this.Register(pkg);
+
+            const pkg_us: PackageReg = {
+                index: 0,
+                key: "0-0-0.user.space",
+                uuid: "0-0-0",
+                invalid: false,
+                path: "",
+                zip: false,
+                meta: {} as any,
+                resid_path: {},
+            };
+
+            this.Register(pkg_us);
         }
 
         // ========================-------------------------------
@@ -197,6 +213,9 @@ export class Resources {
      * 清除对象。
      */
     public async Dispose() {
+        this._user_space.Dispose();
+        this._user_space = null;
+
         this.GC();
 
         // 释放所有倾斜摄影模型【dioramas_3mx.ts】 ====--------------------------------
@@ -423,7 +442,18 @@ export class Resources {
             }
 
             if (pkg.resid_path) {
-                path = pkg.resid_path[resid];
+                // 加载当前用户空间种的资源(TODO: 不应运行运行中切换用户)
+                if (keys.uuid[0] == "0-0-0") {
+                    path = await this.userSpace.GetData(resid) as string;
+                    if (type == "json") {
+                        path = JSON.parse(path);
+                    }
+
+                    return { pkg, data: path as T, path: resid };
+                }
+
+                // TODO: 资源包导入时，不应使用完整UUID标识
+                path = pkg.resid_path[resid] || pkg.resid_path[keys.uuid[0] + "-" + resid];
 
                 // 子类资源数据直接保存在描述文件中，直接返回
                 if (typeof path != "string") {
@@ -662,6 +692,13 @@ export class Resources {
             return;
         }
 
+        if (entry.location == "store") {
+            entry.path = "https://oss.ploycloud.com/" + entry.path;
+            if (entry.menu.thumbnail == "thumbnail.jpg") {
+                entry.menu.thumbnail = entry.path + "/thumbnail.jpg";
+            }
+        }
+
         entry.index = this._pkg_list.length;
 
         this._pkg_list.push(entry);
@@ -818,8 +855,15 @@ export class Resources {
         return this._pkg_list;
     }
 
+    /** 用户空间。 */
+    public get userSpace() {
+        return this._user_space;
+    }
+
     /** 模块实例对象。 */
     private _global: Miaoverse.Ploy3D;
+    /** 用户空间。 */
+    private _user_space: Miaoverse.UserSpace;
 
     /** 资源包键名到资源包注册号的查找表。 */
     private _pkg_keyLut: Record<string, number>;
@@ -859,6 +903,8 @@ export class Resources {
     public Animator: Miaoverse.Animator_kernel;
     /** 倾斜摄影组件内核实现。 */
     public Dioramas: Miaoverse.Dioramas_kernel;
+    /** 脚本内核实现。 */
+    public Script: Miaoverse.Script_kernel;
     /** 3D对象内核实现。 */
     public Object: Miaoverse.Object_kernel;
     /** 场景内核实现。 */
@@ -1110,6 +1156,12 @@ export const enum CLASSID {
     ASSET_SCENE,
     /** 3D对象（JSON，描述文件）。 */
     ASSET_OBJECT,
+    /** 脚本模块。 */
+    ASSET_SCRIPT,
+    /** 数据提供器。 */
+    ASSET_DATA_PROVIDER,
+    /** UI面板配置。 */
+    ASSET_UI_PANEL,
 }
 
 /** 资源数据格式标识基数。 */

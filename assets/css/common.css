@@ -7,6 +7,13 @@ body {
     overflow: hidden;
 }
 
+#eruda {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+
 #canvas3d {
     position: absolute;
     width: 100%;

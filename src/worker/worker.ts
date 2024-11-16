@@ -1,6 +1,8 @@
 import type { PackageReg, GLPrimitiveTopology } from "../mod.js"
 import { Kernel, SharedENV, Internal } from "../kernel.js"
 import { Importer } from "./importer.js"
+export { localforage } from "./localforage.js";
+import BASIS from "./basis_encoder.js"
 import pako from "./pako.esm.js"
 import earcut from "./earcut.js"
 import "./jszip.min.js"
@@ -32,6 +34,8 @@ export class Miaoworker {
         // 子线程中的消息监听
         if (!globalThis.document) {
             globalThis.onmessage = (ev: MessageEvent) => {
+                // 同步主线程的用户ID
+                this.uid = ev.data.uid;
                 this.OnMessage(ev.data);
             };
         }
@@ -238,8 +242,8 @@ const __worker = new Miaoworker();
      * @param file GLTF文件描述。
      * @returns 异步对象。
      */
-    public Import_gltf_file(worker: number, file: File, progress: (rate: number, msg: string) => void): Promise<PackageReg> {
-        return new Promise<PackageReg>((resolve, reject) => {
+    public Import_gltf_file(worker: number, file: File, progress: (rate: number, msg: string) => void) {
+        return new Promise<Awaited<ReturnType<Importer["Import_gltf"]>>>((resolve, reject) => {
             if (this.closed) {
                 reject("事务处理器已关闭！");
                 return;
@@ -458,12 +462,124 @@ const __worker = new Miaoworker();
      * @returns 返回压缩结果。
      */
     public async EncodeTexture(data_: ArrayBuffer, has_alpha: boolean) {
-        // TODO ...
+        const basis = await this.Basis();
+        if (!basis) {
+            return null;
+        }
 
-        return null as {
-            data: ArrayBuffer;
-            has_alpha: boolean;
-        };
+        let data: ArrayBuffer = data_;
+
+        // TODO: 子线程没有Image对象，无法缩放图片
+        if (this.workerID == 0) {
+            const data = await this.ResizeTexture(data_);
+        }
+
+        if (!data) {
+            return { data: null as ArrayBuffer, has_alpha }
+        }
+
+        const { KTX2File, BasisEncoder, initializeBasis, encodeBasisTexture } = basis;
+
+        initializeBasis();
+
+        const basisEncoder = new BasisEncoder();
+
+        const qualityLevel = 128;
+        const uastcFlag = false;
+
+        basisEncoder.setCreateKTX2File(true);
+        basisEncoder.setKTX2UASTCSupercompression(true);
+        basisEncoder.setKTX2SRGBTransferFunc(true);
+
+        basisEncoder.setSliceSourceImage(0, new Uint8Array(data), 0, 0, true);
+        basisEncoder.setDebug(false);
+        basisEncoder.setComputeStats(false);
+        basisEncoder.setPerceptual(true);
+        basisEncoder.setMipSRGB(true);
+        basisEncoder.setQualityLevel(qualityLevel);
+        basisEncoder.setUASTC(uastcFlag);
+        basisEncoder.setMipGen(true);
+        basisEncoder.setCheckForAlpha(has_alpha);
+
+        // 创建目标缓存，缓存空间不足将导致失败
+        const buffer = new Uint8Array(1024 * 1024 * 10);
+        const length = basisEncoder.encode(buffer);
+
+        basisEncoder.delete();
+
+        if (0 < length) {
+            let data = new Uint8Array(new Uint8Array(buffer.buffer, 0, length));
+
+            if (has_alpha) {
+                const file = new KTX2File(data);
+
+                if (file.isValid()) {
+                    has_alpha = file.getHasAlpha();
+                }
+                else {
+                    data = null;
+                }
+
+                file.close();
+                file.delete();
+            }
+
+            return { data: data.buffer, has_alpha };
+        }
+        else {
+            return { data: null as ArrayBuffer, has_alpha }
+        }
+    }
+
+    /** 
+     * 缩放贴图尺寸为2的次幂。
+     */
+    public ResizeTexture(buffer: ArrayBuffer) {
+        return new Promise<ArrayBuffer>(function (resolve, reject) {
+            const data = new Uint8Array(buffer);
+            const blob = new Blob([data]);
+            const url = globalThis.URL.createObjectURL(blob);
+
+            const image = new Image();
+            image.src = url;
+            image.onload = (e) => {
+                let width = Math.round(Math.log2(image.width));
+                let height = Math.round(Math.log2(image.height));
+
+                width = Math.max(6, Math.min(11, width));
+                height = Math.max(6, Math.min(11, height));
+
+                width = Math.pow(2, width);
+                height = Math.pow(2, height);
+
+                // TODO：某些JPG格式不支持，所以我们都进行一次缩放
+                if (true || width != image.width || height != image.height) {
+                    console.log("缩放贴图尺寸：", image.width, image.height, width, height);
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    ctx.drawImage(image, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        const reader = new FileReader();
+                        reader.readAsArrayBuffer(blob);
+                        reader.onload = function () {
+                            resolve(this.result as ArrayBuffer);
+                        };
+                    });
+                }
+                else {
+                    resolve(buffer);
+                }
+            };
+            image.onerror = (e) => {
+                reject(e);
+            };
+        });
     }
 
     /**
@@ -490,6 +606,7 @@ const __worker = new Miaoworker();
 
         // 发送给子线程
         if (this.worker) {
+            info.uid = this.uid;
             this.worker.postMessage(info, info.transfer);
         }
         // 发送给主线程。
@@ -688,6 +805,26 @@ const __worker = new Miaoworker();
         return await res[type]() as T;
     }
 
+    /** 
+     * 获取纹理压缩模块实例。
+     */
+    public async Basis() {
+        if (false || !BASIS) {
+            return null;
+        }
+
+        if (this.basis !== undefined) {
+            return this.basis;
+        }
+
+        const wasmBinary = await this.Fetch(this.baseURI + "lib/basis_encoder.wasm", null, "arrayBuffer");
+        this.basis = await BASIS({ wasmBinary, onRuntimeInitialized: () => { } }).catch((e) => {
+            this.basis = null;
+        });
+
+        return this.basis;
+    }
+
     /** 当前事务处理器ID（0为主线程）。 */
     private workerID: number;
     /** 子线程事务处理器（主线程包含）。 */
@@ -726,10 +863,14 @@ const __worker = new Miaoworker();
 
     /** GLTF导入缓存（避免运行期内重复导入）。 */
     public gltfCache: Record<string, Awaited<ReturnType<Miaoworker["Import_gltf"]>>> = {};
+    /** 纹理压缩模块实例。 */
+    private basis: any;
 }
 
 /** 事务信息。 */
 export interface WorkInfo {
+    /** 同步用户ID到子线程。 */
+    uid?: number;
     /** 事务ID。 */
     id?: number;
     /** 事务槽。 */

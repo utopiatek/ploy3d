@@ -20,6 +20,8 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      * @param lnglat_alt 模型经纬度和海拔高度（请传入GCJ02坐标系（高德地图、腾讯地图）经纬度）。
      */
     public async Init(scene: Miaoverse.Scene, url: string, lnglat_alt?: number[]) {
+        this._url = url;
+        this._scene = scene;
         this._3mx = await this._global.Fetch(url, null, "json");
         this._3mx._path = url.substring(0, (url.lastIndexOf("/") + 1));
         this._root = [];
@@ -28,6 +30,11 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
             if ("meshPyramid" === layer.type) {
                 const group = await this.Load_3mxb(this._3mx._path + layer.root, null, this._root.length);
                 this._root.push(group);
+
+                // 注意：我们仅取第一个图层的经纬度信息共用，通常3MX模型都是只有一个图层
+                if (layer.SRS && layer.SRSOrigin && !this._srs) {
+                    this._srs = this._global.gis.Proj4(layer);
+                }
             }
         }
 
@@ -56,15 +63,26 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
             cullMode: 2
         });
 
-        if (lnglat_alt) {
-            this._object3d.SetLngLat(lnglat_alt[0], lnglat_alt[1], lnglat_alt[2]);
+        if (this._srs || lnglat_alt) {
+            if (this._srs) {
+                this._object3d.SetLngLat(this._srs.ll_gcj02[0], this._srs.ll_gcj02[1], this._srs.altitude);
+            }
+            else {
+                this._object3d.SetLngLat(lnglat_alt[0], lnglat_alt[1], lnglat_alt[2]);
+            }
         }
+
+        this._inited = true;
     }
 
     /**
      * 清除对象。
      */
     public async Dispose() {
+        if (!this._inited) {
+            return;
+        }
+
         if (this._backendCount > 0) {
             await (new Promise<void>((resolve, reject) => {
                 this._waitClose = resolve;
@@ -119,6 +137,10 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      * @param camera 相机组件实例（用于获取全局空间到相机空间变换矩阵）。
      */
     public Update(camera: Miaoverse.Camera) {
+        if (!this._inited) {
+            return;
+        }
+
         if (this._waitClose) {
             if (this._backendCount == 0) {
                 this._waitClose();
@@ -260,6 +282,10 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
      * @param update 是否基于当前相机刷新模型显示。
      */
     public Draw(queue: Miaoverse.DrawQueue) {
+        if (!this._inited) {
+            return;
+        }
+
         this._meshRenderer.UpdateG1(this._object3d);
 
         const passEncoder = queue.passEncoder;
@@ -706,13 +732,32 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         }
     }
 
+    /** 模型路径。 */
+    public get url() {
+        return this._url;
+    }
+
+    /** 归属场景。 */
+    public get scene() {
+        return this._scene;
+    }
+
     /** 3D对象实例（用于定位模型位置）。 */
     public get object3d() {
         return this._object3d;
     }
 
+    /** 经纬度坐标。 */
+    public get srs() {
+        return this._srs;
+    }
+
     /** 内核实现。 */
     private _impl: Dioramas_kernel;
+    /** 模型路径。 */
+    private _url: string;
+    /** 归属场景。 */
+    private _scene: Miaoverse.Scene;
     /** 3MX文件结构。 */
     private _3mx: {
         /** 文件版本（浮点型）。 */
@@ -746,6 +791,10 @@ export class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         /** 3MX文件文件夹路径。 */
         _path: string;
     };
+    /** 经纬度坐标。 */
+    private _srs: ReturnType<Miaoverse.Gis["Proj4"]>;
+    /** 已初始化。 */
+    private _inited: boolean;
 
     /** 根分组列表。 */
     private _root: Group[];

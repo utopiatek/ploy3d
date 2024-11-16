@@ -22,6 +22,10 @@ fn material_fs() {
     }
 
     let color = encodeRGBM(material_emissive, uRGBMRange);
+    // var color = atmosphere_proc(inputs_custom2.xyz, true);
+    // var rgb = decodeRGBM(color, uRGBMRange);
+    // rgb = material_emissive + material_emissive * rgb;
+    // color = encodeRGBM(rgb, uRGBMRange);
 
     material_emissive = color.rgb;
     material_alpha = color.a;

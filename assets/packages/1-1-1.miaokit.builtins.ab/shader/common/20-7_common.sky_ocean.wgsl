@@ -12,12 +12,17 @@ var<private> iChannelResolution0 = vec2f(256.0);
 
 // 噪音贴图采样函数
 fn sample_iChannel0(uv: vec2f, lod: f32) ->vec4f {
-    return textureSampleLevel(noiseTex, splln1, uv, lod);
+    return textureSampleLevel(noiseTex, splln1, uv, 0.0);
 }
 
 // 月亮表面贴图采样函数
 fn sample_iChannel1(uv: vec2f, lod: f32) ->vec4f {
-    return textureSampleLevel(moonTex, splln1, uv, lod);
+    return textureSampleLevel(moonTex, splln1, uv, 0.0);
+}
+
+// 背景贴图采样函数
+fn sample_iChannel2(uv: vec2f, lod: f32) ->vec4f {
+    return vec4f(0.0);
 }
 
 // ============================------------------------------------------------
@@ -125,6 +130,14 @@ fn fnoise2(p_: vec3f, t: f32) ->f32 {
     return f;
 }
 
+fn noisef2(t: f32) ->f32 {
+    return sample_iChannel0(vec2f(t, 0.0) / iChannelResolution0.xy, 0.0).x;
+}
+
+fn noisev2(t: vec2f) ->f32 {
+    return sample_iChannel0(t / iChannelResolution0.xy, 0.0).x;
+}
+
 fn shiftHue(col_: vec3f, Shift: f32) ->vec3f {
     var col = col_;
     let P = vec3f(0.55735) * dot(vec3f(0.55735), col);
@@ -171,7 +184,8 @@ fn densities(pos: vec3f, Hm1: f32) ->vec2f {
     // 使用曲线负半轴，值范围[0, 1]
     let rayleigh = exp(-h / Hr);
     // TODO: 参数点在相机空间Z轴距离
-    let dist = 0.0;
+    var d = pos * fov; d.y = 0.0;
+    let dist = length(d);
 
     // 云层是 mie 散射成分之一
     var cld = 0.0;
@@ -220,11 +234,88 @@ fn escape(p: vec3f, d: vec3f) ->f32 {
 
 // ============================------------------------------------------------
 
+fn DrawCircle(uv: vec2f, radius: f32, fade: f32) ->vec3f {
+    // Determine the length of the point away from the "center" of the circle.
+    let uvLength = length(uv);
+    // Apply color to any coordinate that lies within the circle.
+    // Black if coord is outside and white if it is inside the circle.
+    // The smoothstep function applies the fade to the circle.
+    // The min value is the radius, and max value is the radius minus
+    // the "fade" variable.
+    // This means the fade is applied within the bounds of the circle.
+    let circle = vec3f(smoothstep(radius, radius - fade, uvLength));
+    
+    return vec3f(circle);
+}
+
+// 计算背景颜色
+// 通过 dot 点乘操作计算背景颜色的渐变，并使用 mix 混合两种颜色生成最终的背景色
+fn bg(rd: vec3f) ->vec3f {
+    var sd = dot(normalize(vec3f(-0.5, -0.6, 0.9)), rd) * 0.5 + 0.5;
+    sd = pow(sd, 5.0);
+    let col = mix(vec3f(0.05, 0.01, 0.15), vec3f(0.01, 0.05, 0.15), sd);
+    return col * 0.63;
+}
+
+// 太阳光芒模拟
+fn lensFlare(uv: vec2f, pos: vec2f) ->vec3f {
+    let main = uv - pos;
+    let uvd = uv * (length(uv));
+
+    let ang = atan(main.x / main.y); // TODO: atan(main.x, main.y);
+    var dist = length(main); dist = pow(dist, 0.1);
+    let n = noisev2(vec2f(ang * 16.0, dist * 32.0));
+
+    var f0 = 1.0 / (length(uv - pos) * 16.0 + 6.0);
+    f0 = f0 * (sin(noisef2(sin(ang * 2.0 + pos.x - (sin(iTime * 0.05)) * 2.0) * 4.0 - cos(ang * 4.0 + pos.y + cos(iTime * 0.15))) * 16.0) * 0.1 + dist * 0.1 + 0.8) * 2.2;
+
+    let f1 = max(0.01 - pow(length(uv + 1.2 * pos), 1.9), 0.0) * 7.0;
+    var f2 = 0.0; var f22 =0.0; var f23 = 0.0;
+    var f4 = 0.0; var f42 =0.0; var f43 = 0.0;
+    var f5 = 0.0; var f52 =0.0; var f53 = 0.0;
+    var f6 = 0.0; var f62 =0.0; var f63 = 0.0;
+    
+    f2 = max(1.0 / (1.0 + 32.0 * pow(length(uv - 0.05 - pos), 1.5)), 0.0) * 00.25;
+    f22 = max(1.0 / (1.0 + 32.0 * pow(length(uv + 0.0 - pos), 1.5)), 0.0) * 00.23;
+    f23 = max(1.0 / (1.0 + 32. * pow(length(uv + 0.05 - pos), 1.5)), 0.0) * 00.25;
+
+    var uvx = mix(uv, uvd, -0.5);
+
+    f4 = max(0.01 - pow(length(uv + 0.0 - pos), 1.4), 0.0) * 6.0;
+    f42 = max(0.01 - pow(length(uv + 0.0 - pos), 1.4), 0.0) * 5.0;
+    f43 = max(0.01 - pow(length(uv + 0.0 - pos), 1.4), 0.0) * 3.0;
+
+    uvx = mix(uv, uvd, -0.4);
+
+    f5 = max(0.01 - pow(length(uv + 0.0 - pos), 2.5), 0.0) * 2.0;
+    f52 = max(0.01 - pow(length(uv + 0.0 - pos), 2.5), 0.0) * 2.0;
+    f53 = max(0.01 - pow(length(uv + 0.0 - pos), 2.5), 0.0) * 2.0;
+
+
+    uvx = mix(uv, uvd, -0.5);
+
+    f6 = max(0.01 - pow(length(uv + 0.0 - pos), 1.6), 0.0) * 6.0;
+    f62 = max(0.01 - pow(length(uv + 0.0 - pos), 1.6), 0.0) * 3.0;
+    f63 = max(0.01 - pow(length(uv + 0.0 - pos), 1.6), 0.0) * 5.0;
+
+    var c = vec3(0.0);
+
+    c.r += f2 + f4 + f5 + f6; 
+    c.g += f22 + f42 + f52 + f62; 
+    c.b += f23 + f43 + f53 + f63;
+
+    c = c * 1.3 - vec3f(length(uvd) * 0.05);
+    c += vec3f(f0);
+
+    return c;
+}
+
 // TODO: 天空模拟
-fn emulation_sky(camera_position: vec3f, camera_vector: vec3f, light_dir: vec3f, moon_light_dir: vec3f, aur_pos: vec3f, BR1: vec3f, bM1: vec3f, MI: f32, RI: f32, Hm1: f32, g1: f32) ->vec3f {
-    // 太阳光集中度
-    let s = 0.999;
-    // 太阳光强度
+fn emulation_sky(camera_position: vec3f, camera_vector_: vec3f, light_dir: vec3f, moon_light_dir: vec3f, aur_pos: vec3f, BR1: vec3f, bM1: vec3f, MI: f32, RI: f32, Hm1: f32, g1: f32, ground: bool) ->vec3f {
+    let camera_vector = vec3f(camera_vector_.x, select(camera_vector_.y, -camera_vector_.y, ground), camera_vector_.z);
+
+    // ============================------------------------------------------------
+
     let SI = 10.0;
     let Rm = 120.0;
 
@@ -232,22 +323,12 @@ fn emulation_sky(camera_position: vec3f, camera_vector: vec3f, light_dir: vec3f,
     let opmu2 = 1.0 + mu * mu;
     let g = g1 / fov;
     let g2 = g * g;
+    let s = 0.999;
     let s2 = s * s;
 
     let phaseR = 0.0596831 * opmu2;
     let phaseM = 0.1193662 * (1.0 - g2) * opmu2 / ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));
     let phaseS = 0.1193662 * (1.0 - s2) * opmu2 / ((2.0 + s2) * pow(1.0 + s2 - 2.0 * s * mu, 1.5));
-
-    // ============================------------------------------------------------
-
-    let seed = round_(iTime, 1.0);
-    let metx = random(seed);
-
-    var met = meteorstorm(vec2f(camera_vector.x - metx, camera_vector.y + 0.5));
-
-    let scatfactor = ((abs(camera_vector.y) / 0.5) * 0.00003) + 0.00001;
-
-    let refatt = 1.0;
 
     // ============================------------------------------------------------
 
@@ -264,7 +345,15 @@ fn emulation_sky(camera_position: vec3f, camera_vector: vec3f, light_dir: vec3f,
     var R = vec3f(0.0);
     var M = vec3f(0.0);
 
+    var R2 = vec3f(0.0);
+    var M2 = vec3f(0.0);
+
     {
+        var light_dir2 = normalize(normalize(vec3f(light_dir.x, 0.0, light_dir.z)) - normalize(vec3f(frameUniforms.camera_wPos.x, 0.0, frameUniforms.camera_wPos.z)));
+
+        light_dir2.y = 0.16;
+        light_dir2 = normalize(light_dir2);
+
         let L = escape(camera_position, camera_vector);
         let step_size_i = L / f32(scatter_steps);
 
@@ -297,61 +386,169 @@ fn emulation_sky(camera_position: vec3f, camera_vector: vec3f, light_dir: vec3f,
                 R += A * dRdM.x;
                 M += A * dRdM.y;
             }
+
+            let Ls2 = escape(p, light_dir2);
+            if (true && Ls2 > 0.0) {
+                var depthRs = 0.0;
+                var depthMs = 0.0;
+                let step_size_l = Ls2 / f32(scatter_steps2);
+
+                for (var j = 0; j < scatter_steps2; j++) {
+                    let ls = f32(j) * step_size_l;
+                    let ps = (p + light_dir2 * ls);
+                    let dRdMs = densities(ps, Hm1);
+
+                    depthRs += dRdMs.x * step_size_l;
+                    depthMs += dRdMs.y * step_size_l;
+                }
+
+                var A = exp(-(BR1 * (depthRs + depthR) + bM1 * (depthMs + depthM)));
+                R2 += A * dRdM.x;
+                M2 += A * dRdM.y;
+            }
         }
 
-        themie = (MI) * (M * bM1 * (phaseM));
+        themie = (MI) * (select(M, M2, true) * bM1  * (phaseM));
         raleigh = (RI) * (max(R, vec3f(Rm)) * BR1 * phaseR);
 
         thesun = (SI) * (M * bM1  * phaseS);
 
+        let scatfactor = ((abs(camera_vector.y) / 0.5) * 0.00003) + 0.00001;
+
         scat = 1.0 - clamp(depthM * scatfactor, 0.0, 0.99);
     }
 
+    // return vec3(raleigh * 50.0);     // OK
+    // return vec3(themie);             // OK
+    // return vec3(thesun);             // OK
+    // return vec3(themoon);            // ERR
+    // return vec3(auro);               // ERR
+    // return vec3(scat);               // OK
+    // return vec3(depthM * 0.00001);   // OK
     // ============================------------------------------------------------
 
-    // TODO ...
+    let vfwMat = frameUniforms.vfgMat * frameUniforms.gfwMat;
+    let vsLit = mulMat3x3Float3(vfwMat, light_dir);
+    let vsView = mulMat3x3Float3(vfwMat, camera_vector);
 
+    let ralatt = 1.0;
+    let mieatt = 1.0;
+    let refatt = select(1.0, pow((1.0 - camera_vector.y), 5.0), ground);
+    let sunatt = 1.0;
+    let moonatt = 1.0;
     let staratt = 1.1;
     let scatatt = 1.0;
     let rain13 = 0.25;
     let RE = rain13;
-    let raleighgam = 2.2;
-    let rgam = raleighgam;
-    let gam = 1.0;
+    let MI2 = 1.0;
+    let rgam = clamp(((2.2 - 1.0) * (light_dir.y / 0.5)) + 1.0, 1.0, 2.2);
+    let gam = 1.6;
+    let att_moon = 1.0;
+    let moonillumination = 1.0;
+
+
+    var color = vec3(0.0);
+    var star = vec3f(0.0);
+    var lensf = vec3f(0.0);
+    var fire = vec3f(0.0);
+    var sun2 = vec3f(0.0);
+    var aur = vec4f(0.0);
+    var fireworkCol = vec3f(0.0);
+
+    let fade = smoothstep(0.0, 0.01, abs(camera_vector.y)) * 0.1 + 0.9;
+    let bg1 = bg(camera_vector) * fade;
+
+    let layer1 = vec4f(0.0, 0.0, 0.0, 1.0);
+    let layer2 = DrawCircle(vsLit.xy, 0.05, 0.01);
+    var moon_texture = layer2 * sample_iChannel1(vsLit.xy, 0.0).rgb;
+
+    moon_texture = pow(moon_texture, vec3f(2.2));
+    moon_texture *= att_moon;
+
+    let back_texture = pow(sample_iChannel2(vec2f(0.0), 0.0).xyz, vec3f(2.2)) * 0.8; // TODO
+
+    // ============================------------------------------------------------
+
+    let seed = round_(iTime, 1.0);
+    let metx = random(seed);
+
+    var met = meteorstorm(vec2f(camera_vector.x - metx, camera_vector.y + 0.5));
 
     themie *= refatt;
     raleigh *= refatt;
 
-    let ralatt = 1.0;
-	let mieatt = 1.0;
-
-    let back_texture = vec4f(0.0, 0.0, 0.0, 1.0);
-    var color = vec3(0.0);
-
     // ============================------------------------------------------------
 
     color += back_texture.rgb * scat * scatatt;
-    met *= staratt * refatt * scat;
 
-    // TODO sun2
-    // TODO thesun
-    // TODO themoon
-    // TODO moon_texture
-    // TODO auro
+    themoon *= moonatt;
+    thesun *= sunatt;
+
+    star *= staratt * refatt * scat;
+    met *= staratt * refatt * scat;
+    fire *= staratt * refatt * scat;
+
+    // ============================------------------------------------------------
+
+    var mcolor = ((vec3f(scat))) * themie;
+
+    // 月亮位置和太阳位置重叠时的日食效果
+    if (false) {
+        let diffEIp = 0.0; // TODO
+        let newsun = clamp(thesun, vec3f(0.0), vec3f(1.0));
+        let newsun2 = clamp(sun2, vec3f(0.0), vec3f(1.0));
+        color += (themoon * moonillumination * scat) * (1.0 - diffEIp);
+        color += moon_texture.rgb * scat * (1.0 - diffEIp);
+        let moon2 = clamp(moon_texture.rgb * 1000.0, vec3f(0.0), vec3f(1.0));
+        color += clamp(newsun - (moon2), vec3f(0.0), vec3f(1.0)) * refatt * (scat);
+        color += clamp(newsun2 - (moon2), vec3f(0.0), vec3f(1.0)) * refatt * (scat);
+    }
+    else{
+        mcolor *= moon_texture.rgb * 30.0;
+        color += mix(mcolor, color, 0.9);
+        color += sun2 * (scat);
+        color += thesun * (scat);
+        color += (themoon * moonillumination * scat);
+        color += moon_texture.rgb * scat;
+    }
+
+    // ============================------------------------------------------------
+
+    // color += clamp(auro * (aur.rgb * 2.0 * themie) * scatatt * refatt, vec3f(0.0), vec3f(1.0));
+
+    // ============================------------------------------------------------
 
     raleigh = mix(raleigh * refatt, raleigh * refatt * scat, RE);
 
     color += pow(raleigh * ralatt, vec3f(rgam));
     color += pow(themie, vec3f(gam));
+
+    // ============================------------------------------------------------
+
+    color += pow(star, vec3f(2.2));
     color += pow(met, vec3f(2.2));
 
-    // TODO star
-    // TODO fireworkCol
-    // TODO aur_col
-    // TODO rain
-    // TODO rainbow
-    // TODO snow
-    // TODO lens_flare
+    var firescatter = ((vec3f(1.0 - scat))) * themie;
+    firescatter *= (fireworkCol * MI2);
+    // color += mix(firescatter, color, 0.5) * scatatt;
+    // color += fire;
+
+    var aur_col = bg1 * (1.0 - aur.a) + (aur.rgb * 2.0) * (scat);
+    aur_col = pow(aur_col, vec3f(2.2));
+    aur_col *= scatatt * refatt;
+    // color += aur_col;
+
+    // ============================------------------------------------------------
+
+    // ENABLE_LENS_FLARE
+    if (vsLit.z < 0.0) {
+        lensf = vec3f(1.4, 1.2, 1.0) * lensFlare(vsView.xy * 0.5, vsLit.xy * 0.5);
+        lensf = clamp(lensf * scat * 1.0, vec3f(0.0), vec3f(1.0));
+        lensf = pow(lensf, vec3f(1.4));
+        color += lensf * ralatt;
+    }
+
+    // ============================------------------------------------------------
 
     color = pow(color, vec3f(1.0 / 2.2));
 
@@ -378,7 +575,9 @@ fn emulation_sky(camera_position: vec3f, camera_vector: vec3f, light_dir: vec3f,
 
 // ============================------------------------------------------------
 
-fn atmosphere_proc(wpos: vec3f) ->vec4f {
+fn atmosphere_proc(wpos: vec3f, ground: bool) ->vec4f {
+    iTime = frameUniforms.time;
+
     // 大气层表面世界空间坐标（由于使用正面裁剪，所以看到的始终是离相机最远的那个点，如果相机在大气层外，则绝大部分将被地球遮挡而不渲染）
     let atmospheric_pos_position = wpos;
     // 相机世界空间坐标
@@ -386,7 +585,7 @@ fn atmosphere_proc(wpos: vec3f) ->vec4f {
     // 相机世界空间观察向量（从相机到大气层表面点）
     let camera_vector = normalize(atmospheric_pos_position - camera_position);
     // 太阳世界空间光照方向（指向太阳的方向）
-    let light_dir = normalize(vec3f(0.0, 0.2, -1.0));
+    let light_dir = normalize(frameUniforms.sunlitDirection.xyz);
     // 月亮世界空间光照方向（指向月亮的方向）
     let moon_light_dir = normalize(vec3f(0.0, 0.0, -1.0));
     // 极光位置
@@ -402,11 +601,14 @@ fn atmosphere_proc(wpos: vec3f) ->vec4f {
     // 表示与 Rayleigh 散射相关的强度系数。它用于影响 Rayleigh 散射的计算，决定了光的散射强度。
     var RI1 = 20.0;
     // 高度相关的参数，通常与散射和吸收的高度分布有关。它可能用来调整光的散射在不同高度上的特性。
-    var Hm1 = 0.2e3;
+    var Hm1 = 1.2e3;
     // 表示与光线的相位函数相关的参数，通常用于描述光在散射过程中的方向性。这个参数影响散射光的分布，尤其是在不均匀介质中。
     var g1 = 0.76;
 
-    let rgb = emulation_sky(camera_position, camera_vector, light_dir, moon_light_dir, aur_pos, BR1, vec3f(bM1), MI1, RI1, Hm1, g1); 
+    // TODO: 增强晚霞的红色
+    BR1.x = clamp(((BR1.x - 0.0000025) * (light_dir.y / 0.3)) + 0.0000025, 0.0000025, BR1.x);
+
+    let rgb = emulation_sky(camera_position, camera_vector, light_dir, moon_light_dir, aur_pos, BR1, vec3f(bM1), MI1, RI1, Hm1, g1, ground); 
     let color = encodeRGBM(sRGBToLinear_vec3(rgb), uRGBMRange);
 
     return color;

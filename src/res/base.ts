@@ -88,6 +88,14 @@ export class Base_kernel<T, K extends typeof Binary_member_index> {
         return this._instanceList[id];
     }
 
+    /**
+     * 获取有效实例数组。
+     * @returns 
+     */
+    public GetInstanceList() {
+        return this._instanceList.filter((item: any) =>!!(item?.["_impl"]));
+    }
+
     /** 引擎实例。 */
     protected _global: Miaoverse.Ploy3D;
     /** 资源内核实现的数据结构成员列表。 */

@@ -74,11 +74,19 @@ export class Camera extends Miaoverse.Resource<Camera> {
      * 使相机姿态适应观察内容范围。
      * @param bounding 观察内容范围。
      */
-    public Fit(bounding: { center: number[]; extents: number[]; }, pitch?: number, yaw?: number): void {
-        const radius = Math.sqrt(bounding.extents[0] * bounding.extents[0] + bounding.extents[1] * bounding.extents[1] + bounding.extents[2] * bounding.extents[2]);
+    public Fit(bounding: { center: number[]; extents: number[]; radius?: number; }, pitch?: number, yaw?: number): void {
+        const radius = bounding.radius || Math.sqrt(bounding.extents[0] * bounding.extents[0] + bounding.extents[1] * bounding.extents[1] + bounding.extents[2] * bounding.extents[2]);
         const aspect = this.width / this.height;
         const size = 1 < aspect ? radius : radius / aspect;
         const distance = size / Math.tan(0.5 * this.fov);
+
+        // 避免目标在裁剪空间近平面之外
+        this.nearZ = Math.max(distance * 0.1, 0.01);
+
+        // 目标可能是XZ上的一个平面
+        if (Math.min(bounding.extents[0], bounding.extents[2]) / bounding.extents[1] > 100 && pitch === undefined) {
+            pitch = 90;
+        }
 
         this.Set3D(bounding.center, distance, pitch || 0, yaw || 0);
     }
@@ -203,6 +211,32 @@ export class Camera extends Miaoverse.Resource<Camera> {
             origin: this._global.Vector3(ray.slice(0, 3)),
             dir: this._global.Vector3(ray.slice(3))
         };
+    }
+
+    /**
+     * 在水平面上拾取坐标。
+     * @param x 屏幕坐标X[0, 1]
+     * @param y 屏幕坐标Y[0, 1]
+     */
+    public HitHorizontal(x: number, y: number) {
+        const ray = this.ScreenPointToRay(x, y);
+        let distance = 10;
+
+        if (0.01 < Math.abs(ray.dir.y)) {
+            distance = -ray.origin.y / ray.dir.y;
+            if (distance < 0) {
+                distance = 10;
+            }
+            else if (distance > 1000) {
+                distance = 1000;
+            }
+        }
+
+        const dir = ray.dir.MultiplyScalar(distance);
+
+        const pos = ray.origin.AddVector3(dir);
+
+        return pos;
     }
 
     /**
