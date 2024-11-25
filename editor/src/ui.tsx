@@ -32,6 +32,7 @@ export class UIEditor {
     public constructor(app: PloyApp_editor) {
         this.app = app;
         this.componentLut = {};
+        this.renderPresets = this.renderPresets.bind(this);
         this.renderComponent = this.renderComponent.bind(this);
         this.renderEditor = this.renderEditor.bind(this);
     }
@@ -284,12 +285,52 @@ export class UIEditor {
         )
     }
 
+    /**
+     * 渲染UI预设列表。
+     */
+    public renderPresets(props: {
+        data: UIPreset[]
+    }) {
+        const handleDragStart = (e: any) => {
+            const index = parseInt(e.target.id);
+            const present = props.data[index];
+
+            if (present) {
+                this.dragAdd = present;
+
+                const jpresent = JSON.stringify(present);
+
+                e.dataTransfer.setData("text", jpresent);
+            }
+        };
+
+        return (
+            <ul>
+                {props.data.map((item, index) => <li id={`${index}-drag-item`} draggable={true} onDragStart={handleDragStart}>{item.label}</li>)}
+            </ul>
+        )
+    }
+
     /** 应用实例。 */
     public app: PloyApp_editor;
     /** 远程组件缓存查找表。 */
     public componentLut: Record<string, React.LazyExoticComponent<React.ComponentType<{ pathid: string, config: any, data: any }>>>;
     /** 当前拖拽添加预设。 */
     public dragAdd: UIPreset;
+
+    /** 预设列表。 */
+    public presetList = {
+        components: [
+            {
+                label: "柱状图",
+                type: "component",
+                w: 8,
+                h: 6,
+                controller: "0-0-0-68-1?Echarts",
+                configure: "0-0-0-69-2?basic_bar"
+            }
+        ] as UIPreset[],
+    };
 
     /** 扩展在辅助侧边栏的界面配置。 */
     public sidebarCfg = {
@@ -364,20 +405,7 @@ export class UIEditor {
                     },
                 ],
                 renderPanel: () => {
-                    const { Card, Statistic } = antd;
-                    const Icon = icons["AccountBookFilled"];
-                    return (
-                        <Card bordered={false}>
-                            <Statistic
-                                title="Active"
-                                value={11.28}
-                                precision={2}
-                                valueStyle={{ color: '#3f8600' }}
-                                prefix={<Icon />}
-                                suffix="%"
-                            />
-                        </Card>
-                    )
+                    return <this.renderPresets data={this.presetList.components}></this.renderPresets>
                 }
             },
         ] as ICollapseItem[],

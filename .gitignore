@@ -1,6 +1,7 @@
 .vs
 .vscode/build
 .git*/
+.projects
 node_modules
 kernel
 serv

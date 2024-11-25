@@ -41,6 +41,7 @@ export declare class Gis {
         movedMC?: number[];
         targetXZ?: number[];
         size?: number[];
+        originMC?: number[];
     }): void;
     /**
      * 绘制场景。
@@ -114,6 +115,8 @@ export declare class Gis {
     LL2WPOS(ll: number[]): number[];
     /** GIS行政区管理。 */
     get districts(): Miaoverse.Gis_districts;
+    /** GIS行政区管理。 */
+    get kmls(): Miaoverse.Gis_kmls;
     /** 是否启用GIS系统。 */
     get enable(): boolean;
     set enable(b: boolean);
@@ -210,6 +213,8 @@ export declare class Gis {
     private _enable;
     /** GIS行政区管理。 */
     private _districts;
+    /** GIS标记数据管理。 */
+    private _kmls;
     /** GIS金字塔结构。 */
     private _pyramid;
     /** GIS网格。 */
@@ -526,6 +531,101 @@ export declare class Gis_district {
             indices: number[];
         }[];
     };
+}
+/** GIS KML地图标记数据。 */
+export declare class Gis_kmls {
+    /**
+     * 构造函数。
+     */
+    constructor(_gis: Gis);
+    /**
+     * 初始化GIS标记管理。
+     */
+    Init(): Promise<this>;
+    /**
+     * 装载新的标记数据到GIS上。
+     * @param url KML文件URL。
+     */
+    protected LoadKml(url: string): Promise<Miaoverse.Gis_kml>;
+    /**
+     * 装载新的标记数据到GIS上。
+     * @param url KML文件URL。
+     */
+    Load(url: string): Promise<Miaoverse.Gis_kml>;
+    /**
+     * 绘制GIS行政区分界线。
+     */
+    Draw(queue: Miaoverse.DrawQueue, instance: Gis_kml): void;
+    /** GIS实例。 */
+    private _gis;
+}
+/** GIS KML地图标记数据。 */
+export interface Gis_kml {
+    /** 标记MC坐标范围（min_x, max_x, min_z, max_z）。 */
+    region: number[];
+    /** 总顶点数量。 */
+    vertexCount: number;
+    /** 总索引数量。 */
+    indexCount: number;
+    /** 标记点顶点数组起始偏移。 */
+    pointVertexStart: number;
+    /** 标记点顶点数量。 */
+    pointVertexCount: number;
+    /** 标记线顶点数组起始偏移。 */
+    lineVertexStart: number;
+    /** 标记线顶点数量。 */
+    lineVertexCount: number;
+    /** 标记面顶点数组起始偏移。 */
+    polygonVertexStart: number;
+    /** 标记面顶点数量。 */
+    polygonVertexCount: number;
+    /** 顶点数组。 */
+    vertexArray: number[];
+    /** 索引数组。 */
+    indexArray: number[];
+    /** 顶点缓存节点。 */
+    vertexBuffer?: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
+    /** 索引缓存节点。 */
+    indexBuffer?: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
+    /** 标记信息节点索引列表。 */
+    placemarks: number[];
+    /** 标记根节点列表。 */
+    nodes: {
+        /** 节点ID。 */
+        id: number;
+        /** 节点名称。 */
+        name: string;
+        /** 分组容器类型。 */
+        type: "kml" | "document" | "folder" | "placemark";
+        /** 标记所属分组路径。 */
+        path?: string;
+        /** 节点图标。 */
+        icon?: string;
+        /** 是否为叶子节点。 */
+        isLeaf: boolean;
+        /** 子级节点列表。 */
+        children: Gis_kml["nodes"];
+        /** 节点附加数据。 */
+        data?: {
+            /** 标记图形数据。 */
+            polygons: {
+                /** 图形类型。 */
+                type: "point" | "line" | "polygon";
+                /** 海拔高度计算模式。 */
+                altitudeMode: string;
+                /** MC坐标包围盒。 */
+                region: number[];
+                /** 顶点数组起始偏移。 */
+                vertexStart: number;
+                /** 顶点数量。 */
+                vertexCount: number;
+                /** 索引数组起始偏移。 */
+                indexStart: number;
+                /** 索引数量。  */
+                indexCount: number;
+            }[];
+        };
+    }[];
 }
 /** GIS图层贴图采样偏移缩放。 */
 interface Gis_uvst {

@@ -82,7 +82,7 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
         ll_gcj02: number[];
         ll_wgs84: number[];
         mc_wgs84: number[];
-        altitude: number;
+        altitude: number; /** 各级别空闲缓存节点（以行数表示级别）。 */
     };
     /** 内核实现。 */
     private _impl;
@@ -94,6 +94,8 @@ export declare class Dioramas_3mx extends Miaoverse.Resource<Dioramas_3mx> {
     private _3mx;
     /** 经纬度坐标。 */
     private _srs;
+    /** 已初始化。 */
+    private _inited;
     /** 根分组列表。 */
     private _root;
     /** 绘制实例数组。 */

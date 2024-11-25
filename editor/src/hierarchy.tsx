@@ -112,8 +112,40 @@ export class Hierarchy implements molecule.model.IExtension {
             return [];
         }
 
+        const kmls = this.app.editor.kmls;
         const sceneList = resources.Scene.GetInstanceList();
         const collapseList: ICollapseItem[] = [];
+
+        // 地理信息标注独占一个折叠面板
+        if (kmls) {
+            const hierarchy: typeof kmls[0]["nodes"] = [];
+            for (let kml of kmls) {
+                hierarchy.push(...kml.nodes);
+            }
+
+            const collapse: ICollapseItem = {
+                id: "KML",
+                name: "地理信息标注",
+                hidden: undefined,
+                toolbar: undefined,
+                renderPanel: () => {
+                    return <this.renderHierarchy data={hierarchy as any} contentMenu={[]} onSelect={(node) => {
+                        console.error("kml node:", node.type, node.data);
+                        if (node.type == "placemark" && node.data) {
+                            const region = node.data.polygons[0].region;
+
+                            const centerMC = [(region[0] + region[1]) * 0.5, (region[2] + region[3]) * 0.5];
+                            const centerLL = this.app.engine.gis.MC2LL(centerMC);
+                            const centerWPOS = this.app.engine.gis.LL2WPOS(centerLL);
+                            this.app.camera.Set3D(centerWPOS, 1000, 45, 0);
+                            this.app.DrawFrame(2);
+                        }
+                    }} />
+                }
+            };
+
+            collapseList.push(collapse);
+        }
 
         // TODO: 优化减少刷新
         for (let scene_ of sceneList) {

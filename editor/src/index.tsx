@@ -1,4 +1,4 @@
-import { Ploy3D, PloyApp, SimpleSignal, PackageReg, Scene, Object3D, Camera, Volume, Assembly, Material, DrawQueue, Package, Prefab, Dioramas_3mx, IDataProvider, UserSpace, CLASSID, Vector3 } from "../../dist/esm/mod.js"
+import { Ploy3D, PloyApp, SimpleSignal, PackageReg, Scene, Object3D, Camera, Volume, Assembly, Material, DrawQueue, Package, Prefab, Dioramas_3mx, Gis_kml, IDataProvider, UserSpace, CLASSID, Vector3 } from "../../dist/esm/mod.js"
 import { React, ReactDOM, molecule, create, Workbench, SaveAction, HTML5Backend, DndProvider, useDrop, eruda, echarts } from "../../lib/molecule.js"
 import { Hierarchy } from "./hierarchy.js";
 import { Packages } from "./packages.js";
@@ -140,7 +140,7 @@ export class PloyApp_editor extends PloyApp {
         // 启用GIS定位（如此3D对象才能锚定经纬度）
         this.engine.gis.enable = true;
         // 启用GIS地形
-        this.engine.gis.enable_terrain = false;
+        this.engine.gis.enable_terrain = true;
 
         // 默认相机姿态
         this.camera.Set3D([0, 0, 0], 6000, 45, 0);
@@ -303,8 +303,16 @@ export class PloyApp_editor extends PloyApp {
             queue.DrawList();
 
             // 绘制地图矢量图形
-            if (this.engine.gis) {
-                // TODO: this.engine.gis.Draw(queue);
+            const gis = this.engine.gis;
+            const kmls = this.editor.kmls;
+            if (gis) {
+                // TODO: gis.Draw(queue);
+
+                if (kmls) {
+                    for (let kml of kmls) {
+                        gis.kmls.Draw(queue, kml);
+                    }
+                }
             }
 
             // 绘制所有倾斜摄影模型
@@ -484,6 +492,13 @@ export class PloyApp_editor extends PloyApp {
             await new Promise<void>((resolve) => {
                 const script = document.createElement("script");
                 script.src = "./lib/ant-design-icons.min.js";
+                script.onload = resolve as any;
+                document.head.appendChild(script);
+            });
+
+            await new Promise<void>((resolve) => {
+                const script = document.createElement("script");
+                script.src = "./lib/fxparser.min.js";
                 script.onload = resolve as any;
                 document.head.appendChild(script);
             });
@@ -2021,6 +2036,36 @@ export class Editor {
     }
 
     /**
+     * 创建KML地理标注实例。
+     * @param url 模型URL。// .projects/1115/滨海-柏树线路路径(输出).kml
+     * @returns 
+     */
+    public async AddKml(url: string) {
+        const engine = this._app.engine;
+        const kml = await engine.gis.kmls.Load(url);
+        if (kml) {
+            if (!this._kmls) {
+                this._kmls = [];
+            }
+
+            this._kmls.push(kml);
+
+            molecule.sidebar.update(this._app.extensions.packages.sidebar);
+
+            const centerMC = [(kml.region[0] + kml.region[1]) * 0.5, (kml.region[2] + kml.region[3]) * 0.5];
+            const centerLL = engine.gis.MC2LL(centerMC);
+            const centerWPOS = engine.gis.LL2WPOS(centerLL);
+            this._app.camera.Set3D(centerWPOS, 1000, 45, 0);
+            this._app.DrawFrame(2);
+
+            this._app.Notify("KML地理标注数据添加成功。", "info");
+        }
+        else {
+            this._app.Notify(`KML地理标注数据 ${url} 添加失败！`, "info");
+        }
+    }
+
+    /**
      * 保存场景。
      */
     public async Save() {
@@ -2028,6 +2073,11 @@ export class Editor {
         if (scene) {
             await scene.scene.Save();
         }
+    }
+
+    /** KML地理标注列表。 */
+    public get kmls() {
+        return this._kmls;
     }
 
     /** 应用实例。 */
@@ -2062,6 +2112,9 @@ export class Editor {
             color?: { key: string; value: number[]; }
         };
     };
+
+    /** KML地理标注列表。 */
+    private _kmls: Gis_kml[];
 
     /** 容器元素引用（用于挂载、卸载画布）。*/
     private _containerRef: React.RefObject<HTMLDivElement>;
@@ -2131,6 +2184,44 @@ export class Editor {
                             onOk() {
                                 if (url.startsWith("http") && url.endsWith(".3mx")) {
                                     this_.AddDior(url);
+                                }
+                            },
+                            onCancel() {
+                                // 自动关闭对话框 ...
+                            },
+                        });
+                        console.error(item.name);
+                    }
+                },
+                {
+                    id: "add_kml",
+                    name: "矢量地理标注(KML)",
+                    disabled: false,
+                    sortIndex: 0,
+                    onClick: (e, item) => {
+                        const confirm = molecule.component.Modal.confirm;
+                        const Icon = molecule.component.Icon;
+                        const Input = molecule.component.Input;
+                        const this_ = this;
+
+                        let url = "";
+
+                        confirm({
+                            title: "请填写.kml文件URL",
+                            content: (() => {
+                                return (
+                                    <>
+                                        <div>请确保您的URL能被(https://www.ploycloud.com/)访问。</div>
+                                        <Input style={{ marginTop: "10px", width: "90%" }} onChange={(e) => { url = (e.target as any).value; }}></Input>
+                                    </>
+                                )
+                            })(),
+                            okText: "添加",
+                            cancelText: "取消",
+                            icon: <Icon type="new-file" />,
+                            onOk() {
+                                if (/*url.startsWith("http") && */url.endsWith(".kml")) {
+                                    this_.AddKml(url);
                                 }
                             },
                             onCancel() {

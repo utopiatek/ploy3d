@@ -94,7 +94,7 @@ export class PloyApp_editor extends PloyApp {
         await this.CreateAtmosphere(this.scene);
         await this.CreateTransformCtrl(this.scene);
         this.engine.gis.enable = true;
-        this.engine.gis.enable_terrain = false;
+        this.engine.gis.enable_terrain = true;
         this.camera.Set3D([0, 0, 0], 6000, 45, 0);
         this.camera.nearZ = 0.1;
         this.camera.farZ = 1000.0;
@@ -204,7 +204,14 @@ export class PloyApp_editor extends PloyApp {
         }
         const drawScene = (queue) => {
             queue.DrawList();
-            if (this.engine.gis) {
+            const gis = this.engine.gis;
+            const kmls = this.editor.kmls;
+            if (gis) {
+                if (kmls) {
+                    for (let kml of kmls) {
+                        gis.kmls.Draw(queue, kml);
+                    }
+                }
             }
             const diors = this.engine.resources.Dioramas.GetInstanceList();
             for (let dior of diors) {
@@ -331,6 +338,12 @@ export class PloyApp_editor extends PloyApp {
             await new Promise((resolve) => {
                 const script = document.createElement("script");
                 script.src = "./lib/ant-design-icons.min.js";
+                script.onload = resolve;
+                document.head.appendChild(script);
+            });
+            await new Promise((resolve) => {
+                const script = document.createElement("script");
+                script.src = "./lib/fxparser.min.js";
                 script.onload = resolve;
                 document.head.appendChild(script);
             });
@@ -1455,16 +1468,40 @@ export class Editor {
         }
         return dior;
     }
+    async AddKml(url) {
+        const engine = this._app.engine;
+        const kml = await engine.gis.kmls.Load(url);
+        if (kml) {
+            if (!this._kmls) {
+                this._kmls = [];
+            }
+            this._kmls.push(kml);
+            molecule.sidebar.update(this._app.extensions.packages.sidebar);
+            const centerMC = [(kml.region[0] + kml.region[1]) * 0.5, (kml.region[2] + kml.region[3]) * 0.5];
+            const centerLL = engine.gis.MC2LL(centerMC);
+            const centerWPOS = engine.gis.LL2WPOS(centerLL);
+            this._app.camera.Set3D(centerWPOS, 1000, 45, 0);
+            this._app.DrawFrame(2);
+            this._app.Notify("KML地理标注数据添加成功。", "info");
+        }
+        else {
+            this._app.Notify(`KML地理标注数据 ${url} 添加失败！`, "info");
+        }
+    }
     async Save() {
         const scene = this._app.extensions.hierarchy.scene;
         if (scene) {
             await scene.scene.Save();
         }
     }
+    get kmls() {
+        return this._kmls;
+    }
     _app;
     _queue;
     _running;
     _selectInfo;
+    _kmls;
     _containerRef;
     _canvas3d;
     _canvas2d;
@@ -1516,6 +1553,38 @@ export class Editor {
                             onOk() {
                                 if (url.startsWith("http") && url.endsWith(".3mx")) {
                                     this_.AddDior(url);
+                                }
+                            },
+                            onCancel() {
+                            },
+                        });
+                        console.error(item.name);
+                    }
+                },
+                {
+                    id: "add_kml",
+                    name: "矢量地理标注(KML)",
+                    disabled: false,
+                    sortIndex: 0,
+                    onClick: (e, item) => {
+                        const confirm = molecule.component.Modal.confirm;
+                        const Icon = molecule.component.Icon;
+                        const Input = molecule.component.Input;
+                        const this_ = this;
+                        let url = "";
+                        confirm({
+                            title: "请填写.kml文件URL",
+                            content: (() => {
+                                return (React.createElement(React.Fragment, null,
+                                    React.createElement("div", null, "\u8BF7\u786E\u4FDD\u60A8\u7684URL\u80FD\u88AB(https://www.ploycloud.com/)\u8BBF\u95EE\u3002"),
+                                    React.createElement(Input, { style: { marginTop: "10px", width: "90%" }, onChange: (e) => { url = e.target.value; } })));
+                            })(),
+                            okText: "添加",
+                            cancelText: "取消",
+                            icon: React.createElement(Icon, { type: "new-file" }),
+                            onOk() {
+                                if (url.endsWith(".kml")) {
+                                    this_.AddKml(url);
                                 }
                             },
                             onCancel() {

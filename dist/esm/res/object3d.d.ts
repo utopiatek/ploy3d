@@ -195,6 +195,10 @@ export declare class Object_kernel extends Miaoverse.Base_kernel<Object3D, typeo
      */
     protected _SetRotation: (object3d: Miaoverse.io_ptr, qx: number, qy: number, qz: number, qw: number) => void;
     /**
+     * 获取对象世界坐标。
+     */
+    protected _GetPosition: (object3d: Miaoverse.io_ptr) => number[];
+    /**
      * 设置父级3D对象。
      * @param object3d 3D对象内核实例指针。
      * @param parent 父级3D对象内核实例指针。

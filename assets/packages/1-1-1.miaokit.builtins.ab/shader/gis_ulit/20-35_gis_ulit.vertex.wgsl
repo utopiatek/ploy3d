@@ -88,7 +88,7 @@ fn material_vs() ->OutputVS {
 
     vertex.y -= radius - height;
 
-    if (materialParams.level > 16) {
+    if (materialParams.level > 16 && !(17 == materialParams.level && (mesh_uv.x < 0.01 || mesh_uv.x > 0.99 || mesh_uv.y < 0.01 || mesh_uv.y > 0.99))) {
         let center_lat = (2.0 * atan(exp((materialParams.centerMC.y * 3.141592654) / perimeter_half)) - 1.570796327);
         let scale = cos(center_lat);
 

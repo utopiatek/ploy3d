@@ -207,12 +207,6 @@ export declare const MeshRendere_member_index: {
     readonly drawInstanceCount: Miaoverse.Kernel_member;
     readonly morphSampler: Miaoverse.Kernel_member;
     readonly morphTargetsWeight: Miaoverse.Kernel_member;
-    /**
-     * 装载网格渲染器组件资源。
-     * @param uri 网格渲染器组件资源URI。
-     * @param pkg 当前资源包注册信息。
-     * @returns 异步返回网格渲染器组件资源实例。
-     */
     readonly buffer_bufferID: Miaoverse.Kernel_member;
     readonly buffer_size: Miaoverse.Kernel_member;
     readonly buffer_addr: Miaoverse.Kernel_member;
@@ -226,17 +220,12 @@ export declare const MeshRendere_member_index: {
     readonly bufferBlockOffset: Miaoverse.Kernel_member;
     readonly bufferBlockSize: Miaoverse.Kernel_member;
     readonly group: Miaoverse.Kernel_member;
-    readonly binding: Miaoverse.Kernel_member; /** 材质插槽索引（默认等同子网格索引）。 */
-    readonly updated: Miaoverse.Kernel_member;
+    readonly binding: Miaoverse.Kernel_member;
+    readonly updated: Miaoverse.Kernel_member; /** 材质资源实例。 */
     readonly m_reserved76: Miaoverse.Kernel_member;
     readonly magic: Miaoverse.Kernel_member;
     readonly version: Miaoverse.Kernel_member;
     readonly byteSize: Miaoverse.Kernel_member;
-    /**
-     * 获取指定材质插槽材质。
-     * @param slot 材质插槽。
-     * @returns 返回材质实例。
-     */
     readonly refCount: Miaoverse.Kernel_member;
     readonly id: Miaoverse.Kernel_member;
     readonly uuid: Miaoverse.Kernel_member;

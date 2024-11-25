@@ -29,6 +29,54 @@
                     0,
                     0
                 ]
+            },
+            "originMC": {
+                "note": "世界空间原点墨卡托坐标。",
+                "sign": "vec2<f32>",
+                "value": [
+                    12270000,
+                    2910000
+                ]
+            },
+            "dem_region_low": {
+                "note": "低精度地形MC范围。",
+                "sign": "vec4<f32>",
+                "value": [
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "dem_uvst_low": {
+                "note": "低精度地形纹理采样参数。",
+                "sign": "vec4<f32>",
+                "value": [
+                    0,
+                    0,
+                    1,
+                    1
+                ]
+            },
+            "dem_region_high": {
+                "note": "高精度地形MC范围。",
+                "sign": "vec4<f32>",
+                "value": [
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "dem_uvst_high": {
+                "note": "高精度地形纹理采样参数。",
+                "sign": "vec4<f32>",
+                "value": [
+                    0,
+                    0,
+                    1,
+                    1
+                ]
             }
         },
         "codes": {

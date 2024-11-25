@@ -121,12 +121,7 @@ export declare class Ploy3D {
             Memory_blockCount: number;
             Memory_useCount: number;
             Memory_freeCount: number;
-            Memory_blockSize: number; /**
-             * 加载图像元素。
-             * @param src 图片URL。
-             * @param crossOrigin 允许跨域资源。
-             * @returns 返回图像元素。
-             */
+            Memory_blockSize: number;
             Memory_useSize: number;
             Memory_freeSize: number;
             System_frameTS: number;
@@ -311,9 +306,6 @@ export declare class PloyApp {
         draw_params: {
             flags: number;
             layers: number;
-            /**
-             * 移除所有事件监听器。
-             */
             userData: number;
             castShadows?: boolean;
             receiveShadows?: boolean;

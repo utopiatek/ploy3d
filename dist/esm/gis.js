@@ -9,6 +9,7 @@ export class Gis {
     async Init() {
         const resources = this._global.resources;
         this._districts = await (new Gis_districts(this)).Init();
+        this._kmls = await (new Gis_kmls(this)).Init();
         this._pyramid = new Gis_pyramid(this, 8, 4);
         this._mesh = await resources.Mesh.Create({
             uuid: "",
@@ -74,6 +75,7 @@ export class Gis {
         this._global = undefined;
         this._enable = false;
         this._districts = undefined;
+        this._kmls = undefined;
         this._pyramid = undefined;
         this._mesh = undefined;
         this._materials = undefined;
@@ -141,7 +143,8 @@ export class Gis {
             centerMC: this._centerMC,
             targetMC: targetMC,
             movedMC: [targetMC[0] - this._centerMC[0], targetMC[1] - this._centerMC[1]],
-            targetXZ: [target[0], target[2]]
+            targetXZ: [target[0], target[2]],
+            originMC: [this._originMC[0], this._originMC[1]],
         });
         this.Flush(target[0], target[2], targetLL[0], targetLL[1], level, pitch, yaw);
         return resetOrigin ? target : null;
@@ -211,6 +214,7 @@ export class Gis {
             centerMC: centerMC,
             movedMC: [0, 0],
             size: [this._meshS],
+            originMC: [this._originMC[0], this._originMC[1]],
         });
         this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
             this._flushing--;
@@ -252,6 +256,10 @@ export class Gis {
                 this._districts["_area_renderer"].material.view["targetXZ"] = values.targetXZ;
                 this._districts["_line_renderer"].material.view["targetXZ"] = values.targetXZ;
             }
+            if (values.originMC) {
+                this._districts["_area_renderer"].material.view["originMC"] = values.originMC;
+                this._districts["_line_renderer"].material.view["originMC"] = values.originMC;
+            }
             return;
         }
         const levelCount = this._pyramid["levelCount"];
@@ -262,6 +270,10 @@ export class Gis {
         const tileS = this.perimeter / Math.pow(2, top_level);
         this._districts["_area_renderer"].material.view["pixelS"] = [tileS / 256];
         this._districts["_line_renderer"].material.view["pixelS"] = [tileS / 256];
+        let dem_region_low;
+        let dem_uvst_low;
+        let dem_region_high;
+        let dem_uvst_high;
         for (let i = 0; i < levelCount; i++) {
             const cur = (top + i) % levelCount;
             const cur_level = levels[cur];
@@ -298,6 +310,25 @@ export class Gis {
                     block_uvst[2] * layer_uvst.scale_x,
                     block_uvst[3] * layer_uvst.scale_z,
                 ];
+                if (j == 0 && (cur_level.level > 9 && cur_level.level < 13) && !layer_data.inherit) {
+                    const tiling = this._pyramid.layerTiling + 1;
+                    const lb_col = cur_level.projections[4].lb_col;
+                    const lb_row = cur_level.projections[4].lb_row;
+                    const rc_count = Math.pow(2, (cur_level.level - 2));
+                    const rc_stride = 90.0 / rc_count;
+                    const blat = 90 - ((lb_row + 1) * rc_stride);
+                    const tlat = 90 - ((lb_row - tiling + 1) * rc_stride);
+                    const llng = lb_col * rc_stride - 180;
+                    const rlng = (lb_col + tiling) * rc_stride - 180;
+                    const lb_mc = this.LL2MC([llng, blat]);
+                    const rt_mc = this.LL2MC([rlng, tlat]);
+                    dem_region_low = [lb_mc[0], rt_mc[0], lb_mc[1], rt_mc[1]];
+                    dem_uvst_low = texture.rect;
+                    if (!dem_region_high) {
+                        dem_region_high = dem_region_low;
+                        dem_uvst_high = dem_uvst_low;
+                    }
+                }
             }
             if (cur_level.level && cur_level.level != (top_level - i)) {
                 this._global.Track(`Gis.FlushMaterial: LOD层级编排异常：cur_level.level = ${cur_level.level}, (top_level - i) = ${top_level - i}`, 2);
@@ -310,6 +341,20 @@ export class Gis {
             material.material.view["layers_uvst2"] = layers_uvst[2];
             material.material.view["layers_uvst3"] = layers_uvst[3];
         }
+        if (!dem_region_low) {
+            dem_region_low = [0, 0, 0, 0];
+            dem_uvst_low = [0, 0, 1, 1];
+            dem_region_high = [0, 0, 0, 0];
+            dem_uvst_high = [0, 0, 1, 1];
+        }
+        this._districts["_area_renderer"].material.view["dem_region_low"] = dem_region_low;
+        this._districts["_line_renderer"].material.view["dem_region_low"] = dem_region_low;
+        this._districts["_area_renderer"].material.view["dem_uvst_low"] = dem_uvst_low;
+        this._districts["_line_renderer"].material.view["dem_uvst_low"] = dem_uvst_low;
+        this._districts["_area_renderer"].material.view["dem_region_high"] = dem_region_high;
+        this._districts["_line_renderer"].material.view["dem_region_high"] = dem_region_high;
+        this._districts["_area_renderer"].material.view["dem_uvst_high"] = dem_uvst_high;
+        this._districts["_line_renderer"].material.view["dem_uvst_high"] = dem_uvst_high;
     }
     DrawMesh(queue) {
         this.FlushMaterial();
@@ -464,6 +509,9 @@ export class Gis {
     get districts() {
         return this._districts;
     }
+    get kmls() {
+        return this._kmls;
+    }
     get enable() {
         return this._enable;
     }
@@ -527,6 +575,7 @@ export class Gis {
     _global;
     _enable;
     _districts;
+    _kmls;
     _pyramid;
     _mesh;
     _materials;
@@ -1660,4 +1709,307 @@ export class Gis_district {
     citycode;
     districts;
     polygons;
+}
+export class Gis_kmls {
+    constructor(_gis) {
+        this._gis = _gis;
+    }
+    async Init() {
+        return this;
+    }
+    async LoadKml(url) {
+        const engine = this._gis["_global"];
+        const worker = engine.worker;
+        const kmlStr = await engine.Fetch(url, null, "text");
+        const xmlParser = new globalThis.XMLParser();
+        const kmlObj = xmlParser.parse(kmlStr);
+        const kmlRoot = kmlObj["kml"];
+        const kml = {
+            region: [Number.MAX_VALUE, Number.MIN_VALUE, Number.MAX_VALUE, Number.MIN_VALUE],
+            vertexCount: 0,
+            indexCount: 0,
+            pointVertexStart: 0,
+            pointVertexCount: 0,
+            lineVertexStart: 0,
+            lineVertexCount: 0,
+            polygonVertexStart: 0,
+            polygonVertexCount: 0,
+            vertexArray: [],
+            indexArray: [],
+            vertexBuffer: undefined,
+            indexBuffer: undefined,
+            placemarks: [],
+            nodes: []
+        };
+        const containers = {};
+        const TraverseFolder = (parent) => {
+            let folders = parent.data["Folder"];
+            if (folders) {
+                folders = Array.isArray(folders) ? folders : [folders];
+                for (let folder of folders) {
+                    const path = parent.path + "/" + folder.name;
+                    const my_folder = containers[path] = {
+                        type: "folder",
+                        path: path,
+                        data: folder,
+                        parent: parent
+                    };
+                    my_folder.node = {
+                        id: kml.nodes.length,
+                        name: my_folder.data.name,
+                        type: my_folder.type,
+                        path: my_folder.path,
+                        icon: undefined,
+                        isLeaf: false,
+                        children: [],
+                        data: undefined,
+                    };
+                    kml.nodes.push(my_folder.node);
+                    parent.node.children.push(my_folder.node);
+                    TraverseFolder(my_folder);
+                }
+            }
+        };
+        const my_kml = containers["KML"] = {
+            type: "kml",
+            path: "KML",
+            data: kmlRoot,
+        };
+        my_kml.node = {
+            id: kml.nodes.length,
+            name: "KML",
+            type: my_kml.type,
+            path: my_kml.path,
+            icon: undefined,
+            isLeaf: false,
+            children: [],
+            data: undefined,
+        };
+        kml.nodes.push(my_kml.node);
+        TraverseFolder(my_kml);
+        let documents = kmlRoot["Document"];
+        if (documents) {
+            documents = Array.isArray(documents) ? documents : [documents];
+            for (let document of documents) {
+                const parent = my_kml;
+                const path = parent.path + "/" + document.name;
+                const my_document = containers[path] = {
+                    type: "document",
+                    path: path,
+                    data: document,
+                    parent: parent
+                };
+                my_document.node = {
+                    id: kml.nodes.length,
+                    name: my_document.data.name,
+                    type: my_document.type,
+                    path: my_document.path,
+                    icon: undefined,
+                    isLeaf: false,
+                    children: [],
+                    data: undefined,
+                };
+                kml.nodes.push(my_document.node);
+                parent.node.children.push(my_document.node);
+                TraverseFolder(my_document);
+            }
+        }
+        const placemarks = [];
+        for (let key in containers) {
+            let container_ = containers[key];
+            let placemarks_ = container_.data["Placemark"];
+            if (placemarks_) {
+                placemarks_ = Array.isArray(placemarks_) ? placemarks_ : [placemarks_];
+                placemarks.push(...placemarks_.map((item) => {
+                    return {
+                        container: container_,
+                        data: item
+                    };
+                }));
+            }
+        }
+        const ConvertCoordinates = (type, altitudeMode, str) => {
+            const polygon_ = {
+                type: type,
+                altitudeMode: altitudeMode,
+                region: [Number.MAX_VALUE, Number.MIN_VALUE, Number.MAX_VALUE, Number.MIN_VALUE],
+                vertexStart: kml.vertexCount,
+                vertexCount: 0,
+                indexStart: kml.indexCount,
+                indexCount: 0
+            };
+            const xz_ = [];
+            str.split(' ').map((point) => {
+                const lla = point.split(',').map(nb => parseFloat(nb));
+                const mc = this._gis.LL2MC([lla[0], lla[1]]);
+                if (polygon_.region[0] > mc[0])
+                    polygon_.region[0] = mc[0];
+                if (polygon_.region[1] < mc[0])
+                    polygon_.region[1] = mc[0];
+                if (polygon_.region[2] > mc[1])
+                    polygon_.region[2] = mc[1];
+                if (polygon_.region[3] < mc[1])
+                    polygon_.region[3] = mc[1];
+                xz_.push(mc[0]);
+                xz_.push(mc[1]);
+                kml.vertexArray.push(mc[0]);
+                kml.vertexArray.push(mc[1]);
+                polygon_.vertexCount++;
+            });
+            if (type == "polygon") {
+                const triangles = worker.Earcut(xz_);
+                for (let i of triangles) {
+                    kml.indexArray.push(i + polygon_.vertexStart);
+                }
+                polygon_.indexCount = triangles.length;
+            }
+            else if (type == "line") {
+                kml.vertexArray.push(0);
+                kml.vertexArray.push(0);
+                polygon_.vertexCount++;
+            }
+            kml.vertexCount += polygon_.vertexCount;
+            kml.indexCount += polygon_.indexCount;
+            if (kml.region[0] > polygon_.region[0])
+                kml.region[0] = polygon_.region[0];
+            if (kml.region[1] < polygon_.region[1])
+                kml.region[1] = polygon_.region[1];
+            if (kml.region[2] > polygon_.region[2])
+                kml.region[2] = polygon_.region[2];
+            if (kml.region[3] < polygon_.region[3])
+                kml.region[3] = polygon_.region[3];
+            return polygon_;
+        };
+        for (let placemark of placemarks) {
+            let Point = placemark.data["Point"];
+            let LineString = placemark.data["LineString"];
+            let Polygon = placemark.data["Polygon"];
+            let MultiGeometry = placemark.data["MultiGeometry"];
+            if (MultiGeometry) {
+                Point = MultiGeometry["Point"];
+                LineString = MultiGeometry["LineString"];
+                Polygon = MultiGeometry["Polygon"];
+            }
+            const node = {
+                id: kml.nodes.length,
+                name: placemark.data.name,
+                type: "placemark",
+                path: placemark.container.path,
+                icon: undefined,
+                isLeaf: true,
+                children: null,
+                data: {
+                    polygons: []
+                }
+            };
+            kml.nodes.push(node);
+            kml.placemarks.push(node.id);
+            placemark.container.node.children.push(node);
+            if (Point) {
+                Point = Array.isArray(Point) ? Point : [Point];
+            }
+            if (LineString) {
+                LineString = Array.isArray(LineString) ? LineString : [LineString];
+            }
+            if (Polygon) {
+                Polygon = Array.isArray(Polygon) ? Polygon : [Polygon];
+            }
+            placemark.node = node;
+            placemark.Point = Point;
+            placemark.LineString = LineString;
+            placemark.Polygon = Polygon;
+        }
+        kml.pointVertexStart = kml.vertexCount;
+        for (let placemark of placemarks) {
+            if (placemark.Point) {
+                for (let point of placemark.Point) {
+                    const altitudeMode = point["altitudeMode"];
+                    const coordinates = point["coordinates"];
+                    const polygon_ = ConvertCoordinates('point', altitudeMode, coordinates);
+                    if (polygon_) {
+                        placemark.node.data.polygons.push(polygon_);
+                    }
+                }
+            }
+        }
+        kml.pointVertexCount = kml.vertexCount - kml.pointVertexStart;
+        kml.lineVertexStart = kml.vertexCount;
+        for (let placemark of placemarks) {
+            if (placemark.LineString) {
+                for (let line of placemark.LineString) {
+                    const altitudeMode = line["altitudeMode"];
+                    const coordinates = line["coordinates"];
+                    const polygon_ = ConvertCoordinates('line', altitudeMode, coordinates);
+                    if (polygon_) {
+                        placemark.node.data.polygons.push(polygon_);
+                    }
+                }
+            }
+        }
+        kml.lineVertexCount = kml.vertexCount - kml.lineVertexStart;
+        kml.polygonVertexStart = kml.vertexCount;
+        for (let placemark of placemarks) {
+            if (placemark.Polygon) {
+                for (let polygon of placemark.Polygon) {
+                    const altitudeMode = polygon["altitudeMode"];
+                    const outerBoundaryIs = polygon["outerBoundaryIs"];
+                    const innerBoundaryIs = polygon["innerBoundaryIs"];
+                    const LinearRing = outerBoundaryIs["LinearRing"];
+                    const coordinates = LinearRing["coordinates"];
+                    const polygon_ = ConvertCoordinates('polygon', altitudeMode, coordinates);
+                    if (polygon_) {
+                        placemark.node.data.polygons.push(polygon_);
+                    }
+                }
+            }
+        }
+        kml.polygonVertexCount = kml.vertexCount - kml.polygonVertexStart;
+        kml.nodes = [my_kml.node];
+        return kml;
+    }
+    async Load(url) {
+        const Dioramas = this._gis["_global"].resources.Dioramas;
+        const device = this._gis["_global"].device;
+        const kml = await this.LoadKml('.projects/1115/滨海-柏树线路路径(输出).kml');
+        kml.vertexBuffer = Dioramas.GenBuffer(0, Math.ceil(kml.vertexCount / 2.5));
+        kml.indexBuffer = Dioramas.GenBuffer(1, kml.indexCount);
+        const vbuffer = new Float32Array(kml.vertexCount * 2);
+        const ibuffer = new Uint32Array(kml.indexCount);
+        vbuffer.set(kml.vertexArray);
+        ibuffer.set(kml.indexArray);
+        device.WriteBuffer(kml.vertexBuffer.buffer, kml.vertexBuffer.offset, vbuffer.buffer, 0, vbuffer.byteLength);
+        device.WriteBuffer(kml.indexBuffer.buffer, kml.indexBuffer.offset, ibuffer.buffer, 0, ibuffer.byteLength);
+        return kml;
+    }
+    Draw(queue, instance) {
+        const context = this._gis["_global"].context;
+        const area_renderer = this._gis.districts["_area_renderer"];
+        const line_renderer = this._gis.districts["_line_renderer"];
+        const passEncoder = queue.passEncoder;
+        {
+            queue.BindMeshRenderer(area_renderer.mesh_renderer);
+            queue.BindMaterial(area_renderer.material);
+            queue.SetPipeline(area_renderer.pipeline, 0);
+            const dbuffer = instance.vertexBuffer;
+            const vbuffer = instance.vertexBuffer;
+            const ibuffer = instance.indexBuffer;
+            context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 8 * instance.vertexCount, passEncoder);
+            context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset, 8 * instance.vertexCount, passEncoder);
+            context.SetIndexBuffer(4, ibuffer, passEncoder);
+            passEncoder.drawIndexed(instance.indexCount, 1, 0, 0, 0);
+        }
+        {
+            queue.BindMeshRenderer(line_renderer.mesh_renderer);
+            queue.BindMaterial(line_renderer.material);
+            queue.SetPipeline(line_renderer.pipeline, 0);
+            const vbuffer = instance.vertexBuffer;
+            const instanceCount = instance.lineVertexCount - 1;
+            const offset = instance.lineVertexStart * 8;
+            const size = instanceCount * 8;
+            context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset + offset, size, passEncoder);
+            context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + offset + 8, size, passEncoder);
+            passEncoder.draw(6, instanceCount, 0, 0);
+        }
+    }
+    _gis;
 }

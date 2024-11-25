@@ -22,6 +22,7 @@ export class Gis {
         const resources = this._global.resources;
 
         this._districts = await (new Gis_districts(this)).Init();
+        this._kmls = await (new Gis_kmls(this)).Init();
 
         this._pyramid = new Gis_pyramid(this, 8, 4);
 
@@ -107,6 +108,7 @@ export class Gis {
         this._enable = false;
 
         this._districts = undefined;
+        this._kmls = undefined;
 
         this._pyramid = undefined;
         this._mesh = undefined;
@@ -208,7 +210,8 @@ export class Gis {
             centerMC: this._centerMC,
             targetMC: targetMC,
             movedMC: [targetMC[0] - this._centerMC[0], targetMC[1] - this._centerMC[1]],
-            targetXZ: [target[0], target[2]]
+            targetXZ: [target[0], target[2]],
+            originMC: [this._originMC[0], this._originMC[1]],
         });
 
         // 刷新地图
@@ -340,6 +343,7 @@ export class Gis {
             centerMC: centerMC,
             movedMC: [0, 0],
             size: [/*16384 * */this._meshS],
+            originMC: [this._originMC[0], this._originMC[1]],
         });
 
         this._pyramid.Update(tileY, lb_tile_bias[0], lb_tile_bias[1], lb_tile_bias[2], lb_tile_bias[3], () => {
@@ -383,6 +387,7 @@ export class Gis {
         movedMC?: number[];
         targetXZ?: number[];
         size?: number[];
+        originMC?: number[];
     }) {
         if (values) {
             for (let key in values) {
@@ -403,6 +408,11 @@ export class Gis {
                 this._districts["_line_renderer"].material.view["targetXZ"] = values.targetXZ;
             }
 
+            if (values.originMC) {
+                this._districts["_area_renderer"].material.view["originMC"] = values.originMC;
+                this._districts["_line_renderer"].material.view["originMC"] = values.originMC;
+            }
+
             return;
         }
 
@@ -417,6 +427,11 @@ export class Gis {
 
         this._districts["_area_renderer"].material.view["pixelS"] = [tileS / 256];
         this._districts["_line_renderer"].material.view["pixelS"] = [tileS / 256];
+
+        let dem_region_low: number[];
+        let dem_uvst_low: number[];
+        let dem_region_high: number[];
+        let dem_uvst_high: number[];
 
         for (let i = 0; i < levelCount; i++) {
             const cur = (top + i) % levelCount;
@@ -462,6 +477,31 @@ export class Gis {
                     block_uvst[2] * layer_uvst.scale_x,
                     block_uvst[3] * layer_uvst.scale_z,
                 ];
+
+                // 从最高级别取地图图层数据，用于绘制矢量图形
+                if (j == 0 && (cur_level.level > 9 && cur_level.level < 13) && !layer_data.inherit) {
+                    const tiling = this._pyramid.layerTiling + 1;
+                    const lb_col = cur_level.projections[Gis_projection.LNGLAT].lb_col;
+                    const lb_row = cur_level.projections[Gis_projection.LNGLAT].lb_row;
+
+                    const rc_count = Math.pow(2, (cur_level.level - 2));
+                    const rc_stride = 90.0 / rc_count;
+                    const blat = 90 - ((lb_row + 1) * rc_stride);
+                    const tlat = 90 - ((lb_row - tiling + 1) * rc_stride);
+                    const llng = lb_col * rc_stride - 180;
+                    const rlng = (lb_col + tiling) * rc_stride - 180;
+
+                    const lb_mc = this.LL2MC([llng, blat]);
+                    const rt_mc = this.LL2MC([rlng, tlat]);
+
+                    dem_region_low = [lb_mc[0], rt_mc[0], lb_mc[1], rt_mc[1]];
+                    dem_uvst_low = texture.rect;
+
+                    if (!dem_region_high) {
+                        dem_region_high = dem_region_low;
+                        dem_uvst_high = dem_uvst_low;
+                    }
+                }
             }
 
             if (cur_level.level && cur_level.level != (top_level - i)) {
@@ -479,6 +519,26 @@ export class Gis {
             material.material.view["layers_uvst2"] = layers_uvst[2];
             material.material.view["layers_uvst3"] = layers_uvst[3];
         }
+
+        if (!dem_region_low) {
+            dem_region_low = [0, 0, 0, 0];
+            dem_uvst_low = [0, 0, 1, 1];
+
+            dem_region_high = [0, 0, 0, 0];
+            dem_uvst_high = [0, 0, 1, 1];
+        }
+
+        this._districts["_area_renderer"].material.view["dem_region_low"] = dem_region_low;
+        this._districts["_line_renderer"].material.view["dem_region_low"] = dem_region_low;
+
+        this._districts["_area_renderer"].material.view["dem_uvst_low"] = dem_uvst_low;
+        this._districts["_line_renderer"].material.view["dem_uvst_low"] = dem_uvst_low;
+
+        this._districts["_area_renderer"].material.view["dem_region_high"] = dem_region_high;
+        this._districts["_line_renderer"].material.view["dem_region_high"] = dem_region_high;
+
+        this._districts["_area_renderer"].material.view["dem_uvst_high"] = dem_uvst_high;
+        this._districts["_line_renderer"].material.view["dem_uvst_high"] = dem_uvst_high;
     }
 
     /**
@@ -746,6 +806,11 @@ export class Gis {
         return this._districts;
     }
 
+    /** GIS行政区管理。 */
+    public get kmls() {
+        return this._kmls;
+    }
+
     /** 是否启用GIS系统。 */
     public get enable() {
         return this._enable;
@@ -847,6 +912,8 @@ export class Gis {
 
     /** GIS行政区管理。 */
     private _districts: Gis_districts;
+    /** GIS标记数据管理。 */
+    private _kmls: Gis_kmls;
 
     /** GIS金字塔结构。 */
     private _pyramid: Gis_pyramid;
@@ -2645,6 +2712,517 @@ export class Gis_district {
             indices: number[];
         }[];
     };
+}
+
+/** GIS KML地图标记数据。 */
+export class Gis_kmls {
+    /**
+     * 构造函数。
+     */
+    public constructor(_gis: Gis) {
+        this._gis = _gis;
+    }
+
+    /**
+     * 初始化GIS标记管理。
+     */
+    public async Init() {
+        return this;
+    }
+
+    /**
+     * 装载新的标记数据到GIS上。
+     * @param url KML文件URL。
+     */
+    protected async LoadKml(url: string) {
+        const engine = this._gis["_global"];
+        const worker = engine.worker;
+
+        const kmlStr = await engine.Fetch<string>(url, null, "text");
+        const xmlParser = new (globalThis as any).XMLParser();
+        const kmlObj = xmlParser.parse(kmlStr);
+        const kmlRoot = kmlObj["kml"];
+
+        const kml: Gis_kml = {
+            region: [Number.MAX_VALUE, Number.MIN_VALUE, Number.MAX_VALUE, Number.MIN_VALUE],
+            vertexCount: 0,
+            indexCount: 0,
+            pointVertexStart: 0,
+            pointVertexCount: 0,
+            lineVertexStart: 0,
+            lineVertexCount: 0,
+            polygonVertexStart: 0,
+            polygonVertexCount: 0,
+            vertexArray: [],
+            indexArray: [],
+            vertexBuffer: undefined,
+            indexBuffer: undefined,
+            placemarks: [],
+            nodes: []
+        };
+
+        const containers: Record<string, {
+            type: "kml" | "document" | "folder",
+            path: string;
+            data: any;
+            node?: typeof kml["nodes"][0];
+            parent?: any;
+        }> = {};
+
+        const TraverseFolder = (parent: typeof containers[""]) => {
+            let folders = parent.data["Folder"];
+            if (folders) {
+                folders = Array.isArray(folders) ? folders : [folders];
+                for (let folder of folders) {
+                    const path = parent.path + "/" + folder.name;
+
+                    const my_folder = containers[path] = {
+                        type: "folder",
+                        path: path,
+                        data: folder,
+                        parent: parent
+                    } as typeof containers[""];
+
+                    my_folder.node = {
+                        id: kml.nodes.length,
+                        name: my_folder.data.name,
+                        type: my_folder.type,
+                        path: my_folder.path,
+                        icon: undefined,
+                        isLeaf: false,
+                        children: [],
+                        data: undefined,
+                    };
+
+                    kml.nodes.push(my_folder.node);
+
+                    parent.node.children.push(my_folder.node);
+
+                    TraverseFolder(my_folder);
+                }
+            }
+        };
+
+        const my_kml = containers["KML"] = {
+            type: "kml",
+            path: "KML",
+            data: kmlRoot,
+        } as typeof containers[""];
+
+        my_kml.node = {
+            id: kml.nodes.length,
+            name: "KML",
+            type: my_kml.type,
+            path: my_kml.path,
+            icon: undefined,
+            isLeaf: false,
+            children: [],
+            data: undefined,
+        };
+
+        kml.nodes.push(my_kml.node);
+
+        TraverseFolder(my_kml);
+
+        let documents = kmlRoot["Document"];
+        if (documents) {
+            documents = Array.isArray(documents) ? documents : [documents];
+            for (let document of documents) {
+                const parent = my_kml;
+                const path = parent.path + "/" + document.name;
+
+                const my_document = containers[path] = {
+                    type: "document",
+                    path: path,
+                    data: document,
+                    parent: parent
+                } as typeof containers[""];
+
+                my_document.node = {
+                    id: kml.nodes.length,
+                    name: my_document.data.name,
+                    type: my_document.type,
+                    path: my_document.path,
+                    icon: undefined,
+                    isLeaf: false,
+                    children: [],
+                    data: undefined,
+                };
+
+                kml.nodes.push(my_document.node);
+
+                parent.node.children.push(my_document.node);
+
+                TraverseFolder(my_document);
+            }
+        }
+
+        const placemarks: {
+            container: typeof containers[""],
+            data: any;
+
+            node?: Gis_kml["nodes"][0];
+            Point?: any;
+            LineString?: any;
+            Polygon?: any;
+        }[] = [];
+
+        for (let key in containers) {
+            let container_ = containers[key];
+            let placemarks_ = container_.data["Placemark"];
+            if (placemarks_) {
+                placemarks_ = Array.isArray(placemarks_) ? placemarks_ : [placemarks_];
+                placemarks.push(...placemarks_.map((item: any) => {
+                    return {
+                        container: container_,
+                        data: item
+                    }
+                }));
+            }
+        }
+
+        const ConvertCoordinates = (type: "point" | "line" | "polygon", altitudeMode: string, str: string) => {
+            const polygon_: Gis_kml["nodes"][0]["data"]["polygons"][0] = {
+                type: type,
+                altitudeMode: altitudeMode,
+                region: [Number.MAX_VALUE, Number.MIN_VALUE, Number.MAX_VALUE, Number.MIN_VALUE],
+                vertexStart: kml.vertexCount,
+                vertexCount: 0,
+                indexStart: kml.indexCount,
+                indexCount: 0
+            };
+
+            const xz_: number[] = [];
+
+            str.split(' ').map((point) => {
+                const lla = point.split(',').map(nb => parseFloat(nb));
+                const mc = this._gis.LL2MC([lla[0], lla[1]]);
+
+                if (polygon_.region[0] > mc[0]) polygon_.region[0] = mc[0];
+                if (polygon_.region[1] < mc[0]) polygon_.region[1] = mc[0];
+
+                if (polygon_.region[2] > mc[1]) polygon_.region[2] = mc[1];
+                if (polygon_.region[3] < mc[1]) polygon_.region[3] = mc[1];
+
+                xz_.push(mc[0]);
+                xz_.push(mc[1]);
+
+                kml.vertexArray.push(mc[0]);
+                // TODO: 我们移除了高度分量 kml.vertexArray.push(lla[2]);
+                kml.vertexArray.push(mc[1]);
+
+                polygon_.vertexCount++;
+            });
+
+            if (type == "polygon") {
+                const triangles = worker.Earcut(xz_);
+
+                for (let i of triangles) {
+                    kml.indexArray.push(i + polygon_.vertexStart);
+                }
+
+                // 此次多边形首尾顶点相同（闭合），所以会有4个顶点、3个索引、表示1个三角形的情况
+                polygon_.indexCount = triangles.length;
+            }
+            else if (type == "line") {
+                // 设置线路断点
+                kml.vertexArray.push(0);
+                kml.vertexArray.push(0);
+
+                polygon_.vertexCount++;
+            }
+
+            kml.vertexCount += polygon_.vertexCount;
+            kml.indexCount += polygon_.indexCount;
+
+            if (kml.region[0] > polygon_.region[0]) kml.region[0] = polygon_.region[0];
+            if (kml.region[1] < polygon_.region[1]) kml.region[1] = polygon_.region[1];
+
+            if (kml.region[2] > polygon_.region[2]) kml.region[2] = polygon_.region[2];
+            if (kml.region[3] < polygon_.region[3]) kml.region[3] = polygon_.region[3];
+
+            return polygon_;
+        };
+
+        for (let placemark of placemarks) {
+            let Point = placemark.data["Point"];
+            let LineString = placemark.data["LineString"];
+            let Polygon = placemark.data["Polygon"];
+            let MultiGeometry = placemark.data["MultiGeometry"];
+
+            if (MultiGeometry) {
+                Point = MultiGeometry["Point"];
+                LineString = MultiGeometry["LineString"];
+                Polygon = MultiGeometry["Polygon"];
+            }
+
+            const node: Gis_kml["nodes"][0] = {
+                id: kml.nodes.length,
+                name: placemark.data.name,
+                type: "placemark",
+                path: placemark.container.path,
+                icon: undefined,
+                isLeaf: true,
+                children: null,
+                data: {
+                    polygons: []
+                }
+            };
+
+            kml.nodes.push(node);
+            kml.placemarks.push(node.id);
+            placemark.container.node.children.push(node);
+
+            // 1个顶点。绘制矩形
+            if (Point) {
+                Point = Array.isArray(Point) ? Point : [Point];
+            }
+
+            // 若干个顶点连线。两个顶点为一个实例输入，绘制一个矩形线段
+            if (LineString) {
+                LineString = Array.isArray(LineString) ? LineString : [LineString];
+            }
+
+            // 若干顶点多边形。首尾闭合，内边界孔洞可选
+            if (Polygon) {
+                Polygon = Array.isArray(Polygon) ? Polygon : [Polygon];
+            }
+
+            placemark.node = node;
+            placemark.Point = Point;
+            placemark.LineString = LineString;
+            placemark.Polygon = Polygon;
+        }
+
+        kml.pointVertexStart = kml.vertexCount;
+
+        for (let placemark of placemarks) {
+            if (placemark.Point) {
+                for (let point of placemark.Point) {
+                    const altitudeMode = point["altitudeMode"];
+                    const coordinates = point["coordinates"];
+                    const polygon_ = ConvertCoordinates('point', altitudeMode, coordinates);
+                    if (polygon_) {
+                        placemark.node.data.polygons.push(polygon_);
+                    }
+                }
+            }
+        }
+
+        kml.pointVertexCount = kml.vertexCount - kml.pointVertexStart;
+
+        kml.lineVertexStart = kml.vertexCount;
+
+        for (let placemark of placemarks) {
+            if (placemark.LineString) {
+                for (let line of placemark.LineString) {
+                    const altitudeMode = line["altitudeMode"];
+                    const coordinates = line["coordinates"];
+                    const polygon_ = ConvertCoordinates('line', altitudeMode, coordinates);
+                    if (polygon_) {
+                        placemark.node.data.polygons.push(polygon_);
+                    }
+                }
+            }
+        }
+
+        kml.lineVertexCount = kml.vertexCount - kml.lineVertexStart;
+
+        kml.polygonVertexStart = kml.vertexCount;
+
+        for (let placemark of placemarks) {
+            if (placemark.Polygon) {
+                for (let polygon of placemark.Polygon) {
+                    const altitudeMode = polygon["altitudeMode"];
+                    // 外边界，定义多边形的外围轮廓
+                    const outerBoundaryIs = polygon["outerBoundaryIs"];
+                    // 可选）：内边界，定义多边形的孔洞部分，允许在多边形内部有空白区域
+                    const innerBoundaryIs = polygon["innerBoundaryIs"];
+
+                    const LinearRing = outerBoundaryIs["LinearRing"];
+                    const coordinates = LinearRing["coordinates"];
+
+                    const polygon_ = ConvertCoordinates('polygon', altitudeMode, coordinates);
+                    if (polygon_) {
+                        placemark.node.data.polygons.push(polygon_);
+                    }
+                }
+            }
+        }
+
+        kml.polygonVertexCount = kml.vertexCount - kml.polygonVertexStart;
+
+        kml.nodes = [my_kml.node];
+
+        return kml;
+    }
+
+    /**
+     * 装载新的标记数据到GIS上。
+     * @param url KML文件URL。
+     */
+    public async Load(url: string) {
+        const Dioramas = this._gis["_global"].resources.Dioramas;
+        const device = this._gis["_global"].device;
+        const kml = await this.LoadKml('.projects/1115/滨海-柏树线路路径(输出).kml');
+
+        // KML标记顶点占用8字节，3MX顶点占用20字节，所以我们除2.5
+        kml.vertexBuffer = Dioramas.GenBuffer(0, Math.ceil(kml.vertexCount / 2.5));
+        kml.indexBuffer = Dioramas.GenBuffer(1, kml.indexCount);
+
+        const vbuffer = new Float32Array(kml.vertexCount * 2);
+        const ibuffer = new Uint32Array(kml.indexCount);
+
+        vbuffer.set(kml.vertexArray);
+        ibuffer.set(kml.indexArray);
+
+        device.WriteBuffer(
+            kml.vertexBuffer.buffer,        // 缓存实例ID
+            kml.vertexBuffer.offset,        // 缓存写入偏移
+            vbuffer.buffer,                 // 数据源
+            0,                              // 数据源偏移
+            vbuffer.byteLength);            // 数据字节大小
+
+        device.WriteBuffer(
+            kml.indexBuffer.buffer,         // 缓存实例ID
+            kml.indexBuffer.offset,         // 缓存写入偏移
+            ibuffer.buffer,                 // 数据源
+            0,                              // 数据源偏移
+            ibuffer.byteLength);            // 数据字节大小
+
+        return kml;
+    }
+
+    /**
+     * 绘制GIS行政区分界线。
+     */
+    public Draw(queue: Miaoverse.DrawQueue, instance: Gis_kml) {
+        // TODO: 网格划分过于细碎
+        // 绘制精灵：有多少个精灵就绘制多少实例，每实例绘制6个顶点
+        // 绘制线段：有多少个线段就绘制多少个实例，每个实例绘制绑定2个输入，绘制6个顶点
+
+        const context = this._gis["_global"].context;
+        const area_renderer = this._gis.districts["_area_renderer"];
+        const line_renderer = this._gis.districts["_line_renderer"];
+        const passEncoder = queue.passEncoder;
+
+        {
+            queue.BindMeshRenderer(area_renderer.mesh_renderer);
+            queue.BindMaterial(area_renderer.material);
+            queue.SetPipeline(area_renderer.pipeline, 0);
+
+            const dbuffer = instance.vertexBuffer;
+            const vbuffer = instance.vertexBuffer;
+            const ibuffer = instance.indexBuffer;
+
+            context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset, 8 * instance.vertexCount, passEncoder);
+            context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset, 8 * instance.vertexCount, passEncoder);
+            context.SetIndexBuffer(4, ibuffer, passEncoder);
+
+            passEncoder.drawIndexed(
+                instance.indexCount,    // indexCount
+                1,                      // instanceCount
+                0,                      // firstIndex
+                0,                      // baseVertex
+                0,                      // firstInstance
+            );
+        }
+
+        {
+            queue.BindMeshRenderer(line_renderer.mesh_renderer);
+            queue.BindMaterial(line_renderer.material);
+            queue.SetPipeline(line_renderer.pipeline, 0);
+
+            const vbuffer = instance.vertexBuffer;
+            const instanceCount = instance.lineVertexCount - 1;
+            const offset = instance.lineVertexStart * 8;
+            const size = instanceCount * 8;
+
+            context.SetVertexBuffer(0, vbuffer.buffer, vbuffer.offset + offset, size, passEncoder);
+            context.SetVertexBuffer(1, vbuffer.buffer, vbuffer.offset + offset + 8, size, passEncoder);
+
+            passEncoder.draw(
+                6,                      // vertexCount
+                instanceCount,          // instanceCount
+                0,                      // firstVertex
+                0,                      // firstInstance
+            );
+        }
+    }
+
+    /** GIS实例。 */
+    private _gis: Gis;
+}
+
+/** GIS KML地图标记数据。 */
+export interface Gis_kml {
+    /** 标记MC坐标范围（min_x, max_x, min_z, max_z）。 */
+    region: number[];
+    /** 总顶点数量。 */
+    vertexCount: number;
+    /** 总索引数量。 */
+    indexCount: number;
+    /** 标记点顶点数组起始偏移。 */
+    pointVertexStart: number;
+    /** 标记点顶点数量。 */
+    pointVertexCount: number;
+    /** 标记线顶点数组起始偏移。 */
+    lineVertexStart: number;
+    /** 标记线顶点数量。 */
+    lineVertexCount: number;
+    /** 标记面顶点数组起始偏移。 */
+    polygonVertexStart: number;
+    /** 标记面顶点数量。 */
+    polygonVertexCount: number;
+    /** 顶点数组。 */
+    vertexArray: number[];
+    /** 索引数组。 */
+    indexArray: number[];
+    /** 顶点缓存节点。 */
+    vertexBuffer?: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
+    /** 索引缓存节点。 */
+    indexBuffer?: ReturnType<Miaoverse.Dioramas_kernel["GenBuffer"]>;
+    /** 标记信息节点索引列表。 */
+    placemarks: number[];
+    /** 标记根节点列表。 */
+    nodes: {
+        /** 节点ID。 */
+        id: number;
+        /** 节点名称。 */
+        name: string;
+        /** 分组容器类型。 */
+        type: "kml" | "document" | "folder" | "placemark";
+        /** 标记所属分组路径。 */
+        path?: string;
+        /** 节点图标。 */
+        icon?: string;
+        /** 是否为叶子节点。 */
+        isLeaf: boolean;
+        /** 子级节点列表。 */
+        children: Gis_kml["nodes"];
+        /** 节点附加数据。 */
+        data?: {
+            /** 标记图形数据。 */
+            polygons: {
+                /** 图形类型。 */
+                type: "point" | "line" | "polygon",
+                /** 海拔高度计算模式。 */
+                altitudeMode: string;
+                /** MC坐标包围盒。 */
+                region: number[];
+
+                /** 顶点数组起始偏移。 */
+                vertexStart: number;
+                /** 顶点数量。 */
+                vertexCount: number;
+
+                /** 索引数组起始偏移。 */
+                indexStart: number;
+                /** 索引数量。  */
+                indexCount: number;
+            }[];
+        };
+    }[];
 }
 
 /** GIS图层贴图采样偏移缩放。 */

@@ -421,7 +421,7 @@ export class Packages implements molecule.model.IExtension {
     public renderImports(props: { data: Packages["collections"]; contentMenu: IMenuItemProps[]; onSelect: (node: ITreeNodeItemProps<any>, isUpdate?: any) => void; onImport: (file: File) => void; isImporting: boolean; }) {
         // expandKeys = { this.lastRef.expandKeys }
         // activeKey = { this.lastRef.activeKey }
-        // draggable = { true}
+        // draggable = { true }
         // onExpand = { onExpand }
         // onDropTree = { onDropTree }
 

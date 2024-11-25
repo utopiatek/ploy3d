@@ -38,12 +38,49 @@ fn material_vs() ->OutputVS {
 
     let normal = normalize(vertex);
 
+    // ===============-------------------------------------
+
+    // 计算地形高度
+    var height = 0.0;
+
+    if (materialParams.dem_uvst_low.z < 1.0) {
+        var layer = 0;
+        var uvst = materialParams.dem_uvst_high;
+        var region = materialParams.dem_region_high;
+
+        var u = (mesh_xz.x - region.x) / (region.y - region.x);
+        var v = (mesh_xz.y - region.z) / (region.w - region.z);
+
+        if (!(u > 0.0 && u < 1.0 && v > 0.0 && v < 1.0)) {
+            uvst = materialParams.dem_uvst_low;
+            region = materialParams.dem_region_low;
+
+            u = (mesh_xz.x - region.x) / (region.y - region.x);
+            v = (mesh_xz.y - region.z) / (region.w - region.z);
+        }
+
+        if (u > 0.0 && u < 1.0 && v > 0.0 && v < 1.0) {
+            let uv = uvst.xy + uvst.zw * vec2f(u, 1.0 - v);
+            let dem = textureSampleLevel(atlas2D, splln1, uv, layer, 0);
+            height = ((dem.r * 256.0 * 256.0 * 256.0) + (dem.g * 256.0 * 256.0) + (dem.b * 256.0)) * 0.001 - 991.0;
+        }
+    }
+
     // 至此，相机观察点在0点位置
-    vertex.y -= radius;
+    vertex.y -= radius - height;
 
     // 将相机观察点从0点坐标移动到相机观察坐标
     vertex.x += materialParams.targetXZ.x;
     vertex.z += materialParams.targetXZ.y;
+
+    // TODO: 较高分辨率绘制
+    if (true) {
+        let target_lat = (2.0 * atan(exp((materialParams.originMC.y * 3.141592654) / perimeter_half)) - 1.570796327);
+        let scale = cos(target_lat);
+        let pos_xz = (mesh_xz - materialParams.originMC) * scale;
+
+        vertex = vec3f(pos_xz.x, height, -pos_xz.y);
+    }
 
     // ===============-------------------------------------
 
@@ -103,7 +140,7 @@ fn init_vertex_X(vertex: InputVS_X) {
 
     if (VARIANT_DRAW_LINE) {
         let dir = normalize(vertex.position1 - vertex.position0);
-        let width = materialParams.pixelS * 1.0;
+        let width = ceil(materialParams.pixelS) * 2.0; // TODO 1倍宽度线段两端宽度明显不一致，原因未明
         let pnor = vec2f(dir.y, -dir.x);
         let nnor = vec2f(-dir.y, dir.x);
 
@@ -119,9 +156,14 @@ fn init_vertex_X(vertex: InputVS_X) {
         let pos = vertices[index];
 
         mesh_position = vec3f(pos.x, 0.0, pos.y);
+
+        // 一次绘制多条线段，使用(0,0)点作为断点
+        if ((length(vertex.position0) * length(vertex.position1)) == 0.0) {
+            mesh_position = vec3f(0.0);
+        }
     }
     else {
-         mesh_position = vec3f(vertex.position0.x, 0.0, vertex.position0.y);
+        mesh_position = vec3f(vertex.position0.x, 0.0, vertex.position0.y);
     }
     
     mesh_uv = vec2f(0.0);

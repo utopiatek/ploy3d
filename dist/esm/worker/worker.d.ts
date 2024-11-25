@@ -104,12 +104,7 @@ export declare class Miaoworker {
      * @returns 异步对象
      */
     Load_3mxb_resource(worker: number, group: Parameters<Importer["Load_3mxb_resource"]>[0], progress: (rate: number, msg: string) => void): Promise<{
-        _path: string; /**
-         * 导入GLTF文件，返回资源包内容。
-         * @param worker 派遣线程索引，0为主线程。
-         * @param url GLTF文件路径。
-         * @returns 异步对象
-         */
+        _path: string;
         _file: string;
         _ab?: ArrayBuffer;
         _ab_offset: number;

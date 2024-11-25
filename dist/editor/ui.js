@@ -16,6 +16,7 @@ export class UIEditor {
     constructor(app) {
         this.app = app;
         this.componentLut = {};
+        this.renderPresets = this.renderPresets.bind(this);
         this.renderComponent = this.renderComponent.bind(this);
         this.renderEditor = this.renderEditor.bind(this);
     }
@@ -156,9 +157,33 @@ export class UIEditor {
         }
         return (React.createElement(React.Suspense, { fallback: React.createElement("div", null, "\u52A0\u8F7D\u4E2D...") }, (config) && React.createElement(Component, { pathid: props.pathid, config: config, data: data })));
     }
+    renderPresets(props) {
+        const handleDragStart = (e) => {
+            const index = parseInt(e.target.id);
+            const present = props.data[index];
+            if (present) {
+                this.dragAdd = present;
+                const jpresent = JSON.stringify(present);
+                e.dataTransfer.setData("text", jpresent);
+            }
+        };
+        return (React.createElement("ul", null, props.data.map((item, index) => React.createElement("li", { id: `${index}-drag-item`, draggable: true, onDragStart: handleDragStart }, item.label))));
+    }
     app;
     componentLut;
     dragAdd;
+    presetList = {
+        components: [
+            {
+                label: "柱状图",
+                type: "component",
+                w: 8,
+                h: 6,
+                controller: "0-0-0-68-1?Echarts",
+                configure: "0-0-0-69-2?basic_bar"
+            }
+        ],
+    };
     sidebarCfg = {
         toolbar: [
             {
@@ -222,10 +247,7 @@ export class UIEditor {
                     },
                 ],
                 renderPanel: () => {
-                    const { Card, Statistic } = antd;
-                    const Icon = icons["AccountBookFilled"];
-                    return (React.createElement(Card, { bordered: false },
-                        React.createElement(Statistic, { title: "Active", value: 11.28, precision: 2, valueStyle: { color: '#3f8600' }, prefix: React.createElement(Icon, null), suffix: "%" })));
+                    return React.createElement(this.renderPresets, { data: this.presetList.components });
                 }
             },
         ],

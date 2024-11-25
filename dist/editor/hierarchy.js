@@ -41,8 +41,35 @@ export class Hierarchy {
         if (!resources) {
             return [];
         }
+        const kmls = this.app.editor.kmls;
         const sceneList = resources.Scene.GetInstanceList();
         const collapseList = [];
+        if (kmls) {
+            const hierarchy = [];
+            for (let kml of kmls) {
+                hierarchy.push(...kml.nodes);
+            }
+            const collapse = {
+                id: "KML",
+                name: "地理信息标注",
+                hidden: undefined,
+                toolbar: undefined,
+                renderPanel: () => {
+                    return React.createElement(this.renderHierarchy, { data: hierarchy, contentMenu: [], onSelect: (node) => {
+                            console.error("kml node:", node.type, node.data);
+                            if (node.type == "placemark" && node.data) {
+                                const region = node.data.polygons[0].region;
+                                const centerMC = [(region[0] + region[1]) * 0.5, (region[2] + region[3]) * 0.5];
+                                const centerLL = this.app.engine.gis.MC2LL(centerMC);
+                                const centerWPOS = this.app.engine.gis.LL2WPOS(centerLL);
+                                this.app.camera.Set3D(centerWPOS, 1000, 45, 0);
+                                this.app.DrawFrame(2);
+                            }
+                        } });
+                }
+            };
+            collapseList.push(collapse);
+        }
         for (let scene_ of sceneList) {
             let key = scene_.prefab?.uuid;
             if (key && scene_.prefab?.needSave) {
